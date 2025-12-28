@@ -1,0 +1,59 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Debug - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Debug per chiamate PDND</h3>
+<br />
+{% if user.is_superuser %}
+<form class="needs-validation shadow-lg primary-border-color col-6 p-3" id="debug_eservice" method="post">
+  {% csrf_token %}
+  <div class="accordion mb-5 col-10">
+    <div class="select-wrapper">
+      <label for="defaultSelectGroup"></label>
+      <select id="sceltaServizio" name="sceltaServizio">
+        <option selected="" value="">Scegli il servizio</option>
+        {% for gruppo_parametri in gruppi_parametri %}
+        <optgroup label="{{ gruppo_parametri.descrizione }}">
+          {% for servizio_impostazioni in servizi_impostazioni %}
+          {% if servizio_impostazioni.gruppo_id.id == forloop.parentloop.counter %}
+          <option value="{{ servizio_impostazioni.id }}">{{ servizio_impostazioni.descrizione }}</option>
+          {% endif %}
+          {% endfor %}
+        </optgroup>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="form-group col-6">
+    <label for="input_CF">Inserisci il CF / P.IVA</label>
+    <input type="text" class="form-control" id="input_CF" name="input_CF" minlength="11" maxlength="16" oninput="this.value = this.value.toUpperCase();" required />
+  </div>
+  <div class="col-11 text-end">
+    <button id="verificaButton" name="verificaButton" class="btn btn-primary" type="submit">Verifica chiamata</button>
+  </div>
+</form>
+
+<!-- Sezione per mostrare la risposta JSON -->
+{% if data %}
+<br />
+<div class="shadow-lg primary-border-color col-6 p-3">
+  <h5>Response</h5>
+  <pre>{{ data }}</pre> <!-- Mostra i dati JSON in un formato leggibile -->
+</div>
+{% endif %}
+{% else %}
+<h4>Amministratore non loggato</h4>
+<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+{% endblock %}

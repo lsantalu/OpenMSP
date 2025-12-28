@@ -1,0 +1,761 @@
+<!-- Extends default Bootstrap Italia template -->
+{% extends 'bootstrap-italia-base.html' %}
+
+<!-- From app django-sass-processor -->
+{% load sass_tags %}
+
+
+{% load custom_filters %}
+
+{% load static %}
+
+<!-- Page Title -->
+{% block page_title %}
+OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block page_meta_description %}
+OpenMSP - Multi Services Portal è uno strumento per un accesso semplice e completao alla PDND e per inviare messaggi in modo comodo e diretto a tutti i cittadini con App IO
+{% endblock %}
+
+{% block page_meta_keywords %}
+PDND, App IO, banca dati, ANPR, ANAD, Indice PA, INPS, ISEE, DURC, INI PEC, registro imprese, pagoPA, IUV, messaggio
+{% endblock %}
+
+{% block page_meta_robots %}
+noindex, nofollow, none, noimageindex, noarchive, nocache, nosnippet
+{% endblock %}
+
+<!-- Favicon -->
+{% block extra_head %}
+<link rel="icon" href="{% static 'favicon.ico' %}" />
+
+<script src="{% static 'js/marked.min.js' %}"></script>
+
+
+<!-- sfondo e stampa -->
+<style>
+  body {
+    background-image: url('{% static "images/sfondo.png" %}');
+    background-size: cover;
+    background-position: right top;
+    background-attachment: fixed;
+
+  }
+
+  /* LOADING */
+  #loadingOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(128, 128, 128, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    visibility: hidden; /* Nascondi quando non serve */
+  }
+
+  #loadingOverlay.show {
+    visibility: visible; /* Mostra quando è attivo */
+  }
+
+  #loadingOverlay .spinner {
+    border: 8px solid #f3f3f3;
+    border-top: 8px solid #007bff;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Drag & Drop */
+  #uploadSection {
+    border: 2px dashed #007bff;
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 0 0.5rem 1rem;
+    transition: all 0.3s ease;
+    position: relative;
+  }
+
+  #uploadSection.dragover {
+    background-color: rgba(0, 123, 255, 0.1);
+    border-color: #0056b3;
+  }
+
+  #filePreview {
+    display: none;
+    margin-top: 1rem;
+  }
+
+  .file-actions {
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+
+</style>
+{% endblock %}
+
+<!-- URL link top left -->
+{% block header_slim_org_url %}
+https://www.openced.it
+{% endblock %}
+
+<!-- Link in Header -->
+{% block header_center_url %}
+{% url 'home' %}
+{% endblock %}
+
+<!-- Name top left -->
+{% block header_slim_org_name %}
+OpenCED di Santalucia Luca
+{% endblock %}
+
+<!-- Mobile slim_org_name -->
+{% block header_slim_mobile_org_name %}
+OpenCED di Santalucia Luca
+{% endblock %}
+
+<!-- Make empty areas -->
+{% block header_mobile_arrow %}
+
+{% endblock %}
+{% block header_mobile_slim_menu %}
+
+{% endblock %}
+{% block header_center_social %}
+
+{% endblock %}
+{% block header_center_search %}
+
+{% endblock %}
+{% block header_center_search_text %}
+
+{% endblock %}
+{% block header_center_search_word %}
+
+{% endblock %}
+{% block header_center_search_icon %}
+
+{% endblock %}
+{% block footer_menu_section %}
+
+{% endblock %}
+
+<!-- Accesso alto DX -->
+{% block header_slim_right_zone %}
+<div class="header-slim-right-zone">
+  {% block header_slim_buttons %}
+  <div class="it-access-top-wrapper">
+    {% if user.is_authenticated %}
+    <li class="nav-item dropdown">
+      <a class="nav-link btn btn-dropdown dropdown-toggle" href="#" role="button" id="dropdown-Login" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="text-transform: none;">
+        <svg class="icon icon-sm icon-white" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+        </svg>
+        <span><strong>{{ user.first_name }} {{ user.last_name }}</strong></span>
+        <svg class="icon icon-xs">
+          <use xlink:href="{% static 'svg/sprites.svg' %}#it-expand"></use>
+        </svg>
+      </a>
+      <div class="dropdown-menu" aria-labelledby="dropdown-INAD-voci">
+        <div class="link-list-wrapper">
+          <ul class="link-list">
+            <li>
+              <a class="list-item dropdown-item" href="{% url 'profilo_utente' %}"><span>Profilo</span></a>
+            </li>
+            <li>
+              <a class="list-item dropdown-item" href="{% url 'password_change' %}"><span>Cambio password</span></a>
+            </li>
+            <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div>
+            <li>
+              <a class="list-item dropdown-item" href="{% url 'logout' %}"><span>Esci</span></a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </li>
+    {% else %}
+    <button class="btn btn-primary btn-sm">
+      <a href="{% url 'login' %}">
+        <svg class="icon icon-sm icon-white" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+        </svg>Accedi
+      </a>
+    </button>
+    {% endif %}
+  </div>
+  {% endblock %}
+</div>
+{% endblock %}
+
+<!-- Logo in Header -->
+{% block header_center_logo %}
+<!-- <img class="icon" src="{% static 'images/logo.png' %}" />-->
+<img class="icon" src="data:image/png;base64,{{ my_logo }}" />
+
+<!-- <use xlink:href="{% static 'svg/sprites.svg' %}#it-code-circle"></use> -->
+{% endblock %}
+
+<!-- Link in Footer -->
+{% block footer_logo_url %}
+{% url 'home' %}
+{% endblock %}
+
+<!-- Organization name in Header -->
+{% block header_center_org_name %}
+{{ my_ente }}
+{% endblock %}
+
+<!-- Organization description in Header -->
+{% block header_center_org_subname %}
+OpenMSP - Multi Services Portal
+{% endblock %}
+
+<!-- Logo in Footer -->
+{% block footer_logo %}
+<!-- <img class="icon" src="{% static 'images/logo.png' %}" /> -->
+<img class="icon" src="data:image/png;base64,{{ my_logo }}" />
+{% endblock %}
+
+<!-- Organization name in Footer -->
+{% block footer_org_name %}
+{{ my_ente }}
+{% endblock %}
+
+<!-- Organization name in Footer -->
+{% block footer_org_subname %}
+OpenMSP - Multi Services Portal
+{% endblock %}
+
+<!-- Pagine starndard in Footer -->
+{% block footer_bottom %}
+<div class="it-footer-small-prints clearfix">
+  <div class="container">
+    {% block footer_bottom_content %}
+    <h3 class="visually-hidden">Sezione Link Utili</h3>
+    <ul class="it-footer-small-prints-list list-inline mb-0 d-flex flex-column flex-md-row">
+      <li class="list-inline-item text-white">
+        Copyright (c) 2025 - <a href="https://www.openced.it" title="Copyright" class="text-white">
+           OpenCED di Santalucia Luca</a> - Ver. {{ my_version }} - <a href="https://github.com/lsantalu/OpenMSP/blob/main/LICENSE" title="License" class="text-white">Licenza BSD 3-Clause</a>
+      </li>
+    </ul>
+    {% endblock %}
+  </div>
+</div>
+
+<a href="#" aria-label="Torna su" data-bs-toggle="backtotop" class="back-to-top" id="freccia">
+  <svg class="icon icon-light">
+    <use href="{% static 'svg/sprites.svg' %}#it-arrow-up"></use>
+  </svg>
+</a>
+
+
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    var backToTopElement = document.getElementById('freccia');
+    var backToTop = new bootstrap.BackToTop(backToTopElement, {
+      scrollLimit: 300
+    });
+  });
+</script>
+{% endblock %}
+
+<!-- Contatti footer -->
+{% block footer_contacts_section %}
+<section class="py-4 border-white border-top">
+  <div class="row">
+    <div class="col-lg-4 col-md-4 pb-2">
+      <h4><a href="#" title="Contatti">Contatti</a></h4>
+      <p>
+        <strong>{{ my_ente }}</strong><br />{{ my_via }} - {{ my_cap }} {{ my_citta }}<br />C. F.: {{ my_cf }}<br /> P. IVA: {{ my_piva }}
+      </p>
+    </div>
+    <div class="col-lg-4 col-md-4 pb-2">
+      <h4><a href="#" title="Contatti">Contatti</a></h4>
+      <div class="link-list-wrapper">
+        <ul class="footer-list link-list clearfix">
+          <li>
+            <a class="list-item" href="tel:{{ my_telefono }}" title="Telefono">Tel.: {{ my_telefono }}</a>
+          </li>
+          <li>
+            <a class="list-item" href="mailto:{{ my_mail }}" title="Email">Email: {{ my_mail }}</a>
+          </li>
+          <li>
+            <a class="list-item" href="mailto:{{ my_pec }}" title="Posta Elettronica Certificata">PEC: {{ my_pec }}</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block menu_links %}
+<!--   {% url 'home' as home_url %}
+{% if request.get_full_path != home_url %} <li class="nav-item active"><a class="nav-link" href="{{ home_url }}"><span>Home</span></a></li>{% endif %}   -->
+
+{% if service_active.0.attivo or service_active.1.attivo or service_active.9.attivo %}
+
+<nav class="navbar navbar-expand-lg has-megamenu" aria-label="Menu principale">
+  <button type="button" aria-label="Mostra o nascondi il menu" class="custom-navbar-toggler" aria-controls="navbar-D" data-bs-toggle="navbarcollapsible" data-bs-target="#navbar-D" >
+    <span>
+      <svg role="img" class="icon"><use href="{% static 'svg/sprites.svg' %}#it-burger"></use></svg>
+    </span>
+  </button>
+  <div class="navbar-collapsable" id="navbar-D" tabindex="-1">
+    <div class="overlay fade"></div>
+    <div class="close-div">
+      <button type="button" aria-label="Chiudi il menu" class="btn close-menu">
+        <span><svg role="img" class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big"></use></svg></span>
+      </button>
+    </div>
+
+    <div class="menu-wrapper justify-content-lg-between">
+      <ul class="navbar-nav">
+        <li class="nav-item dropdown megamenu">
+          <button type="button" class="nav-link dropdown-toggle px-lg-2 px-xl-3" data-bs-toggle="dropdown" aria-expanded="false" id="dropdown-DomiciliDigitali" aria-haspopup="true" data-focus-mouse="false">
+            <span>Domicili Digitali</span>
+            <svg role="img" class="icon icon-xs ms-1"><use href="{% static 'svg/sprites.svg' %}#it-expand"></use></svg>
+          </button>
+          <div class="dropdown-menu shadow-lg" role="region" aria-labelledby="dropdown-DomiciliDigitali">
+            <div class="megamenu pb-5 pt-3 py-lg-0">
+              <div class="row">
+                <div class="col-xs-12 col-lg-4 px-0">
+                  <div class="col-12 it-vertical it-description pb-lg-3">
+                    <div class="description-content px-4 pt-3">
+                      <div class="ratio ratio-16x9 rounded pb-3">
+                        <figure class="figure">
+                          <img src="{% static "images/domicio_digitale.png" %}" class="figure-img img-fluid rounded" alt="Domicili Digitali">
+                        </figure>
+                      </div>
+                      <p>
+                        Accedi ai domicili digitali <strong>iPA, INAD e INI-PEC</strong> in modo semplice e veloce
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-lg-8">
+                  <div class="link-list-wrapper">
+                    <ul class="link-list">
+                      {% for servizio in service_active %}
+                      {% if servizio.id == service_desc.0.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.ipa_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'ipa_singola' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.ipa_singolo %} class="text-muted"{% endif %}>Indice PA singola</span></a>
+                      </li>
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.ipa_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'ipa_massiva' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.ipa_massivo %} class="text-muted"{% endif %}>Indice PA massiva</span></a>
+                      </li>
+                      <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
+                      {% endif %}
+                      {% if servizio.id == service_desc.1.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.inad_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'inad_singola' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inad_singolo %} class="text-muted"{% endif %}>INAD Ricerca singola</span></a>
+                      </li>
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.inad_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'inad_massiva' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inad_massivo %} class="text-muted"{% endif %}>INAD Ricerca massiva</span></a>
+                      </li>
+                      <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
+                      {% endif %}
+                      {% if servizio.id == service_desc.9.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.inipec_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'inipec_singola' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inipec_singolo %} class="text-muted"{% endif %}>INI-PEC Ricerca singola</span></a>
+                      </li>
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.inipec_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'inipec_massiva' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inipec_massivo %} class="text-muted"{% endif %}>INI-PEC Ricerca massiva</span></a>
+                      </li>
+                      {% endif %}
+                      {% endfor %}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>
+        {% endif %}
+
+
+
+        {% if service_active.8.attivo %}
+        {% if service_active.7.attivo or service_active.6.attivo or service_active.5.attivo or service_active.4.attivo or service_active.3.attivo or service_active.2.attivo %}
+        <li class="nav-item dropdown megamenu">
+          <button type="button" class="nav-link dropdown-toggle px-lg-2 px-xl-3" data-bs-toggle="dropdown" aria-expanded="false" id="dropdown-ANPR" aria-haspopup="true" data-focus-mouse="false">
+            <span>ANPR</span>
+            <svg role="img" class="icon icon-xs ms-1"><use href="{% static 'svg/sprites.svg' %}#it-expand"></use></svg>
+          </button>
+          <div class="dropdown-menu shadow-lg" role="region" aria-labelledby="dropdown-ANPR">
+            <div class="megamenu pb-5 pt-3 py-lg-0">
+              <div class="row">
+                <div class="col-xs-12 col-lg-4 px-0">
+                  <div class="col-12 it-vertical it-description pb-lg-3">
+                    <div class="description-content px-4 pt-3">
+                      <div class="ratio ratio-16x9 rounded pb-3">
+                        <figure class="figure">
+                          <img src="{% static "images/anpr.png" %}" class="figure-img img-fluid rounded" alt="ANPR">
+                        </figure>
+                      </div>
+                      <p>
+                        Accedi ai servizi dell'<strong>Anagrafe Nazionale della Popolazione Residente</strong>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-lg-8">
+                  <div class="link-list-wrapper">
+                    <ul class="link-list">
+                      {% for servizio in service_active %}
+                      {% if servizio.id == service_desc.2.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anpr_C001 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_notifica' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C001 %} class="text-muted"{% endif %}>Servizio notifica</span></a>
+                      </li>
+                      {% endif %}
+                      {% if servizio.id == service_desc.3.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anpr_C015 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_generalita' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C015 %} class="text-muted"{% endif %}>Generalità</span></a>
+                      </li>
+                      {% endif %}
+                      {% if servizio.id == service_desc.4.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anpr_C017 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_matrimonio' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C017 %} class="text-muted"{% endif %}>Matrimonio</span></a>
+                      </li>
+                      {% endif %}
+                      {% if servizio.id == service_desc.5.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anpr_C018 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_cittadinanza' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C018 %} class="text-muted"{% endif %}>Cittadinanza</span></a>
+                      </li>
+                      {% endif %}
+                      {% if servizio.id == service_desc.6.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anpr_C020 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_residenza' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C020 %} class="text-muted"{% endif %}>Residenza</span></a>
+                      </li>
+                      {% endif %}
+                      {% if servizio.id == service_desc.7.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anpr_C021 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_stato_famiglia' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C021 %} class="text-muted"{% endif %}>Stato famiglia</span></a>
+                      </li>
+                      {% endif %}
+                      {% endfor %}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>
+        {% endif %}
+        {% endif %}
+
+
+        {% if service_active.17.attivo or service_active.18.attivo %}
+        <li class="nav-item dropdown megamenu">
+          <button type="button" class="nav-link dropdown-toggle px-lg-2 px-xl-3" data-bs-toggle="dropdown" aria-expanded="false" id="dropdown-INPS" aria-haspopup="true" data-focus-mouse="false">
+            <span>INPS</span>
+            <svg role="img" class="icon icon-xs ms-1"><use href="{% static 'svg/sprites.svg' %}#it-expand"></use></svg>
+          </button>
+          <div class="dropdown-menu shadow-lg" role="region" aria-labelledby="dropdown-INPS">
+            <div class="megamenu pb-5 pt-3 py-lg-0">
+              <div class="row">
+                <div class="col-xs-12 col-lg-4 px-0">
+                  <div class="col-12 it-vertical it-description pb-lg-3">
+                    <div class="description-content px-4 pt-3">
+                      <div class="ratio ratio-16x9 rounded pb-3">
+                        <figure class="figure">
+                          <img src="{% static "images/inps.png" %}" class="figure-img img-fluid rounded" alt="INPS">
+                        </figure>
+                      </div>
+                      <p>
+                        Consulta i servizi <strong>INPS</strong> come <strong>ISEE</strong> e <strong>DURC</strong>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-lg-8">
+                  <div class="link-list-wrapper">
+                    <ul class="link-list">
+                      {% for servizio in service_active %}
+                      {% if servizio.id == service_desc.17.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.inps_isee %} disabled" aria-disabled="true{% endif %}" href="{% url 'inps_isee' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inps_isee %} class="text-muted"{% endif %}>Attestazioni ISEE Residenti</span></a>
+                      </li>
+                      {% endif %}
+                      {% if servizio.id == service_desc.18.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.inps_durc_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'inps_durc_singolo' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inps_durc_singolo %} class="text-muted"{% endif %}>Dichiarazioni DURC Ricerca singola</span></a>
+                      </li>
+                      {% endif %}
+                      {% if servizio.id == service_desc.18.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.inps_durc_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'inps_durc_massivo' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inps_durc_massivo %} class="text-muted"{% endif %}>Dichiarazioni DURC Ricerca massiva</span></a>
+                      </li>
+                      {% endif %}
+                      {% endfor %}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>
+        {% endif %}
+
+
+        {% for servizio in service_active %}
+        {% if servizio.id == service_desc.19.1 and servizio.attivo %}
+        <li class="nav-item dropdown megamenu">
+          <button type="button" class="nav-link dropdown-toggle px-lg-2 px-xl-3" data-bs-toggle="dropdown" aria-expanded="false" id="dropdown-AppIO" aria-haspopup="true" data-focus-mouse="false">
+            <span>App IO</span>
+            <svg role="img" class="icon icon-xs ms-1"><use href="{% static 'svg/sprites.svg' %}#it-expand"></use></svg>
+          </button>
+          <div class="dropdown-menu shadow-lg" role="region" aria-labelledby="dropdown-AppIO">
+            <div class="megamenu pb-5 pt-3 py-lg-0">
+              <div class="row">
+                <div class="col-xs-12 col-lg-4 px-0">
+                  <div class="col-12 it-vertical it-description pb-lg-3">
+                    <div class="description-content px-4 pt-3">
+                      <div class="ratio ratio-16x9 rounded pb-3">
+                        <figure class="figure">
+                          <img src="{% static "images/app_io.png" %}" class="figure-img img-fluid rounded" alt="App IO">
+                        </figure>
+                      </div>
+                      <p>
+                        Gestisci l'invio di messaggi tramite <strong>App IO</strong>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-lg-8">
+                  <div class="link-list-wrapper">
+                    <ul class="link-list">
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.app_io_verifica_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'app_io_verifica_utente' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.app_io_verifica_singolo %} class="text-muted"{% endif %}>Verifica utente attivo</span></a>
+                      </li>
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.app_io_verifica_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'app_io_verifica_massivo' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.app_io_verifica_massivo %} class="text-muted"{% endif %}>Verifica massiva utenti</span></a>
+                      </li>
+                      <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
+
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.app_io_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'app_io_singolo' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.app_io_singolo %} class="text-muted"{% endif %}>Invio singolo</span></a>
+                      </li>
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.app_io_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'app_io_massivo' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.app_io_massivo %} class="text-muted"{% endif %}>Invio massivo</span></a>
+                      </li>
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.app_io_composer %} disabled" aria-disabled="true{% endif %}" href="{% url 'app_io_composer' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.app_io_composer %} class="text-muted"{% endif %}>Composer</span></a>
+                      </li>
+                      <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.app_io_storico_messaggi %} disabled" aria-disabled="true{% endif %}" href="{% url 'app_io_storico_messaggi' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.app_io_storico_messaggi %} class="text-muted"{% endif %}>Elenco messaggi inviati</span></a>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>
+        {% endif %}
+        {% endfor %}
+
+        {% if service_active.14.attivo or service_active.15.attivo or service_active.20.attivo or service_active.21.attivo %}
+
+        <li class="nav-item dropdown megamenu">
+          <button type="button" class="nav-link dropdown-toggle px-lg-2 px-xl-3" data-bs-toggle="dropdown" aria-expanded="false" id="dropdown-Istruzione" aria-haspopup="true" data-focus-mouse="false">
+            <span>Istruzione</span>
+            <svg role="img" class="icon icon-xs ms-1"><use href="{% static 'svg/sprites.svg' %}#it-expand"></use></svg>
+          </button>
+          <div class="dropdown-menu shadow-lg" role="region" aria-labelledby="dropdown-Istruzione">
+            <div class="megamenu pb-5 pt-3 py-lg-0">
+              <div class="row">
+                <div class="col-xs-12 col-lg-4 px-0">
+                  <div class="col-12 it-vertical it-description pb-lg-3">
+                    <div class="description-content px-4 pt-3">
+                      <div class="ratio ratio-16x9 rounded pb-3">
+                        <figure class="figure">
+                          <img src="{% static "images/anis_anist.png" %}" class="figure-img img-fluid rounded" alt="Istruzione">
+                        </figure>
+                      </div>
+                      <p>
+                        Servizi per l'istruzione: <strong>ANIS</strong> e <strong>ANIST</strong>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-lg-8">
+                  <div class="link-list-wrapper">
+                    <ul class="link-list">
+                      {% for servizio in service_active %}
+
+                      {% if servizio.id == service_desc.14.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anis_IFS02_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'anis_iscrizioni_singola' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anis_IFS02_singolo %} class="text-muted"{% endif %}>ANIS - Iscrizioni singola</span></a>
+                      </li>
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anis_IFS02_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'anis_iscrizioni_massiva' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anis_IFS02_massivo %} class="text-muted"{% endif %}>ANIS - Iscrizioni massiva</span></a>
+                      </li>
+                      {% endif %}
+                      {% if servizio.id == service_desc.15.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anis_IFS03_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'anis_titoli_singola' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anis_IFS03_singolo %} class="text-muted"{% endif %}>ANIS - Titoli singola</span></a>
+                      </li>
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anis_IFS03_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'anis_titoli_massiva' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anis_IFS03_massivo %} class="text-muted"{% endif %}>ANIS - Titoli massiva</span></a>
+                      </li>
+                      {% endif %}
+                      {% if servizio.id == service_desc.20.1 and servizio.attivo %}
+                      <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
+
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anist_frequenze_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'anist_frequenze_singola' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anist_frequenze_singolo %} class="text-muted"{% endif %}>ANIST - Frequenze singola</span></a>
+                      </li>
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anist_frequenze_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'anist_frequenze_massiva' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anist_frequenze_massivo %} class="text-muted"{% endif %}>ANIST - Frequenze massiva</span></a>
+                      </li>
+                      {% endif %}
+                      {% if servizio.id == service_desc.21.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anist_titoli_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'anist_titoli_singola' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anist_titoli_singolo %} class="text-muted"{% endif %}>ANIST - Titoli singola</span></a>
+                      </li>
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anist_titoli_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'anist_titoli_massiva' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anist_titoli_massivo %} class="text-muted"{% endif %}>ANIST - Titoli massiva</span></a>
+                      </li>
+                      {% endif %}
+
+                      {% endfor %}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        {% endif %}
+
+
+
+        <li class="nav-item dropdown megamenu">
+          <button type="button" class="nav-link dropdown-toggle px-lg-2 px-xl-3" data-bs-toggle="dropdown" aria-expanded="false" id="dropdown-Varie" aria-haspopup="true" data-focus-mouse="false">
+            <span>Varie</span>
+            <svg role="img" class="icon icon-xs ms-1"><use href="{% static 'svg/sprites.svg' %}#it-expand"></use></svg>
+          </button>
+          <div class="dropdown-menu shadow-lg" role="region" aria-labelledby="dropdown-Varie">
+            <div class="megamenu pb-5 pt-3 py-lg-0">
+              <div class="row">
+                <div class="col-xs-12 col-lg-4 px-0">
+                  <div class="col-12 it-vertical it-description pb-lg-3">
+                    <div class="description-content px-4 pt-3">
+                      <div class="ratio ratio-16x9 rounded pb-3">
+                        <figure class="figure">
+                          <img src="{% static "images/pdnd.png" %}" class="figure-img img-fluid rounded" alt="Varie">
+                        </figure>
+                      </div>
+                      <p>
+                        Altri servizi utili: <strong>Registro Imprese</strong>, <strong>MIT</strong>, <strong>Cassa Forense</strong>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-lg-8">
+                  <div class="link-list-wrapper">
+                    <ul class="link-list">
+                      {% for servizio in service_active %}
+
+                      {% if service_active.9.attivo or service_active.10.attivo or service_active.11.attivo or service_active.12.attivo or service_active.13.attivo or service_active.16.attivo %}
+
+                      {% if servizio.id == service_desc.9.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.registro_imprese %} disabled" aria-disabled="true{% endif %}" href="{% url 'registro_imprese' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.registro_imprese %} class="text-muted"{% endif %}>Registro Imprese</span></a>
+                      </li>
+                      <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
+                      {% endif %}
+
+                      {% if servizio.id == service_desc.10.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.mit_patenti %} disabled" aria-disabled="true{% endif %}" href="{% url 'mit_lista_patenti' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.mit_patenti %} class="text-muted"{% endif %}>MIT - Lista patenti persona fisica</span></a>
+                      </li>
+                      {% endif %}
+                      {% if servizio.id == service_desc.11.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.mit_cude %} disabled" aria-disabled="true{% endif %}" href="{% url  'mit_dettaglio_cude' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.mit_cude %} class="text-muted"{% endif %}>MIT - Dettaglio Cude</span></a>
+                      </li>
+                      {% endif %}
+                      {% if servizio.id == service_desc.12.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.mit_veicoli %} disabled" aria-disabled="true{% endif %}" href="{% url   'mit_lista_veicoli_cude' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.mit_veicoli %} class="text-muted"{% endif %}>MIT - Lista Veicoli  Cude</span></a>
+                      </li>
+                      {% endif %}
+                      {% if servizio.id == service_desc.13.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.mit_targa %} disabled" aria-disabled="true{% endif %}" href="{% url 'mit_verifica_targa_cude' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.mit_targa %} class="text-muted"{% endif %}>MIT - Verifica Targa Cude</span></a>
+                      </li>
+                      <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
+                      {% endif %}
+                      {% endif %}
+
+                      {% if servizio.id == service_desc.16.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.cassa_forense %} disabled" aria-disabled="true{% endif %}" href="{% url 'cassa_forense' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.cassa_forense %} class="text-muted"{% endif %}>Consiglio Nazionale Forense</span></a>
+                      </li>
+                      <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
+                      {% endif %}
+
+                      {% endfor %}
+
+                      <li>
+                        <a class="list-item dropdown-item" href="{% url 'verifica_cf' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span>Verifica CF massiva PF</span></a>
+                      </li>
+                      <li>
+                        <a class="list-item dropdown-item" href="{% url 'verifica_cf_aziende' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span>Verifica CF massiva aziende</span></a>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        {% if user.is_superuser %}
+        <li class="nav-item dropdown" aria-labelledby="dropdown-Impostazioni-voci">
+          <button type="button" class="nav-link btn btn-dropdown dropdown-toggle  px-lg-2 px-xl-3" href="#" id="dropdown-Impostazioni" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            <span>Impostazioni</span>
+            <svg class="icon icon-xs">
+              <use xlink:href="{% static 'svg/sprites.svg' %}#it-expand"></use>
+            </svg>
+          </button>
+          <div class="dropdown-menu shadow-lg" role="region" aria-labelledby="amministratore-base">
+            <div class="link-list-wrapper">
+              <ul class="link-list">
+                <li>
+                  <a class="list-item dropdown-item" href="{% url 'impostazioni_utenti' %}"><span>Gestione Utenti</span></a>
+                </li>
+                <li>
+                  <a class="list-item dropdown-item" href="{% url 'impostazioni_servizi' %}"><span>Attivazione e-service</span></a>
+                </li>
+                <li>
+                  <a class="list-item dropdown-item" href="{% url 'impostazioni_parametri' %}"><span>Impostazioni OpenMSP</span></a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </li>
+        {% endif %}
+        {% endblock %}

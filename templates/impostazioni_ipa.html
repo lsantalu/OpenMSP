@@ -1,0 +1,40 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Impostazioni Indice PA - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Impostazioni Indice PA</h3>
+<br />
+<br />
+{% if user.is_authenticated %}
+
+<form class="needs-validation shadow-lg white-bg col-8 pt-4" id="parametri_ipa" method="post">
+  {% csrf_token %}
+  <div class="container m-3">
+    <div class="row">
+      <div class="form-group col-8">
+        <label for="auth_id">auth_id:</label>
+        <input type="text" class="form-control" id="auth_id" name="auth_id" maxlength="6" value="{{ parametri_ipa.0.auth_id }}" required />
+      </div>
+    </div>
+  </div>
+  <div class="p-3 text-end">
+    <button type="submit" class="btn btn-primary">Salva</button>
+    <a href="{% url 'home' %}" class="btn btn-danger">Annulla</a>
+  </div>
+</form>
+{% else %}
+<h4>Utente non loggato</h4>
+<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,270 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Registro imprese - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Registro Imprese CCIAA</h3>
+<h4>Ricerca singola</h4>
+<br />
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+<div class="row">
+  <form class="needs-validation" id="registro_imprese" method="post">
+    {% csrf_token %}
+    <div class="form-group col-3">
+      <label for="input_CF">Inserisci il Codice Fiscale azienda</label>
+      <input type="text" class="form-control" id="input_CF" name="input_CF" minlength="11" maxlength="16" oninput="this.value = this.value.toUpperCase();" required />
+    </div>
+    <div class="col-4">
+      <button class="btn btn-primary" type="submit">
+        <svg class="icon icon-sm icon-white" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-search"></use>
+        </svg>Avvia ricerca
+      </button>
+    </div>
+  </form>
+  <div class="row">
+    <div class="col-4">
+      <div aria-live="polite" id="errorMsgContainer"></div>
+    </div>
+  </div>
+</div>
+<br />
+{% if data %}
+<div class="col-8">
+  {% if data.1 %}
+  <svg class="icon icon-xl icon-success bg-light">
+    <use href="{% static 'svg/sprites.svg' %}#it-check"></use>
+  </svg>
+  {% else %}
+  <svg class="icon icon-xl icon-danger bg-light">
+    <use href="{% static 'svg/sprites.svg' %}#it-close-big"></use>
+  </svg>
+  {% endif %}
+  <h3>Registro imprese di <b>{{ data.0 }}</b></h3>
+  <h4>{{ data.1.blocchi_impresa.dati_identificativi.denominazione }}</h4>
+  {% if not data.1 %}
+  <h5>Ditta non presente</h5>
+  {% else %}
+  {% with impresa=data.1.blocchi_impresa %}
+  <div id="dati-impresa">
+    <p>
+      <strong>Dati Identificativi:</strong>
+    </p>
+    <ul id="dati_identificativi">
+      {% for key, value in impresa.dati_identificativi.items %}
+      {% if 'Forma_giuridica' in key %}
+      <li>
+        Forma giuridica: <strong>{{ impresa.dati_identificativi.Forma_giuridica.text }}</strong>
+      </li>
+      {% elif 'Indirizzo' in key %}
+      <li>
+        Indirizzo: <strong>{{ impresa.dati_identificativi.Indirizzo.toponimo }} {{ impresa.dati_identificativi.Indirizzo.via }} {{ impresa.dati_identificativi.Indirizzo.n_civico }} - {{ impresa.dati_identificativi.Indirizzo.cap }}, {{ impresa.dati_identificativi.Indirizzo.comune }} ({{ impresa.dati_identificativi.Indirizzo.provincia }})</strong>
+      </li>
+      {% else %}
+      <li>
+        {{ key }}: <strong>{{ value }}</strong>
+      </li>
+      {% endif %}
+      {% endfor %}
+    </ul>
+    <p>
+      <strong>Info Attività:</strong>
+    </p>
+    <ul id="info_attivita">
+      {% for key, value in impresa.info_attivita.items %}
+      {% if not value.items %}
+      <li>
+        {{ key }}: <strong>{{ value }}</strong>
+      </li>
+      {% endif %}
+      {% endfor %}
+    </ul>
+
+    <p>
+      <strong>Classificazioni ATECO:</strong> <!-- **** DA SISTEMARE **** -->
+    </p>
+    <ul id="classificazioni_ateco">
+      {% for key, value in impresa.info_attivita.Classificazioni_ATECO.items %}
+      {% if 'classificazione_ateco' in key %}
+      {% for subkey, subvalue in impresa.info_attivita.Classificazioni_ATECO.classificazione_ateco.items %}
+      <li>
+        {{ key }}: <strong>{{ value }}</strong>
+      </li>
+      {% endfor %}
+      {% else %}
+      <li>
+        {{ key }}: <strong>{{ value }}</strong>
+      </li>
+      {% endif %}classificazione_ateco
+      {% endfor %}
+    </ul>
+
+    <!-- <br /><br /><br /><br /><br /><br /><br /> -->
+
+    {% if impresa.albi_ruoli_licenze_ridotti.items %}
+    <p>
+      <strong>Albi, ruoli, licenze, ridotti:</strong>
+    </p>
+    <ul id="albi_ruoli_licenze_ridotti">
+      {% for key, value in impresa.albi_ruoli_licenze_ridotti.items %}
+      <li>
+        {{ key }}: <strong>{{ value }}</strong>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <p>
+      <strong>Soggetti:</strong>
+    </p>
+    <ul id="persone_sede">
+      {% for key, value in impresa.persone_sede.items %}
+      <li>
+        <li>
+          {{ key }}: <strong>{{ value }}</strong>
+        </li>
+      </li>
+      {% endfor %}
+    </ul>
+    {% if impresa.localizzazioni.items %}
+    <p>
+      <strong>Localizzazioni:</strong>
+    </p>
+    <ul id="localizzazioni">
+      {% for key, value in impresa.localizzazioni.items %}
+      <li>
+        <li>
+          {{ key }}: <strong>{{ value }}</strong>
+        </li>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if impresa.elenco_soci.items %}
+    <p>
+      <strong>Elenco soci:</strong>
+    </p>
+    <ul id="elenco_soci">
+      {% for key, value in impresa.elenco_soci.items %}
+      <li>
+        <li>
+          {{ key }}: <strong>{{ value }}</strong>
+        </li>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if impresa.info_statuto.items %}
+    <p>
+      <strong>Informazioni statuto:</strong>
+    </p>
+    <ul id="info_statuto">
+      {% for key, value in impresa.info_statuto.items %}
+      <li>
+        <li>
+          {{ key }}: <strong>{{ value }}</strong>
+        </li>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if impresa.amministrazione_controllo.items %}
+    <p>
+      <strong>Amministrazione e controllo:</strong>
+    </p>
+    <ul id="amministrazione_controllo">
+      {% for key, value in impresa.amministrazione_controllo.items %}
+      <li>
+        <li>
+          {{ key }}: <strong>{{ value }}</strong>
+        </li>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if impresa.info_patrimoniali_finanziarie.item %}
+    <p>
+      <strong>Informazioni patrimoniali e finanziarie:</strong>
+    </p>
+    <ul id="info_patrimoniali_finanziarie">
+      {% for key, value in impresa.info_patrimoniali_finanziarie.items %}
+      <li>
+        <li>
+          {{ key }}: <strong>{{ value }}</strong>
+        </li>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endwith %}
+  {% endif %}
+</div>
+{% endif %}
+{% else %}
+<div class="col-6">
+  <h4>Utente non abilitato</h4>
+  <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+  <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+  <div class="p-3 text-end">
+    <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+  </div>
+</div>
+{% endif %}
+{% else %}
+<h4>Utente non loggato</h4>
+<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Il campo "Codice Fiscale" è da controllare.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
+    const errorWrapper = document.querySelector('#errorMsgContainer')
+    const validate = new bootstrap.FormValidate('#registro_imprese', {
+      errorFieldCssClass: 'is-invalid',
+      errorLabelCssClass: 'form-feedback',
+      errorLabelStyle: '',
+      focusInvalidField: false
+    })
+    validate
+    .addField('#input_CF', [
+    {
+      rule: 'required',
+      errorMessage: 'Questo campo è richiesto'
+    },
+    {
+      rule: 'minLength',
+      value: 11,
+      errorMessage: 'Il C.F. deve avere 11 o 16 caratteri'
+    },
+    {
+      rule: 'maxLength',
+      value: 16,
+      errorMessage: 'Il C.F. deve avere 11 o 16 caratteri'
+    },
+    {
+      rule: 'customRegexp',
+      value: '^(?:[0-9]{11}|[a-zA-Z]{6}[0-9]{2}[a-zA-Z][0-9]{2}[a-zA-Z][0-9]{3}[a-zA-Z])$', // Nuova espressione regolare per CF o PIVA
+      errorMessage: 'Il C.F. o la Partita IVA non sono validi'
+    }
+    ])
+    .onSuccess(() => {
+      document.forms['registro_imprese'].submit()
+    })
+    .onFail((fields) => {
+      errorWrapper.innerHTML = ''
+      errorWrapper.innerHTML = errorMessage
+    })
+  })
+</script>
+{% endblock %}

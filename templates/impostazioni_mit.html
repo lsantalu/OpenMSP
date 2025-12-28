@@ -1,0 +1,144 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Impostazioni MIT - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Impostazioni Ministaro Infrastruutre e Trasporti</h3>
+<br />
+{% if user.is_authenticated %}
+
+<form class="needs-validation shadow-lg col-10 white-bg p-3 pt-5"id="parametri_mit" method="post">
+  {% csrf_token %}
+  <div class="container">
+    <ul class="nav nav-tabs nav-tabs-cards   neutral-2-bg p-4 shadow" id="sceltaMit" role="tablist">
+      {% for servizio_mit in servizi_mit %}
+      <li class="nav-item">
+        <a class="nav-link {% if servizio_mit.id == 1 %}active {% endif %}" id="tab{{ servizio_mit.id }}-tab" data-bs-toggle="tab" href="#tab{{ servizio_mit.id }}" role="tab" aria-controls="tab{{ servizio_mit.id }}" aria-selected="false">{{ servizio_mit.servizio }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <div class="tab-content" id="myTabContent">
+      <br />
+      {% for servizio_mit in servizi_mit %}
+      {% for parametro_mit in parametri_mit %}
+      {% if parametro_mit.id == forloop.parentloop.counter %}
+      <div class="tab-pane p-4 fade {% if servizio_mit.id == 1 %}show active {% endif %}" id="tab{{ servizio_mit.id }}" role="tabpanel" aria-labelledby="tab{{ servizio_mit.id }}-tab">
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="kid{{ servizio_mit.id }}">kid (keyid):</label>
+            <input type="text" class="form-control" id="kid{{ servizio_mit.id }}" name="kid{{ servizio_mit.id }}" maxlength="43" value="{{ parametro_mit.kid }}" required />
+          </div>
+          <div class="form-group col-6">
+            <label for="alg{{ servizio_mit.id }}">alg:</label>
+            <input type="text" class="form-control" id="alg{{ servizio_mit.id }}_visibile" name="alg{{ servizio_mit.id }}_visibile" maxlength="10" value="{{ parametro_mit.alg }}" required disabled/>
+            <input type="hidden" name="alg{{ servizio_mit.id }}" id="alg{{ servizio_mit.id }}" value="{{ parametro_mit.alg }}">
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="typ{{ servizio_mit.id }}">typ:</label>
+            <input type="text" class="form-control" id="typ{{ servizio_mit.id }}_visibile" name="typ{{ servizio_mit.id }}_visibile" maxlength="10" value="{{ parametro_mit.typ }}" required disabled/>
+            <input type="hidden" name="typ{{ servizio_mit.id }}" id="typ{{ servizio_mit.id }}" value="{{ parametro_mit.aud }}">
+          </div>
+          <div class="form-group col-6">
+            <label for="iss{{ servizio_mit.id }}">iss:</label>
+            <input type="text" class="form-control" id="iss{{ servizio_mit.id }}" name="iss{{ servizio_mit.id }}" maxlength="36" value="{{ parametro_mit.iss }}" required />
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="sub{{ servizio_mit.id }}">sub:</label>
+            <input type="text" class="form-control" id="sub{{ servizio_mit.id }}" name="sub{{ servizio_mit.id }}" maxlength="36" value="{{ parametro_mit.sub }}" required />
+          </div>
+          <div class="form-group col-6">
+            <label for="aud{{ servizio_mit.id }}">aud assertion:</label>
+            <input type="text" class="form-control" id="aud{{ servizio_mit.id }}_visibile" name="aud{{ servizio_mit.id }}_visibile" maxlength="150" value="{{ parametro_mit.aud }}" required disabled/>
+            <input type="hidden" name="aud{{ servizio_mit.id }}" id="aud{{ servizio_mit.id }}" value="{{ parametro_mit.aud }}">
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="purposeid{{ servizio_mit.id }}">purposeid:</label>
+            <input type="text" class="form-control" id="purposeid{{ servizio_mit.id }}" name="purposeid{{ servizio_mit.id }}" maxlength="36" value="{{ parametro_mit.purposeid }}" required />
+          </div>
+          <div class="form-group col-6">
+            <label for="audience{{ servizio_mit.id }}">audience:</label>
+            <input type="text" class="form-control" id="audience{{ servizio_mit.id }}_visibile" name="audience{{ servizio_mit.id }}_visibile" maxlength="150" value="{{ parametro_mit.audience }}" required disabled/>
+            <input type="hidden" name="audience{{ servizio_mit.id }}" id="audience{{ servizio_mit.id }}" value="{{ parametro_mit.audience }}">
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="baseurlauth{{ servizio_mit.id }}">baseurlauth:</label>
+            <input type="text" class="form-control" id="baseurlauth{{ servizio_mit.id }}_visibile" name="baseurlauth{{ servizio_mit.id }}_visibile" maxlength="150" value="{{ parametro_mit.baseurlauth }}" required disabled/>
+            <input type="hidden" name="baseurlauth{{ servizio_mit.id }}" id="baseurlauth{{ servizio_mit.id }}" value="{{ parametro_mit.baseurlauth }}">
+          </div>
+          <div class="form-group col-6">
+            <label for="target{{ servizio_mit.id }}">target:</label>
+            <input type="text" class="form-control" id="target{{ servizio_mit.id }}_visibile" name="target{{ servizio_mit.id }}_visibile" maxlength="150" value="{{ parametro_mit.target }}" required disabled/>
+            <input type="hidden" name="target{{ servizio_mit.id }}" id="target{{ servizio_mit.id }}" value="{{ parametro_mit.target }}">
+
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="clientid{{ servizio_mit.id }}">clientid:</label>
+            <input type="text" class="form-control" id="clientid{{ servizio_mit.id }}" name="clientid{{ servizio_mit.id }}" maxlength="50" value="{{ parametro_mit.clientid }}" required />
+          </div>
+          <div class="form-group col-6">
+            <label for="ver_eservice{{ servizio_mit.id }}">versione e-service:</label>
+            <input type="text" class="form-control" id="ver_eservice{{ servizio_mit.id }}_visibile" name="ver_eservice{{ servizio_mit.id }}_visibile" maxlength="10" value="{{ parametro_mit.ver_eservice }}" required disabled/>
+            <input type="hidden" name="ver_eservice{{ servizio_mit.id }}" id="ver_eservice{{ servizio_mit.id }}" value="{{ parametro_mit.ver_eservice }}">
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-10 shadow">
+            <label for="private_key{{ servizio_mit.id }}">private key:</label>
+            <textarea class="form-control font-monospace" id="private_key{{ servizio_mit.id }}" name="private_key{{ servizio_mit.id }}" rows="10" maxlength="2500" required>{{ parametro_mit.private_key }}</textarea>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+  <div class="p-3 text-end">
+    <button type="submit" class="btn btn-primary">Salva</button>
+    <a href="{% url 'home' %}" class="btn btn-danger">Annulla</a>
+  </div>
+</form>
+{% else %}
+<h4>Utente non loggato</h4>
+<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+
+<script>
+  document.addEventListener('DOMContentLoaded', (event) => {
+    const hash = window.location.hash;
+    if (hash) {
+      const tabLink = document.querySelector(`a[href="${hash}"]`);
+      const tabPane = document.querySelector(hash);
+      if (tabLink && tabPane) {
+        const tabTrigger = new bootstrap.Tab(tabLink);
+        tabTrigger.show();
+        setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: 'auto' });
+        }, 50);
+      }
+    }
+  });
+</script>
+
+{% endblock %}

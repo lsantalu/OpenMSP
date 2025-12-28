@@ -1,0 +1,403 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+ANIST Titoli primarie e secondarie Multipla - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>ANIST - Anagrafe nazionale istruzione di primo e secondo grado</h3>
+<h4>Ricerca multipla dei titoli primarie e secondarie dei soggetti</h4>
+
+<br />
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+
+<!-- LOADING OVERLAY -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+</div>
+
+<div class="col-8 shadow-lg white-bg p-4">
+  <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
+
+    <div class="alert alert-info fs-5" role="alert">Il servizio accetta solo file formato <b>Excel (xlsx)</b> e <b>Libreoffice CSV</b></div>
+    <div class="row">
+      <!-- Campi Obbligatori -->
+      <div class="col-12">
+        <div class="callout callout-highlight success h-100">
+          <div class="callout-title">
+            <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check-circle"></use></svg>
+            Campi Obbligatori
+          </div>
+          <p>Questi dati sono necessari per la ricerca.</p>
+          <ul class="list-unstyled">
+            <li><strong>Colonna (A)</strong> - Codici fiscali (scritti in carattere MAIUSCOLO)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <p class="text-muted">
+        <svg class="icon icon-sm me-1"><use href="{% static 'svg/sprites.svg' %}#it-info-circle"></use></svg>
+        Le informazioni presenti nel file dalla colonna (B) in poi verranno automaticamente scartate.
+      </p>
+    </div>
+    <br />
+
+    <form method="post" action="" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="it-card rounded border shadow-lg mb-4 p-4">
+        <div class="p-3" id="uploadSection">
+          <div id="dropZone">
+            <p class="text-center mb-0">Trascina file qui o<br>
+              <label for="fileInput" class="btn btn-sm btn-primary mt-2"><svg class="icon icon-sm" style="fill: white;" aria-hidden="true">
+                <use href="{% static 'svg/sprites.svg' %}#it-upload"></use>
+              </svg> Seleziona file</label>
+            </p>
+            <input type="file" id="fileInput" name="cf_csv" class="d-none" accept=".csv,.xlsx"></div>
+            <div id="filePreview">
+              <div class="d-flex justify-content-between align-items-center fw-bold col-md-8 offset-md-2 border border-danger rounded p-2">
+                <span id="fileName" class="text-truncate"></span>
+                <button type="button" class="btn btn-sm btn-danger delete-file" id="deleteFileBtn"
+                title="Elimina"> <svg class="icon icon-sm icon-light" aria-hidden="true">
+                  <use href="{% static 'svg/sprites.svg' %}#it-delete"></use>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div id="existingFilesList" class="mt-3">
+            <!-- I file esistenti verranno caricati qui -->
+          </div>
+
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <button type="button" id="executeSearchBtn" class="btn btn-primary" disabled>
+          <svg class="icon icon-sm icon-light" aria-hidden="true">
+            <use href="{% static 'svg/sprites.svg' %}#it-search"></use>
+          </svg>
+          Avvia ricerca
+        </button>
+      </div>
+
+    </form>
+  </div>
+
+  <div class="row">
+    <div class="col-4">
+      <div aria-live="polite" id="errorMsgContainer"></div>
+    </div>
+  </div>
+</div>
+<br>
+
+{% if data %}
+<div class="row">
+  {% for studente in data %}
+  <div class="col-12 mb-4 col-lg-4">
+    <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
+      {% if 'Codice fiscale non corretto' in studente %}
+      {% with parts=studente.split %}
+      <h5 class="it-card-title it-card-title-icon">Titoli conseguiti da {{ parts.0 }}</h5>
+      {% endwith %}
+      {% elif 'Errore di comunicazione con la API' in studente.1  %}
+      {% with parts=studente.1.split %}
+      <h5 class="it-card-title it-card-title-icon">Titoli conseguiti da {{ parts.0 }}</h5>
+      {% endwith %}
+      {% elif studente.0.presenzaTitoli == False %}
+      <h5 class="it-card-title it-card-title-icon">Titoli conseguiti da {{ studente.0 }}</h5>
+      {% else %}
+      <h5 class="it-card-title it-card-title-icon">Titoli conseguiti da {{ studente.0 }}</h5>
+      {% endif %}
+      {% if 'Codice fiscale non corretto' in studente or studente.1.presenzaTitoli == False %}
+      <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+        {% else %}
+        <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
+          {% endif %}
+        </div>
+
+        <div class="it-card-body">
+          {% if 'Codice fiscale non corretto' in studente or 'Errore di comunicazione con la API' in studente %}
+          {% with parts=studente.split %}
+          <p class="it-card-text">
+            <b>{{ parts.1 }} {{ parts.2 }} {{ parts.3 }} {{ parts.4 }} {{ parts.5 }} {{ parts.6 }} {{ parts.7 }}</b>
+          </p>
+          {% endwith %}
+          {% elif studente.1.presenzaTitoli == False %}
+          <p class="it-card-text">
+            <b>La richiesta effettuata non produce alcun risultato</b>
+          </p>
+          {% else %}
+          <div>
+            <p class="it-card-text">
+              {% for titolo in studente.1.listaTitoli %}
+              <p class="it-card-text">
+                <b>Titolo {{ forloop.counter }}</b><br />
+                Titolo: <b>{{ titolo.denominazioneTitolo }} (cod. {{ titolo.codiceTitolo }})</b><br />
+                Istituto principale: <b>{{ titolo.denoIstitutoPrincipale }} (cod. {{ titolo.codiceIstitutoPrincipale }})</b><br />
+                Plesso: <b>{{ titolo.denominazionePlesso }} (cod. {{ titolo.codiceMeccanografico }})</b><br />
+                Valutazione: <b>
+                  {% if 'S' in titolo.flagLode %}
+                  {{ titolo.votoFinale }} con lode
+                  {% else %}
+                  {{ titolo.votoFinale }}
+                  {% endif %}
+                </b><br />
+              </p>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+        </article>
+      </div>
+      {% endfor %}
+    </div>
+
+    <br>
+    <div class="row">
+      <div class="col-12 mb-4">
+        <button id="printButton" class="btn btn-secondary">
+          <svg class="icon icon-sm icon-white" aria-hidden="true">
+            <use href="{% static 'svg/sprites.svg' %}#it-print"></use>
+          </svg> Stampa ricerca
+        </button>
+        <a href="{% url 'anist_titoli_export_csv' %}" class="m-1 btn btn-warning">
+          <svg class="icon icon-sm icon-light" aria-hidden="true">
+            <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+          </svg><span>Esporta CSV</span>
+        </a>
+        <a href="{% url 'anist_titoli_export_excel' %}" class="m-1 btn btn-success">
+          <svg class="icon icon-sm icon-light" aria-hidden="true">
+            <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+          </svg>  <span>Esporta Excel</span>
+        </a>
+      </div>
+    </div>
+
+    {% endif %}
+    {% else %}
+    <div class="col-6">
+      <h4>Utente non abilitato</h4>
+      <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+      <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+      <div class="p-3 text-end">
+        <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <p>{{ error }}</p>
+    {% endif %}
+    {% else %}
+    <h4>Utente non loggato</h4>
+    <p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+    <a href="{% url 'login' %}" class="btn btn-primary">
+      <svg class="icon icon-sm icon-white" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+      </svg>Accedi
+    </a>
+    {% endif %}
+
+    <script>
+
+      function showOverlay() {
+        document.getElementById('loadingOverlay').classList.add('show');
+      }
+
+      // Funzione per nascondere l'overlay
+      function hideOverlay() {
+        document.getElementById('loadingOverlay').classList.remove('show');
+      }
+
+      document.querySelector('form').addEventListener('submit', function() {
+        showOverlay(); // Mostra l'overlay
+      });
+
+      document.addEventListener('DOMContentLoaded', function () {
+        document.body.addEventListener('click', function (event) {
+          if (event.target && (event.target.id === 'printButton' || event.target.closest('#printButton'))) {
+            const user = '{{ user.username }}';
+            const pageTitle = document.title;
+            const currentDate = new Date();
+            const formattedDate = currentDate.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const formattedTime = currentDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+            const printWindow = window.open('', '', 'height=600,width=800');
+
+            let printContent = '<html><head><title>Ricerca ANIST Titoli massiva</title>';
+            printContent += '<style>';
+            printContent += '.card { border: 1px solid black; margin-bottom: 20px; padding: 10px; }';
+            printContent += 'body { font-family: Arial, sans-serif; }';
+            printContent += '.header { margin-bottom: 20px; }';
+            printContent += '.header h3 { margin: 0; text-decoration: underline; }';
+            printContent += 'h5 { margin: 0; text-decoration: underline; font-size: 1.225em; }';
+            printContent += '.header p { margin: 0; }';
+            printContent += 'hr { border: none; border-top: 1px solid black; margin: 10px 0; }';
+            printContent += '</style>';
+            printContent += '</head><body>';
+
+            printContent += '<div class="header">';
+            printContent += `<h3>${pageTitle}</h3>`;
+            printContent += `<p>Richiesta effettuata da: <b>${user}</b></p>`;
+            printContent += `<p>Data: <b>${formattedDate}</b> Ora: <b>${formattedTime}</b></p>`;
+            printContent += '<hr>';
+            printContent += '</div>';
+
+            const cardWrappers = document.querySelectorAll('.it-card-image');
+
+            cardWrappers.forEach(wrapper => {
+              const cardClone = wrapper.cloneNode(true); // Cloniamo il contenuto della card
+              const topIcon = cardClone.querySelector('.it-card-image-wrapper'); // Selezioniamo la classe da rimuovere
+              if (topIcon) {
+                topIcon.remove(); // Rimuoviamo l'elemento con la classe "top-icon"
+              }
+              printContent += cardClone.outerHTML; // Aggiungiamo il contenuto modificato alla finestra di stampa
+            });
+
+            printContent += '</body></html>';
+
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
+          }
+        });
+      });
+
+
+
+
+      function hideOverlaySpinner() {
+        hideOverlay(); // Nasconde l'overlay
+      }
+
+      // Chiamata a questa funzione quando la tabella dati è pronta
+      {% if data %}
+      hideOverlaySpinner();
+      {% endif %}
+
+    </script>
+
+    <script>
+
+      (function() {
+        const uploadSection = document.getElementById('uploadSection');
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const filePreview = document.getElementById('filePreview');
+        const fileName = document.getElementById('fileName');
+        const deleteBtn = document.getElementById('deleteFileBtn');
+        const executeBtn = document.getElementById('executeSearchBtn');
+        let currentFile = null;
+
+        // Formati consentiti
+        const allowedExtensions = [".csv", ".xlsx"];
+
+        document.getElementById('executeSearchBtn').addEventListener('click', function() {
+          showOverlay(); // Mostra l'overlay
+        });
+
+        // Gestione eventi drag & drop
+        function preventDefaults(e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, preventDefaults, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, () => {
+                uploadSection.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, () => {
+                uploadSection.classList.remove('dragover');
+            }, false);
+        });
+
+        uploadSection.addEventListener('drop', handleDrop, false);
+        fileInput.addEventListener('change', handleFileSelect, false);
+
+        function handleDrop(e) {
+          const dt = e.dataTransfer;
+          const files = dt.files;
+          handleFiles(files);
+        }
+
+        function handleFileSelect(e) {
+          const files = e.target.files;
+          handleFiles(files);
+        }
+
+        function handleFiles(files) {
+          if (files.length > 0) {
+            const file = files[0];
+            if (isValidFile(file)) {
+              currentFile = file;
+              showFilePreview(currentFile);
+            } else {
+              alert("Formato file non consentito! Puoi caricare solo CSV o Excel (.xlsx)");
+              resetUpload();
+            }
+          }
+        }
+
+        function isValidFile(file) {
+          const fileName = file.name.toLowerCase();
+          return allowedExtensions.some(ext => fileName.endsWith(ext));
+        }
+
+        function showFilePreview(file) {
+          fileName.textContent = file.name;
+          filePreview.style.display = 'block';
+          dropZone.style.display = 'none';
+          executeBtn.disabled = false; // Abilita ricerca
+        }
+
+        deleteBtn.addEventListener('click', resetUpload);
+
+        function resetUpload() {
+          currentFile = null;
+          filePreview.style.display = 'none';
+          dropZone.style.display = 'block';
+          executeBtn.disabled = true;
+          fileInput.value = '';
+        }
+
+        // Invio AJAX al backend
+        executeBtn.addEventListener('click', () => {
+          if (!currentFile) return;
+
+          const formData = new FormData();
+          formData.append('cf_csv', currentFile);
+
+          fetch("", {
+            method: "POST",
+            body: formData,
+            headers: {
+              "X-CSRFToken": "{{ csrf_token }}"
+            }
+          })
+          .then(response => response.text())
+          .then(html => {
+            document.body.innerHTML = html; // aggiorna con risultati
+          })
+          .catch(err => console.error("Errore:", err));
+        });
+      })();
+
+
+    </script>
+
+
+    {% endblock %}

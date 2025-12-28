@@ -1,0 +1,5 @@
+CF,Scadenza,IUV,Mezzo1,TestoBottone1,Comando1,Mezzo2,TestoBottone2,Comando2,VAR_TESTO1,VAR_TESTO2,VAR_TESTO3,VAR_TESTO4
+AAABBB12C34D567E,01/06/2026,3010 0000 0000 0236 23,web,Visita la pagina web,https://www.google.com,mail,Invia una mail,prova@email.com,Mario,Rossi,I Promessi Sposi,Alessandro Manzoni
+BBBCCC23D45E678F,02/06/2026,3010 0000 0000 0254 25,mail,Invia una mail,prova@email.com,sms,Manda un sms,393456789013,Giuseppe,Bianchi,Orgoglio e Pregiudizio, Jane Austen
+CCCDDD34E56F789G,03/06/2026,3010 0000 0000 0365 89,sms,Manda un sms,393456789013,tel,Chiama l’ufficio,390236152647,Marco,Verdi,Guerra e Pace,Lev Tolstoj
+DDDEEE45F67G890H,04/06/2026,3010 0000 0000 0235 03,tel,Chiama l’ufficio,390236152647,web,Visita la pagina web,https://www.google.com,Alessandro,Gialli,Il Ritratto di Dorian Gray,Oscar Wilde

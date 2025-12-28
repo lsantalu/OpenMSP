@@ -1,0 +1,107 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Impostazioni INPS - Attestazioni ISEE Residenti - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Impostazioni INPS - Attestazioni ISEE Residenti</h3>
+<br />
+<br />
+{% if user.is_authenticated %}
+
+<form class="needs-validation shadow-lg col-10 white-bg p-3 pt-5" id="parametri_inps_isee" method="post">
+  {% csrf_token %}
+  <div class="container">
+    <div class="row">
+      <div class="form-group col-6">
+        <label for="kid">kid (keyid):</label>
+        <input type="text" class="form-control" id="kid" name="kid" maxlength="43" value="{{ parametri_inps_isee.0.kid }}" required />
+      </div>
+      <div class="form-group col-6">
+        <label for="alg">alg:</label>
+        <input type="text" class="form-control" id="alg_visibile" name="alg_visibile" maxlength="10" value="{{ parametri_inps_isee.0.alg }}" required disabled/>
+        <input type="hidden" name="alg" id="alg" value="{{ parametri_inps_isee.0.alg }}">
+      </div>
+    </div>
+    <div class="row">
+      <div class="form-group col-6">
+        <label for="typ">typ:</label>
+        <input type="text" class="form-control" id="typ_visibile" name="typ_visibile" maxlength="10" value="{{ parametri_inps_isee.0.typ }}" required disabled/>
+        <input type="hidden" name="typ" id="typ" value="{{ parametri_inps_isee.0.typ }}">
+      </div>
+      <div class="form-group col-6">
+        <label for="iss">iss:</label>
+        <input type="text" class="form-control" id="iss" name="iss" maxlength="36" value="{{ parametri_inps_isee.0.iss }}" required />
+      </div>
+    </div>
+    <div class="row">
+      <div class="form-group col-6">
+        <label for="sub">sub:</label>
+        <input type="text" class="form-control" id="sub" name="sub" maxlength="36" value="{{ parametri_inps_isee.0.sub }}" required />
+      </div>
+      <div class="form-group col-6">
+        <label for="aud">aud assertion:</label>
+        <input type="text" class="form-control" id="aud_visibile" name="aud_visibile" maxlength="150" value="{{ parametri_inps_isee.0.aud }}" required disabled/>
+        <input type="hidden" name="aud" id="aud" value="{{ parametri_inps_isee.0.aud }}">
+      </div>
+    </div>
+    <div class="row">
+      <div class="form-group col-6">
+        <label for="purposeid">purposeid:</label>
+        <input type="text" class="form-control" id="purposeid" name="purposeid" maxlength="36" value="{{ parametri_inps_isee.0.purposeid }}" required />
+      </div>
+      <div class="form-group col-6">
+        <label for="audience">audience:</label>
+        <input type="text" class="form-control" id="audience_visibile" name="audience_visibile" maxlength="150" value="{{ parametri_inps_isee.0.audience }}" required disabled/>
+        <input type="hidden" name="audience" id="audience" value="{{ parametri_inps_isee.0.audience }}">
+      </div>
+    </div>
+    <div class="row">
+      <div class="form-group col-6">
+        <label for="baseurlauth">baseurlauth:</label>
+        <input type="text" class="form-control" id="baseurlauth_visibile" name="baseurlauth_visibile" maxlength="150" value="{{ parametri_inps_isee.0.baseurlauth }}" required disabled/>
+        <input type="hidden" name="baseurlauth" id="baseurlauth" value="{{ parametri_inps_isee.0.baseurlauth }}">
+      </div>
+      <div class="form-group col-6">
+        <label for="target">target:</label>
+        <input type="text" class="form-control" id="target_visibile" name="target_visibile" maxlength="150" value="{{ parametri_inps_isee.0.target }}" required disabled/>
+        <input type="hidden" name="target" id="target" value="{{ parametri_inps_isee.0.target }}">
+      </div>
+    </div>
+    <div class="row">
+      <div class="form-group col-6">
+        <label for="clientid">clientid:</label>
+        <input type="text" class="form-control" id="clientid" name="clientid" maxlength="150" value="{{ parametri_inps_isee.0.clientid }}" required />
+      </div>
+      <div class="form-group col-6">
+        <label for="ver_eservice">versione e-service:</label>
+        <input type="text" class="form-control" id="ver_eservice_visibile" name="ver_eservice_visibile" maxlength="10" value="{{ parametri_inps_isee.0.ver_eservice }}" required disabled/>
+        <input type="hidden" name="ver_eservice" id="ver_eservice" value="{{ parametri_inps_isee.0.ver_eservice }}">
+      </div>
+    </div>
+    <div class="row">
+      <div class="form-group col-10 shadow">
+        <label for="private_key">private key:</label>
+        <textarea class="form-control font-monospace" id="private_key" name="private_key" rows="15" maxlength="2500" required>{{ parametri_inps_isee.0.private_key }}</textarea>
+      </div>
+    </div>
+  </div>
+  <div class="p-3 text-end">
+    <button type="submit" class="btn btn-primary">Salva</button>
+    <a href="{% url 'home' %}" class="btn btn-danger">Annulla</a>
+  </div>
+</form>
+{% else %}
+<h4>Utente non loggato</h4>
+<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+{% endblock %}

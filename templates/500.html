@@ -1,0 +1,32 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+{% load i18n %}
+
+{% block page_title %}
+Error 505 - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+{% block content %}
+<div class="text-center">
+  <!-- Se vuoi includere un'immagine o icona per l'errore -->
+  <div class="error-image">
+    <img src="{% static 'images/500-error.png' %}" alt="Errore Interno 500" />
+    <use xlink:href="{% static 'svg/sprites.svg' %}#it-expand"></use>
+  </div>
+
+  <h1>Oops! Errore Interno 500</h1>
+
+  <p>
+    L'operazione ha causato un errore inatteso e irreparabile<br />
+    contatta l'amministratore del sito.
+  </p>
+
+  <p>
+    <a href="{% url 'home' %}" class="btn btn-primary">{% trans 'Torna alla Homepage' %}</a>
+  </p>
+</div>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,738 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+App IO singolo - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>App IO - Invio messaggio a un singolo cittadino</h3>
+<br />
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+
+<div class="col-10 shadow-lg white-bg p-4">
+    {% if data %}
+  <div class="mb-4">
+    <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
+      {% if 'Messaggio inviato con successo' in data %}
+      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
+        {% else %}
+        <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+          {% endif %}
+        </div>
+        <div class="it-card-body">
+          <p class="it-card-subtitle">
+            {{ data|safe }}</p>
+          </div>
+        </article>
+      </div>
+      <br>
+      <a href="{% url 'app_io_singolo' %}" class="btn btn-primary">
+        <svg class="icon icon-sm icon-white" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-horn"></use>
+        </svg>Invia nuovo messaggio
+      </a>
+      {% else %}
+      <form class="needs-validation" id="app_io_singolo" method="post" action="{% url 'app_io_singolo_conferma_prev' %}">
+        {% csrf_token %}
+        <div class="accordion mb-4 col-8">
+          <div class="select-wrapper">
+            <label for="defaultSelectGroup"></label>
+            <select id="sceltaServizio" name="sceltaServizio">
+              <option selected="" value="">Scegli il servizio</option>
+              {% for dato_catalogo in dati_catalogo %}
+              <optgroup label="{{ dato_catalogo.argomento }}">
+                {% for dato_servizio in dati_servizio %}
+                {% if dato_servizio.argomento_id.id == forloop.parentloop.counter and dato_servizio.chiave_api %}
+                <option value="{{ dato_servizio.id }}">{{ dato_servizio.servizio }}</option>
+                {% endif %}
+                {% endfor %}
+              </optgroup>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="form-group col-6">
+          <label for="input_CF">Inserisci il Codice Fiscale</label>
+          <input type="text" class="form-control" id="input_CF" name="input_CF" maxlength="16" oninput="this.value = this.value.toUpperCase();" required />
+        </div>
+        <div class="form-group col-8">
+          <label for="subject">Inserisci il titolo del messaggio</label>
+          <input type="text" class="form-control" id="subject" name="subject" minlength="10" maxlength="120" required />
+        </div>
+        <div class="row">
+          <div class="form-group shadow-lg mb-3 col-6" id="editor">
+            <label for="MessageArea">Scrivi il messaggio</label>
+            <textarea class="form-control" id="MessageArea" name="MessageArea" minlength="80" maxlength="10000" rows="10" style="overflow-y: hidden; resize: none;"></textarea>
+          </div>
+          <div class="form-group shadow-lg mb-3 col-6" id="preview">
+            <div id="preview-content"></div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="row col-9"></div>
+          <div class="row col-3">
+            <span class="badge bg-primary" data-bs-toggle="modal" data-bs-target="#modalGuida">Guida alla formattazione</span>
+
+            <!-- Modal -->
+            <div class="modal it-dialog-scrollable fade" data-bs-backdrop="false" tabindex="-1" role="dialog" id="modalGuida" aria-labelledby="modalGuidaTitle" style="pointer-events: none; background-color: rgba(0, 0, 0, 0.7);">
+                <div class="modal-dialog modal-dialog-right" role="document" style="pointer-events: auto;">
+                      <div class="modal-content">
+
+                  <div class="modal-header">
+                    <h2 class="modal-title h5 " id="modalGuidaTitle">Guida alla formattazione del messaggio</h2>
+                    <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Chiudi finestra modale">
+                      <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close"></use></svg>
+                    </button>
+                  </div>
+                  <div class="modal-body text-start">
+                    <br>
+                    <h4>TITOLI</h4>
+                    <code class="highlighter-rouge"># Titolo livello 1</code>
+                    <h1 class="no-anchor" data-toc-skip="" id="heading-level-1">Titolo livello 1</h1>
+                    <br>
+                    <code class="highlighter-rouge">## Titolo livello 2</code>
+                    <h2 class="no-anchor" data-toc-skip="" id="heading-level-2">Titolo livello 2</h2>
+                    <br>
+                    <code class="highlighter-rouge">### Titolo livello 3</code>
+                    <h3 class="no-anchor" data-toc-skip="" id="heading-level-3">Titolo livello 3</h3>
+                    <br>
+                    <code class="highlighter-rouge">#### Titolo livello 4</code>
+                    <h4 class="no-anchor" id="heading-level-4">Titolo livello 4</h4>
+                    <br>
+                    <code class="highlighter-rouge">##### Titolo livello 5</code>
+                    <h5 class="no-anchor" id="heading-level-5">Titolo livello 5</h5>
+                    <br>
+                    <code class="highlighter-rouge">###### Titolo livello 6</code>
+                    <h6 class="no-anchor">Titolo livello 6</h6>
+                    <br>
+                    <br>
+                    <h4>STILE</h4>
+                    <h5>Grassetto</h5>
+                    <code class="highlighter-rouge">Questo è scritto in **grassetto**.</code><br>
+                    Questo è scritto in  <strong>grassetto</strong>.<br><br>
+                    <h5>Corsivo</h5>
+                    <code class="highlighter-rouge">Questo è scritto in *corsivo*.</code><br>
+                    Questo è scritto in <em>corsivo</em>.<br><br>
+                    <h5>Grassetto e corsivo</h5>
+                    <code class="highlighter-rouge">Questo è scritto in ***grassetto e corsivo***.</code><br>
+                    Questo è scritto in <em><strong>grassetto e corsivo</strong></em>.<br><br>
+                    <br>
+
+                    <h4>LISTE</h4>
+                    <h5>Ordinate</h5>
+                    <code class="highlighter-rouge">
+                      1. Primo elemento<br>
+                      2. Secondo elemento<br>
+                      22. Terzo elemento<br>
+                      32. Quarto elemento
+                    </code>
+                    <br>
+                    <ol>
+                      <li>Primo elemento</li>
+                      <li>Secondo elemento</li>
+                      <li>Terzo elemento</li>
+                      <li>Quarto elemento</li>
+                    </ol>
+
+                    <h5>NON Ordinate</h5>
+                    <code class="highlighter-rouge">
+                      - Primo elemento<br>
+                      + Secondo elemento<br>
+                      * Terzo elemento<br>
+                      - Quarto elemento
+                    </code>
+
+                    <ul>
+                      <li>Primo elemento</li>
+                      <li>Secondo elemento</li>
+                      <li>Terzo elemento</li>
+                      <li>Quarto elemento</li>
+                    </ul>
+
+                    <br>
+                    <h4>Linee orizzontali</h4>
+                    ---
+                    <hr>
+                    <br>
+                    <h4>LINK</h4>
+
+                    <code class="highlighter-rouge">
+                      Sito del [{{ my_ente }}](https://www.google.it).
+                    </code>
+                    <p>
+                      Sito del <a href="https://www.google.it">{{ my_ente }}</a>.
+                    </p>
+                    <h5>Grassetto</h5>
+
+                    <code class="highlight">Sito del **[{{ my_ente }}](https://www.google.it)**.</code>
+                    <p>Sito del <strong><a href="https://www.google.it">{{ my_ente }}</a></strong>.</p>
+
+                    <h5>Corsivo</h5>
+                    <code class="highlight">Sito del *[{{ my_ente }}](https://www.google.it)*.</code>
+                    <p>Sito del <em><a href="https://www.google.it">{{ my_ente }}</a></em>.</p>
+
+                  </div>
+                  <div class="modal-footer">
+                    <button class="btn btn-primary btn-sm" data-bs-dismiss="modal" aria-label="Chiudi finestra modale" type="button">Chiudi</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <br>
+
+
+        <div class="row">
+          <div class="form-group col-4 pl-0 ml-5">
+            <div class="toggles">
+              <label for="toggleScadenza" >Promemoria scadenza
+                <input type="checkbox" id="toggleScadenza" name="toggleScadenza" value="true">
+                <span class="lever"></span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group col-4 ">
+            <label class="active" for="dataScadenza">Data</label>
+            <input class="form-control" type="date" id="dataScadenza" name="dataScadenza">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="form-group col-4 pl-0 ml-5">
+            <div class="toggles">
+              <label for="togglePagamento" >Pagamento
+                <input type="checkbox" id="togglePagamento" name="togglePagamento" value="true">
+                <span class="lever"></span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group col-6">
+            <label for="input_IUV">Codice IUV</label>
+            <input type="text" class="form-control" id="input_IUV" name="input_IUV" pattern="^[0123][0-9]{17}$" oninput="formatInput()" required />
+          </div>
+        </div>
+
+        <div class="row col-4 ps-2" >
+          <div class="toggles">
+            <label for="toggleBottone1">Bottone azione 1
+              <input type="checkbox" id="toggleBottone1" name="toggleBottone1" value="true">
+              <span class="lever"></span>
+            </label>
+          </div>
+        </div>
+
+        <div id="formBottone1" style="display: none">
+          <div class="row ps-1">
+            <div class="form-group col-4">
+              <fieldset>
+                <legend>Tipo di azione</legend>
+                <div class="form-check">
+                  <input name="radio_bottone1" type="radio" id="web1" value="web1" checked>
+                  <label for="web1">Link a sito web</label>
+                </div>
+                <div class="form-check">
+                  <input name="radio_bottone1" type="radio" id="mail1" value="mail1">
+                  <label for="mail1">Invio email</label>
+                </div>
+                <div class="form-check">
+                  <input name="radio_bottone1" type="radio" id="sms1" value="sms1">
+                  <label for="sms1">Invio SMS</label>
+                </div>
+                <div class="form-check">
+                  <input name="radio_bottone1" type="radio" id="call1" value="call1">
+                  <label for="call1">Chiamata telefonica</label>
+                </div>
+              </fieldset>
+            </div>
+            <div class="row col-7 mt-5">
+              <div class="form-group mb-0 mt-5">
+                <label for="testo_bottone1">Testo del bottone</label>
+                <input type="text" class="form-control" id="testo_bottone1" name="testo_bottone1" placeholder="es. Accedi al sito.." required />
+              </div>
+              <div class="form-group mb-0">
+                <label for="comando_bottone1">Comando azione</label>
+                <input type="text" class="form-control" id="comando_bottone1" name="comando_bottone1" placeholder="https://..." required />
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="row col-4 ps-2" >
+          <div class="toggles">
+            <label for="toggleBottone2">Bottone azione 2
+              <input type="checkbox" id="toggleBottone2" name="toggleBottone2" value="true">
+              <span class="lever"></span>
+            </label>
+          </div>
+        </div>
+        <div id="formBottone2" style="display: none" >
+          <div class="row ps-1">
+            <div class="form-group col-4">
+              <fieldset>
+                <legend>Tipo di azione</legend>
+                <div class="form-check">
+                  <input name="radio_bottone2" type="radio" id="web2" value="web2" checked>
+                  <label for="web2">Link a sito web</label>
+                </div>
+                <div class="form-check">
+                  <input name="radio_bottone2" type="radio" id="mail2" value="mail2">
+                  <label for="mail2">Invio email</label>
+                </div>
+                <div class="form-check">
+                  <input name="radio_bottone2" type="radio" id="sms2" value="sms2">
+                  <label for="sms2">Invio SMS</label>
+                </div>
+                <div class="form-check">
+                  <input name="radio_bottone2" type="radio" id="call2" value="call2">
+                  <label for="call2">Chiamata telefonica</label>
+                </div>
+              </fieldset>
+            </div>
+            <div class="row col-7 mt-5">
+              <div class="form-group mb-0 mt-5">
+                <label for="testo_bottone2">Testo del bottone</label>
+                <input type="text" class="form-control" id="testo_bottone2" name="testo_bottone2" placeholder="es. Accedi al sito.." required />
+              </div>
+              <div class="form-group mb-0">
+                <label for="comando_bottone2">Comando azione</label>
+                <input type="text" class="form-control" id="comando_bottone2" name="comando_bottone2" placeholder="https://..." required />
+              </div>
+            </div>
+          </div></div>
+
+
+
+          <div class="p-4 mb-5 text-end">
+            <a href="{% url 'home' %}" class="btn btn-danger">Annulla</a>
+            <button id="verificaButton" name="verificaButton" class="btn btn-primary" type="submit">
+              Invia messaggio<svg class="icon icon-sm icon-white" aria-hidden="true">
+                <use href="{% static 'svg/sprites.svg' %}#it-horn"></use>
+              </svg>
+            </button>
+          </div>
+        </form>
+        <div class="row">
+          <div class="col-4">
+            <div aria-live="polite" id="errorMsgContainer"></div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="col-6">
+        <h4>Utente non abilitato</h4>
+        <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+        <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+        <div class="p-3 text-end">
+          <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+        </div>
+      </div>
+      {% endif %}
+      {% else %}
+      <h4>Utente non loggato</h4>
+      <p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+      <a href="{% url 'login' %}" class="btn btn-primary">
+        <svg class="icon icon-sm icon-white" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+        </svg>Accedi
+      </a>
+      {% endif %}
+
+      <script>
+
+
+        // Funzione per aggiornare i placeholder
+        function aggiornaPlaceholder(radioGroup, testoInputId, comandoInputId) {
+          // Ottieni il valore del radio selezionato
+          const selectedRadio = document.querySelector(`input[name="${radioGroup}"]:checked`);
+          const testoInput = document.getElementById(testoInputId);
+          const comandoInput = document.getElementById(comandoInputId);
+
+          if (selectedRadio) {
+            switch (selectedRadio.value) {
+              case 'web1':
+              case 'web2':
+              testoInput.placeholder = "es. Accedi al sito..";
+              comandoInput.placeholder = "https://...";
+              break;
+              case 'mail1':
+              case 'mail2':
+              testoInput.placeholder = "es. Invia una mail a..";
+              comandoInput.placeholder = "es. user@example.com";
+              break;
+              case 'sms1':
+              case 'sms2':
+              testoInput.placeholder = "es. Invia un SMS a..";
+              comandoInput.placeholder = "es. +39...";
+              break;
+              case 'call1':
+              case 'call2':
+              testoInput.placeholder = "es. Effettua una chiamata a..";
+              comandoInput.placeholder = "es. +39....";
+              break;
+              default:
+              testoInput.placeholder = "";
+              comandoInput.placeholder = "";
+              break;
+            }
+          }
+        }
+
+        // Aggiungi gli event listener ai radio button
+        document.querySelectorAll('input[name="radio_bottone1"]').forEach(radio => {
+          radio.addEventListener('change', () => {
+            aggiornaPlaceholder('radio_bottone1', 'testo_bottone1', 'comando_bottone1');
+          });
+        });
+
+        document.querySelectorAll('input[name="radio_bottone2"]').forEach(radio => {
+          radio.addEventListener('change', () => {
+            aggiornaPlaceholder('radio_bottone2', 'testo_bottone2', 'comando_bottone2');
+          });
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+          aggiornaPlaceholder('radio_bottone1', 'testo_bottone1', 'comando_bottone1');
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+          aggiornaPlaceholder('radio_bottone2', 'testo_bottone2', 'comando_bottone2');
+        });
+
+
+        const textarea = document.getElementById('MessageArea');
+
+        const autoResize = (event) => {
+          textarea.style.height = 'auto';
+          textarea.style.height = `${textarea.scrollHeight}px`;
+        };
+
+        textarea.addEventListener('input', autoResize);
+        autoResize();
+
+        const input = document.getElementById('MessageArea');
+        const previewContent = document.getElementById('preview-content');
+
+        input.addEventListener('input', () => {
+          const markdownText = input.value;
+          const htmlContent = marked.parse(markdownText);
+          previewContent.innerHTML = htmlContent;
+        });
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+          const toggleBottone1 = document.getElementById('toggleBottone1');
+          const toggleBottone2 = document.getElementById('toggleBottone2');
+
+          const aggiornaStato = () => {
+            toggleBottone2.disabled = !toggleBottone1.checked;
+          };
+
+          aggiornaStato();
+
+          toggleBottone1.addEventListener('change', aggiornaStato);
+        });
+
+        document.getElementById("toggleBottone1").addEventListener("change", function() {
+          const toggle1 = document.getElementById("toggleBottone1");
+          const toggle2 = document.getElementById("toggleBottone2");
+
+          if (!toggle1.checked) {
+            toggle2.checked = false;
+            toggle2.disabled = true; // Disabilita anche il secondo toggle
+            formBottone2.style.display = 'none';
+          } else {
+            toggle2.disabled = false; // Abilita il secondo toggle se il primo è selezionato
+          }
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+          const toggleBottone1 = document.getElementById("toggleBottone1");
+          const formBottone1 = document.getElementById("formBottone1");
+          const testoBottone1 = document.getElementById("testo_bottone1");
+          const comandoBottone1 = document.getElementById("comando_bottone1");
+          const form = document.querySelector("form"); // Assumi che il form avvolga questi input
+
+          toggleBottone1.addEventListener("change", function () {
+            formBottone1.style.display = this.checked ? "block" : "none";
+          });
+
+          form.addEventListener("submit", function (event) {
+            const actionType = document.querySelector("input[name='gruppo1']:checked").id;
+            const comandoValue = comandoBottone1.value.trim();
+            let valid = true;
+            let errorMessage = "";
+
+            if (!testoBottone1.value.trim()) {
+              errorMessage = "Il campo 'Testo del bottone' è obbligatorio.";
+              valid = false;
+            } else if (actionType === "web1" && !comandoValue.match(/^(https?:\/\/)?([\w-]+)+\.[\w]{2,}(\.[\w]{2,})?$/)) {
+              errorMessage = "Inserisci un URL valido per il sito web.";
+              valid = false;
+            } else if (actionType === "mail1" && !comandoValue.match(/^[\w\.-]+@[a-zA-Z\d\.-]+\.[a-zA-Z]{2,6}$/)) {
+              errorMessage = "Inserisci un indirizzo email valido.";
+              valid = false;
+            } else if ((actionType === "sms1" || actionType === "call1") && !comandoValue.match(/^\d{8,15}$/)) {
+              errorMessage = "Inserisci un numero di telefono valido.";
+              valid = false;
+            }
+
+            if (!valid) {
+              event.preventDefault();
+              alert(errorMessage);
+            }
+          });
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+          const toggleBottone1 = document.getElementById('toggleBottone1');
+          const formBottone1 = document.getElementById('formBottone1');
+
+          function toggleFormBottone1() {
+            if (toggleBottone1.checked) {
+              formBottone1.style.display = 'block';
+            } else {
+              formBottone1.style.display = 'none';
+            }
+          }
+          toggleFormBottone1();
+          toggleBottone1.addEventListener('change', toggleFormBottone1);
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+          const toggleBottone2 = document.getElementById('toggleBottone2');
+          const formBottone2 = document.getElementById('formBottone2');
+
+          function toggleFormBottone1() {
+            if (toggleBottone2.checked) {
+              formBottone2.style.display = 'block';
+            } else {
+              formBottone2.style.display = 'none';
+            }
+          }
+          toggleFormBottone1();
+          toggleBottone2.addEventListener('change', toggleFormBottone1);
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+          const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Ci sono campi da controllare<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
+          const errorWrapper = document.querySelector('#errorMsgContainer')
+          const submitButton = document.querySelector('#submitButton')
+
+          const validate = new bootstrap.FormValidate('#app_io_singolo', {
+            errorFieldCssClass: 'is-invalid',
+            errorLabelCssClass: 'form-feedback',
+            errorLabelStyle: '',
+            focusInvalidField: false
+          })
+
+
+          const selectServizio = document.getElementById('sceltaServizio')
+          const input_CF = document.getElementById('input_CF')
+          const subject = document.getElementById('subject')
+          const MessageArea = document.getElementById('MessageArea')
+          const verificaButton = document.getElementById('verificaButton')
+
+          const togglePagamento = document.getElementById('togglePagamento')
+          const toggleScadenza = document.getElementById('toggleScadenza')
+          //const importo = document.getElementById('importo')
+          const inputIUV = document.getElementById('input_IUV')
+          //////const dataScadenza = document.getElementById('dataScadenza')
+
+          function checkFields() {
+            const isPagamentoChecked = togglePagamento.checked
+            //const importoValid = !isPagamentoChecked || (isPagamentoChecked && importo.value.trim() !== '')
+            const inputIUVValid = !isPagamentoChecked || (isPagamentoChecked && inputIUV.value.trim() !== '')
+
+            //verificaButton.disabled = selectServizio.value === '' || input_CF.value.length < 16 || subject.value.length < 10 || MessageArea.value.length < 80 || !importoValid || !inputIUVValid || !dataScadenzaValid
+            verificaButton.disabled = selectServizio.value === '' || input_CF.value.length < 16 || subject.value.length < 10 || MessageArea.value.length < 80 || !inputIUVValid //|| !dataScadenzaValid
+          }
+
+
+          selectServizio.addEventListener('change', checkFields)
+          input_CF.addEventListener('input', checkFields)
+          subject.addEventListener('input', checkFields)
+          MessageArea.addEventListener('input', checkFields)
+
+          togglePagamento.addEventListener('change', checkFields)
+          toggleScadenza.addEventListener('change', checkFields)
+          //importo.addEventListener('input', checkFields)
+          inputIUV.addEventListener('input', checkFields)
+
+          // Controlla all'avvio
+          checkFields()
+
+          validate
+          .addField('#input_CF', [
+          {
+            rule: 'required',
+            errorMessage: 'Questo campo è richiesto'
+          },
+          {
+            rule: 'minLength',
+            value: 16,
+            errorMessage: 'Il C.F. deve avere 16 caratteri'
+          },
+          {
+            rule: 'maxLength',
+            value: 16,
+            errorMessage: 'Il C.F. deve avere 16 caratteri'
+          },
+          {
+            rule: 'customRegexp',
+            value: '^[a-zA-Z]{6}[0-9]{2}[a-zA-Z][0-9]{2}[a-zA-Z][0-9]{3}[a-zA-Z]$',
+            errorMessage: 'Il C.F. è scritto correttamente'
+          }
+          ])
+          .addField('#subject', [
+          // Aggiungi la validazione per il campo subject
+          {
+            rule: 'required',
+            errorMessage: 'Questo campo è richiesto'
+          },
+          {
+            rule: 'minLength',
+            value: 10,
+            errorMessage: 'Il titolo del messaggio deve essere lungo almeno 10 caratteri'
+          },
+          {
+            rule: 'maxLength',
+            value: 120,
+            errorMessage: 'Il titolo del messaggio deve essere lungo massimo 120 caratteri'
+          }
+          ])
+          .onSuccess(() => {
+            document.forms['app_io_singolo'].submit()
+          })
+          .onFail((fields) => {
+            errorWrapper.innerHTML = ''
+            errorWrapper.innerHTML = errorMessage
+          })
+        })
+
+        function formatInput() {
+          var input = document.getElementById("input_IUV");
+          var value = input.value.replace(/\D/g, '').slice(0, 18);
+          var formattedValue = '';
+          for (var i = 0; i < value.length; i++) {
+            if (i > 0 && i % 4 === 0) {
+              formattedValue += ' ';
+            }
+            formattedValue += value[i];
+          }
+          input.value = formattedValue.toUpperCase();
+        }
+
+        /*      function formatInputValuta() {
+        var inputVal = document.getElementById("importo").value;
+        inputVal = inputVal.replace(/[^0-9.]/g, '');
+        var decimalCount = (inputVal.match(/\./g) || []).length;
+        if (decimalCount > 1) {
+        inputVal = inputVal.substring(0, inputVal.lastIndexOf('.'));
+        }
+        var parts = inputVal.split('.');
+        if (parts.length > 1 && parts[1].length > 2) {
+        inputVal = parts[0] + '.' + parts[1].substring(0, 2);
+        }
+        if (inputVal !== '') {
+        document.getElementById("importo").value = inputVal;
+        }
+        }
+        */
+
+        document.addEventListener('DOMContentLoaded', function () {
+          const toggleScadenza = document.getElementById('toggleScadenza');
+          const dataScadenza = document.getElementById('dataScadenza');
+
+          function toggleDataScadenza() {
+            dataScadenza.disabled = !toggleScadenza.checked;
+
+            if (!toggleScadenza.checked) {
+              dataScadenza.value = '';
+            }
+          }
+
+          toggleDataScadenza();
+          toggleScadenza.addEventListener('change', toggleDataScadenza);
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+          const togglePagamento = document.getElementById('togglePagamento');
+          const toggleScadenza = document.getElementById('toggleScadenza');
+          //const importo = document.getElementById('importo');
+          const inputIUV = document.getElementById('input_IUV');
+          //////const dataScadenza = document.getElementById('dataScadenza');
+
+
+          function toggleInputs() {
+            //importo.disabled = !togglePagamento.checked;
+            inputIUV.disabled = !togglePagamento.checked;
+            //////dataScadenza.disabled = !toggleScadenza.checked;
+
+            if (!togglePagamento.checked) {
+              //importo.value = '';
+              inputIUV.value = '';
+            }
+          }
+
+          toggleInputs();
+          togglePagamento.addEventListener('change', toggleInputs);
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+          const dataScadenza = document.getElementById('dataScadenza');
+
+          function isDataScadenzaPassata(data) {
+            const oggi = new Date();
+            const dataInserita = new Date(data);
+            return dataInserita < oggi;
+          }
+
+          function impostaDataDomaniSePassata() {
+            const dataInserita = new Date(dataScadenza.value);
+            const domani = new Date();
+            domani.setDate(domani.getDate() + 1); // Imposta la data a domani
+            if (isDataScadenzaPassata(dataInserita)) {
+              dataScadenza.value = domani.toISOString().split('T')[0]; // Formatta la data per il campo input
+            }
+          }
+
+          impostaDataDomaniSePassata();
+
+          dataScadenza.addEventListener('input', impostaDataDomaniSePassata);
+        });
+
+        // Gestione chiusura modale Guida al click esterno (globale)
+        document.addEventListener('click', function(event) {
+          const modalGuida = document.getElementById('modalGuida');
+          const modalContent = modalGuida.querySelector('.modal-content');
+          // Verifica se il modale è aperto (ha la classe 'show' aggiunta da Bootstrap)
+          // e se il click è avvenuto fuori dal contenuto del modale
+          if (modalGuida.classList.contains('show') && !modalContent.contains(event.target)) {
+             // Verifica che il click non sia sul bottone che apre il modale (per evitare conflitti)
+             // Anche se bootstrap gestisce il toggle, è meglio assicurarsi di non interferire se non necessario.
+             // Tuttavia, se cliccano fuori, si chiude. Se cliccano sul bottone toggle, bootstrap lo chiuderebbe/aprirebbe.
+             // Se noi lo chiudiamo qui, e bootstrap lo apre/chiude, potrebbe esserci un race condition.
+             // Ma dato che il click passa attraverso, bootstrap riceverà l'evento sul bottone.
+             
+             // Controlliamo se l'elemento cliccato è un toggle per questo modale
+             const isToggle = event.target.closest('[data-bs-toggle="modal"][data-bs-target="#modalGuida"]');
+             if (!isToggle) {
+                const modalInstance = bootstrap.Modal.getInstance(modalGuida);
+                if (modalInstance) {
+                  modalInstance.hide();
+                }
+             }
+          }
+        });
+
+      </script>
+
+
+      {% endblock %}

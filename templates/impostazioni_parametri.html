@@ -1,0 +1,282 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+<!-- Favicon -->
+{% block extra_head %}
+<link rel="icon" href="/static/favicon.ico" />
+
+<link href="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.css" rel="stylesheet" />
+
+<script src="/static/js/marked.min.js"></script>
+
+<!-- sfondo e stampa -->
+<style>
+  body {
+    background-image: url('/static/images/sfondo.png');
+    background-size: cover;
+    background-position: right top;
+    background-attachment: fixed;
+  }
+</style>
+{% endblock %}
+
+{% block page_title %}
+Impostazioni OpenMSP - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Impostazioni OpenMSP</h3>
+<br />
+{% if user.is_authenticated %}
+<form class="needs-validation shadow-lg col-10 white-bg px-4 pt-3" id="parametri_attivazione" method="post">
+  {% csrf_token %}
+
+  <div class="row">
+    <div class="callout callout-more mb-5 shadow-lg">
+      <div class="callout-title">
+        <span>Parametri Ente</span>
+      </div>
+      <div class="row">
+        <div class="form-group col-6 mb-0">
+          <div class="form-group col-12">
+            <label for="nome_ente">Ente:</label>
+            <input type="text" class="form-control" id="nome_ente" name="nome_ente" maxlength="50" value="{{ dati_ente.0.nome }}" required disabled />
+          </div>
+          <div class="form-group col-12">
+            <label for="cf_ente">Codice fiscale:</label>
+            <input type="text" class="form-control" id="cf_ente" name="cf_ente" maxlength="11" value="{{ dati_ente.0.cf }}" required disabled />
+          </div>
+          <div class="form-group col-12">
+            <label for="piva_ente">Partita IVA:</label>
+            <input type="text" class="form-control" id="piva_ente" name="piva_ente" maxlength="11" value="{{ dati_ente.0.piva }}" required disabled />
+          </div>
+        </div>
+        <div class="form-group col-6 mb-5 text-center border border-secondary rounded lightgrey-bg-a2">
+          <a href="#" onclick="openUploadWindow('{% url 'impostazioni_upload_stemma' %}'); return false;"><img src="data:image/png;base64,{{ dati_ente.0.stemma }}" class="img-fluid" alt="Stemma comune" /></a>
+        </div>
+
+        <div class="form-group col-6">
+          <label for="via_ente">Via:</label>
+          <input type="text" class="form-control" id="via_ente" name="via_ente" value="{{ dati_ente.0.via }}" required disabled />
+        </div>
+        <div class="form-group col-6">
+          <label for="cap_ente">CAP:</label>
+          <input type="text" class="form-control" id="cap_ente" name="cap_ente" value="{{ dati_ente.0.cap }}" required disabled />
+        </div>
+
+        <div class="form-group col-6">
+          <label for="citta_ente">Città:</label>
+          <input type="text" class="form-control" id="citta_ente" name="citta_ente" value="{{ dati_ente.0.citta }}" required disabled />
+        </div>
+        <div class="form-group col-6">
+          <label for="telefono_ente">Telefono:</label>
+          <input type="text" class="form-control" id="telefono_ente" name="telefono_ente" value="{{ dati_ente.0.telefono }}" required disabled />
+        </div>
+
+        <div class="form-group col-6">
+          <label for="mail_ente">E-mail:</label>
+          <input type="text" class="form-control" id="mail_ente" name="mail_ente" value="{{ dati_ente.0.mail }}" required disabled />
+        </div>
+        <div class="form-group col-6">
+          <label for="pec_ente">PEC:</label>
+          <input type="text" class="form-control" id="pec_ente" name="pec_ente" value="{{ dati_ente.0.pec }}" required disabled />
+        </div>
+        
+        <div class="form-group col-6">
+          <label for="versione">Versione:</label>
+          <input type="text" class="form-control" id="versione" name="versione" value="{{ dati_ente.0.versione }}" required disabled />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="callout callout-more mb-5 shadow-lg">
+      <div class="callout-title">
+        <span>Parametri Email</span>
+      </div>
+      <div class="row">
+        <div class="form-group col-6">
+          <label for="smtp">Server SMTP:</label>
+          <input type="text" class="form-control" id="smtp" name="smtp" value="{{ email_host }}" />
+        </div>
+        <div class="form-group col-2">
+          <label for="port">Port:</label>
+          <input type="text" class="form-control" id="port" name="port" value="{{ email_port }}"  />
+        </div>
+        <div class="form-group col-4">
+          <div class="form-check form-check-inline">
+            <input name="ssl_group" type="radio" id="ssl" value="ssl" {% if 'ssl' in email_use %} checked {% endif %}>
+            <label for="ssl">SSL</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input name="ssl_group" type="radio" id="tls" value="tls" {% if 'tls' in email_use %} checked {% endif %}>
+            <label for="tls">TLS</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input name="ssl_group" type="radio" id="none" value="none" {% if 'ssl' not in email_use and 'tls' not in email_use%} checked {% endif %}>
+            <label for="none">None</label>
+          </div>
+        </div>
+
+        <div class="form-group col-6">
+          <label for="user">User:</label>
+          <input type="text" class="form-control" id="user" name="user" value="{{ email_host_user }}"  />
+        </div>
+        <div class="form-group col-6">
+          <label for="password">Password:</label>
+          <input type="password" data-bs-input class="form-control input-password" id="password" name="password" value="{{ email_host_password }}"  />
+          <button type="button"  class="password-icon btn" role="switch" aria-checked="false">
+            <span class="visually-hidden">Mostra/Nascondi Password</span>
+            <svg class="password-icon-visible icon icon-sm" aria-hidden="true"><use href="{% static 'svg/sprites.svg' %}#it-password-visible"></use></svg>
+            <svg class="password-icon-invisible icon icon-sm d-none" aria-hidden="true"><use href="{% static 'svg/sprites.svg' %}#it-password-invisible"></use></svg>
+          </button>
+        </div>
+
+        <div class="form-group col-6">
+          <label for="email_send">Email invio:</label>
+          <input type="text" class="form-control" id="email_send" name="email_send" value="{{ email_default }}"  />
+        </div>
+        <div class="form-group col-3">
+
+        </div>
+        <div class="form-group col-3 text-end mb-1">
+          <button type="submit" class="btn btn-primary" id="test_invio_button" onclick="submitForm('test')">Test mail</button>
+        </div>
+
+        <div class="form-group col-4">
+          <label for="email_backup">Email backup db:</label>
+          <input type="text" class="form-control" id="email_backup_visibile" name="email_backup_visibile" value="{{ email_backup }}"  />
+          <input type="hidden" name="email_backup" id="email_backup" value="{{ email_backup }}">
+        </div>
+
+        <div class="form-group col-4">
+          <label for="email_backup_password">Password backup db:</label>
+          <input type="password" data-bs-input class="form-control input-password" id="email_backup_password_visibile" name="email_backup_password_visibile" value="{{ email_backup_password }}"  />
+          <input type="hidden" name="email_backup_password" id="email_backup_password" value="{{ email_backup_password }}">
+          <button type="button"  class="password-icon btn" role="switch" aria-checked="false">
+            <span class="visually-hidden">Mostra/Nascondi Password</span>
+            <svg class="password-icon-visible icon icon-sm" aria-hidden="true"><use href="{% static 'svg/sprites.svg' %}#it-password-visible"></use></svg>
+            <svg class="password-icon-invisible icon icon-sm d-none" aria-hidden="true"><use href="{% static 'svg/sprites.svg' %}#it-password-invisible"></use></svg>
+          </button>
+        </div>
+        <div class="form-group col-2">
+          <div class="toggles">
+            <label for="toggle_backup">Backup:
+              <input type="hidden" name="toggle_backup" value="false" />
+              <input type="checkbox" class="toggle-input" name="toggle_backup" id="toggle_backup" data-servizio-id="backup" {% if backup_on %} checked {% endif %} value="true" />
+              <span class="lever"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group col-2 text-end mb-1">
+          <button type="submit" class="btn btn-primary" id="test_invio_button_backup" onclick="submitForm('test_backup')">Test backup</button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <div class="row ps-3 pe-3 pb-3 mb-2">
+    <div class="col-6">
+      {% if user.is_superuser and user.username == 'luca.santalucia' %}
+      <div class="row">
+        <div class="col-5">
+          <div class="toggles">
+            <label for="toggle_debug">Debug mode:
+              <input type="hidden" name="toggle_debug" value="false" />
+              <input type="checkbox" class="toggle-input" name="toggle_debug" id="toggle_debug" data-servizio-id="debug" {% if debug_mode %} checked {% endif %} value="true" />
+              <span class="lever"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    {% endif %}
+    <div class="col-6 text-end">
+      <button type="submit" class="btn btn-primary" id="salva_button" onclick="submitForm('salva')">Salva</button>
+      <a href="{% url 'home' %}" class="btn btn-danger">Annulla</a>
+    </div>
+  </div>
+</form>
+
+{% else %}
+<h4>Utente non loggato</h4>
+<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+
+<script>
+  function openUploadWindow(url) {
+    window.open(url, 'Upload Stemma', 'width=600,height=400,left=300,top=300')
+  }
+
+  function submitForm(actionType) {
+    var form = document.getElementById('parametri_attivazione');
+
+    var input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'action';
+    input.value = actionType;
+    form.appendChild(input);
+
+    form.submit();
+  }
+
+
+  function updatePort() {
+    const portInput = document.getElementById('port');
+    document.getElementById('ssl').addEventListener('change', function() {
+      if (this.checked) {
+        portInput.value = 465;
+      }
+    });
+    document.getElementById('tls').addEventListener('change', function() {
+      if (this.checked) {
+        portInput.value = 587;
+      }
+    });
+    document.getElementById('none').addEventListener('change', function() {
+      if (this.checked) {
+        portInput.value = 25;
+      }
+    });
+  }
+
+  function toggleBackupFields() {
+    const toggleBackup = document.getElementById('toggle_backup');
+    const emailBackupInput = document.getElementById('email_backup_visibile');
+    const emailBackupPasswordInput = document.getElementById('email_backup_password_visibile');
+    const testInvioButtonBackup = document.getElementById('test_invio_button_backup');
+
+    // Se il checkbox "toggle_backup" è selezionato, abilitare gli input
+    if (toggleBackup.checked) {
+      emailBackupInput.disabled = false;
+      emailBackupPasswordInput.disabled = false;
+      testInvioButtonBackup.disabled = false; // Abilita il bottone
+    } else {
+      // Altrimenti, disabilitare gli input e il bottone
+      emailBackupInput.disabled = true;
+      emailBackupPasswordInput.disabled = true;
+      testInvioButtonBackup.disabled = true; // Disabilita il bottone
+    }
+  }
+
+  window.onload = function() {
+    toggleBackupFields();
+    updatePort();
+    document.getElementById('toggle_backup').addEventListener('change', toggleBackupFields);
+  };
+
+
+</script>
+{% endblock %}

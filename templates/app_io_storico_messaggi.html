@@ -1,0 +1,413 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+App IO - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>App IO - Elenco messaggi inviati</h3>
+<br />
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+
+<div class="col-10 white-bg p-4 shadow">
+
+<!-- NOTE: attenzione. mi si è spianata la tabella storico messaggi app io - Da monitorare -->
+ <!-- FIXME: Svuotati tutti i messaggi storico -->
+  <form method="get" action="" class="form-inline mb-5">
+
+    <div class="row">
+      <div class="accordion mb-4 col-5 border-0">
+        <div class="select-wrapper">
+          <label for="defaultSelectGroup">Servizio</label>
+          <select id="sceltaServizio" name="sceltaServizio">
+            <option selected="" value="">Scegli il servizio</option>
+            {% for dato_catalogo in dati_catalogo %}
+            <optgroup label="{{ dato_catalogo.argomento }}">
+              {% for dato_servizio in dati_servizio %}
+              {% if dato_servizio.argomento_id.id == forloop.parentloop.counter and dato_servizio.chiave_api %}
+              <option value="{{ dato_servizio.id }}">{{ dato_servizio.servizio }}</option>
+              {% endif %}
+              {% endfor %}
+            </optgroup>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+
+      <div class="form-group col-7">
+        <label for="titolo">Titolo</label>
+        <input type="text" class="form-control" id="titolo" name="titolo" placeholder="Titolo" value="{{ request.GET.titolo }}">
+      </div>
+
+    </div>
+
+    <div class="row">
+
+      <div class="form-group col-3 m-0">
+        <label for="cf">CF</label>
+        <input type="text" class="form-control" id="cf" name="cf" placeholder="CF" value="{{ request.GET.cf }}" maxlength="16" oninput="this.value = this.value.toUpperCase();">
+      </div>
+
+      <div class="form-group col-3 m-0">
+        <label class="active" for="data_da">Data da</label>
+        <input type="date" class="form-control" id="data_da" name="data_da" value="{{ request.GET.data_da }}">
+      </div>
+      <div class="form-group col-3 m-0">
+        <label class="active" for="data_a">Data a</label>
+        <input type="date" class="form-control" id="data_a" name="data_a" value="{{ request.GET.data_a }}">
+      </div>
+
+      <button type="submit" class="btn btn-primary col-1 me-3 ms-5 p-0">Cerca</button>
+      <a href="{% url 'app_io_storico_messaggi' %}" class="btn btn-outline-danger col-1 ms-2 p-0 d-flex align-items-center justify-content-center">Azzera filtri</a>
+    </div>
+
+
+
+  </form>
+
+
+  <table class="table table-striped table-hover table-sm align-middle table-bordered" id="dataTable">
+    <!-- <caption>Elenco messaggi inviati da {{ user.username }} </caption> -->
+    <thead class="table-light text-center">
+      <tr>
+        <th scope="col">ID Msg</th>
+        <th scope="col">Servizio</th>
+        <th scope="col">Titolo messaggio</th>
+        <th scope="col">CF Destinatario</th>
+        <th scope="col">Data invio</th>
+        <th scope="col">Utente mitt.</th>
+        <th scope="col">Esito</th>
+        <th scope="col">Dettagli</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for messaggio in page_obj %}
+      <tr class="table-bordered {% if "Errore" in messaggio.esito %} table-danger {% endif %} ">
+        <td class="text-center">{{ messaggio.id }}</td>
+        <td>{{ messaggio.servizio_id.servizio }}</td>
+        <td>{{ messaggio.titolo }}</td>
+        <td class="text-center">{{ messaggio.cf_destinatario }}</td>
+        <td class="text-center">{{ messaggio.timestamp|date:"d/m/Y H:i" }}</td>
+        <td>{{ messaggio.utente_id.username }}</td>
+        <td class="text-center">
+          {% if "Errore" in messaggio.esito %}
+          <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big">Errore</use></svg>
+          {% else %}
+          <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check">Successo</use></svg>
+          {% endif %}
+        </td>
+
+        <td class="text-center">
+          <a href="#" class="btn btn-outline-primary btn-icon ms-1 p-2" data-bs-toggle="modal" data-bs-target="#detagliModal{{ messaggio.id }}">
+            <svg class="icon icon-primary bg-light">
+              <use href="{% static 'svg/sprites.svg' %}#it-info-circle"></use>
+            </svg>
+          </a>
+        </td>
+      </tr>
+
+
+      <!-- Modale Dettagli -->
+      <div class="modal fade" id="detagliModal{{ messaggio.id }}" tabindex="-1" aria-labelledby="detagliModalLabel{{ messaggio.id }}" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="detagliModalLabel{{ messaggio.id }}">Dettagli del messaggio:<br> {{ messaggio.titolo }}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <ul>
+                <li><strong>Servizio:</strong> {{ messaggio.servizio_id.servizio }}</li>
+                <li><strong>Titolo:</strong> {{ messaggio.titolo }}</li>
+                <li><strong>Messaggio:</strong><br> {{ messaggio.messaggio}}</li>
+                <li><strong>CF Destinatario:</strong> {{ messaggio.cf_destinatario }}</li>
+                <li><strong>Data di Invio:</strong> {{ messaggio.timestamp|date:"d/m/Y H:i" }}</li>
+                {%if messaggio.iuv and messaggio.iuv != "None" %}
+                <li><strong>IUV:</strong> {{ messaggio.iuv }}</li>
+                {%endif%}
+                {%if messaggio.scadenza and messaggio.scadenza != "None" %}
+                <li><strong>Scadenza:</strong> {{ messaggio.scadenza }}</li>
+                {%endif%}
+                {%if messaggio.testoBottone1 and messaggio.testoBottone1 != "None" %}
+                <li><strong>Bottone 1:</strong> {{ messaggio.testoBottone1 }}</li>
+                {%endif%}
+                {%if messaggio.testoBottone2 and messaggio.testoBottone2 != "None" %}
+                <li><strong>Bottone 2:</strong> {{ messaggio.testoBottone2 }}</li>
+                {%endif%}
+                <li><strong>Esito:</strong>
+                  {% if "Errore" in messaggio.esito %}
+                  <span class="text-danger">Errore</span>
+                  {% else %}
+                  <span class="text-success">Successo</span>
+                  {% endif %}
+                </li>
+                <li><strong>Esito Dettagli:</strong> {{ messaggio.esito }}</li>
+              </ul>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+
+      {% empty %}
+      <tr>
+        <td colspan="9" class="text-center">Nessun messaggio trovato.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+
+  {%if page_obj.paginator.num_pages > 1 %}
+
+  <!-- Paginazione -->
+  <div class="it-pagination">
+    <ul class="pagination">
+
+      {%if not page_obj.has_previous %}
+      <li class="page-item disabled">
+        <a class="page-link" href="#" aria-label="Precedente">
+          <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-left"></use></svg>
+          <span class="visually-hidden">Pagina precedente</span>
+        </a>
+      </li>
+      <li class="page-item disabled">
+        <a class="page-link" href="#" aria-current="page">
+          <span class="d-inline-block d-sm-none">{{ page_obj.number }} </span>{{ page_obj.number }}
+        </a>
+      </li>
+      {%else%}
+      <li class="page-item">
+        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" aria-label="Precedente">
+          <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-left"></use></svg>
+          <span class="visually-hidden">Pagina precedente</span>
+        </a>
+      </li>
+      <li class="page-item">
+        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1" aria-label="1">
+          <span class="d-inline-block d-sm-none">1 </span>1
+        </a>
+      </li>
+      {%endif%}
+
+
+      {%if page_obj.number > 2%}
+      <li class="page-item">
+        <span class="page-link">...</span>
+      </li>
+
+      {%endif%}
+
+
+      {%if page_obj.number > 1 and page_obj.number < page_obj.paginator.num_pages%}
+      <li class="page-item disabled">
+        <a class="page-link" href="#" aria-current="page">
+          <span class="d-inline-block d-sm-none">{{ page_obj.number }} </span>{{ page_obj.number }}
+        </a>
+      </li>
+      {%endif%}
+
+
+
+      {% if page_obj.number < page_obj.paginator.num_pages|add:"-1"  %}
+
+      <li class="page-item">
+        <span class="page-link">...</span>
+      </li>
+
+      {%endif%}
+
+
+
+
+
+      {%if not page_obj.has_next %}
+      <li class="page-item disabled">
+        <a class="page-link" href="#" aria-current="page">
+          <span class="d-inline-block d-sm-none">{{ page_obj.number }} </span>{{ page_obj.number }}
+        </a>
+      </li>
+      <li class="page-item disabled">
+        <a class="page-link" href="#" aria-label="Successivo">
+          <span class="visually-hidden">Pagina successiva</span>
+          <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-right"></use></svg>
+        </a>
+      </li>
+      {%else%}
+      <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}" aria-label="Ultimo">
+          <span aria-hidden="true">{{ page_obj.paginator.num_pages }}</span>
+        </a>
+      </li>
+      <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" aria-label="Successivo">
+          <span class="visually-hidden">Pagina successiva</span>
+          <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-right"></use></svg>
+        </a>
+      </li>
+      {%endif%}
+    </ul>
+  </div>
+
+  {%endif%}
+
+
+
+  <div class="d-flex justify-content">
+    <button type="submit" id="exportCsvBtn" class="btn btn-outline-secondary me-2">
+      <svg class="icon icon-sm" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+      </svg><span>Esporta CSV pagina</span>
+
+      <button type="button" id="exportCsvBtnSearch" class="btn btn-secondary">
+        <svg class="icon icon-sm icon-light" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+        </svg>
+        <span>Esporta CSV elenco completo</span>
+      </button>
+
+      <a href="{% url 'app_io_storico_pagina_export_excel' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="m-1 btn btn-outline-success">
+      <svg class="icon icon-sm" aria-hidden="true">
+      <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+      </svg>  <span>Esporta Excel pagina</span>
+      </a>
+
+      <a href="{% url 'app_io_storico_full_export_excel' %}" class="m-1 btn btn-success ">
+      <svg class="icon icon-sm icon-light" aria-hidden="true">
+      <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+      </svg>  <span>Esporta Excel elenco completo</span>
+      </a>
+
+    </div>
+  </div>
+
+
+  {% else %}
+  <div class="col-6">
+    <h4>Utente non abilitato</h4>
+    <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+    <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+    <div class="p-3 text-end">
+      <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+    </div></div>
+    {% endif %}
+
+    {% if error %}
+    <p>{{ error }}</p>
+    {% endif %}
+
+
+    {% else %}
+    <h4>Utente non loggato</h4>
+    <p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+    <a href="{% url 'login' %}" class="btn btn-primary">
+      <svg class="icon icon-sm icon-white" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+      </svg>Accedi
+    </a>
+    {% endif %}
+
+
+
+    <script>
+
+      // Funzione per esportare CSV della pagina corrente
+      document.getElementById('exportCsvBtn').addEventListener('click', function () {
+        const table = document.getElementById('dataTable');
+        const rows = table.querySelectorAll('tr');
+        let csv = [];
+        for (let i = 0; i < rows.length; i++) {
+          let row = [], cols = rows[i].querySelectorAll('td, th');
+          for (let j = 0; j < cols.length; j++) {
+            if (j !== cols.length - 1) {
+              let cellText = cols[j].textContent.trim().replace(/\n/g, ' ');
+              row.push(cellText);
+            }
+          }
+          csv.push(row.join(';'));
+        }
+        const csvData = csv.join('\n');
+        const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        if (navigator.msSaveBlob) { // IE 10+
+          navigator.msSaveBlob(blob, 'ElencoPageMessaggiAppIO.csv');
+        } else {
+          const url = URL.createObjectURL(blob);
+          link.setAttribute('href', url);
+          link.setAttribute('download', 'ElencoMessaggiAppIO.csv');
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      });
+
+
+
+      const elenco_messaggi = [
+      {% for messaggio in messaggi %}
+      {
+        "id_msg": "{{ messaggio.id }}",
+        "servizio": "{{ messaggio.servizio_id.servizio }}",
+        "titolo": "{{ messaggio.titolo }}",
+        "cf": "{{ messaggio.cf_destinatario }}",
+        "data": "{{ messaggio.timestamp|date:"d/m/Y H:i" }}",
+        "utente_mitt": "{{ messaggio.utente_id.username }}",
+        "esito": "{% if 'Errore' in messaggio.esito %}Errore{% else %}OK{% endif %}"
+      }
+      {% if not forloop.last %},{% endif %}
+      {% endfor %}
+      ];
+
+      function decodeHTMLEntities(text) {
+        const textarea = document.createElement("textarea");
+        textarea.innerHTML = text;
+        return textarea.value;
+      }
+
+
+
+
+      // Funzione per generare il CSV
+      function esportaCSV() {
+        // Definiamo l'intestazione del CSV
+        const intestazione = ['ID Msg', 'Servizio', 'Titolo messaggio', 'CF Destinatari', 'Data invio', 'Utente invio', 'Esito'];
+
+        // Crea il contenuto del CSV
+        let csvContent = "data:text/csv;charset=utf-8," + intestazione.join(",") + "\n";
+        elenco_messaggi.forEach(function(elenco_messaggi) {
+          const row = [elenco_messaggi.id_msg, elenco_messaggi.servizio, decodeHTMLEntities(elenco_messaggi.titolo), elenco_messaggi.cf, elenco_messaggi.data, elenco_messaggi.utente_mitt, elenco_messaggi.esito, elenco_messaggi.id];
+          csvContent += row.join(",") + "\n";
+          console.log(csvContent);
+        });
+
+        // Crea un link di download
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "ElencoFullMessaggiAppIO.csv");
+        document.body.appendChild(link); // Necessario per Firefox
+
+        // Simula il click per scaricare il file
+        link.click();
+      }
+
+      // Aggiungi l'evento al bottone
+      document.getElementById('exportCsvBtnSearch').addEventListener('click', esportaCSV);
+
+
+
+
+
+    </script>
+
+
+    {% endblock %}

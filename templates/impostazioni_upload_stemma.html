@@ -1,0 +1,84 @@
+{% load django_bootstrap_italia %}
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <title>
+    {% block page_title %}
+    Upload Stemma - OpenCED
+    {% endblock %}
+  </title>
+  <link rel="stylesheet" href="{% django_bootstrap_italia_static_path 'css/bootstrap-italia.min.css' %}" />
+  <script>
+    window.__PUBLIC_PATH__ = "{% django_bootstrap_italia_static_path 'fonts' %}"
+  </script>
+</head>
+<body>
+  {% block centered_container %}
+  <h3>Carica il nuovo Stemma dell'ente</h3>
+  <form id="uploadForm" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="form-group" style="display: none;">
+      <input type="file" class="form-control" id="new_stemma" name="new_stemma" accept="image/*" required />
+    </div>
+
+    <div id="dropArea" class="border border-primary text-center m-2" style="width: 300px; height: 100px; line-height: 100px; cursor: pointer;">Trascina qui il file o clicca per selezionarlo</div>
+
+    <div class="mt-3" style="display: none;">
+      <button type="submit" class="btn btn-primary">Upload</button>
+      <button type="button" class="btn btn-secondary" onclick="window.close()">Annulla</button>
+    </div>
+  </form>
+  {% endblock %}
+
+  <script>
+    const dropArea = document.getElementById('dropArea');
+    const fileInput = document.getElementById('new_stemma');
+    const uploadForm = document.getElementById('uploadForm');
+
+    ;['dragenter', 'dragover', 'dragleave', 'drop'].forEach((eventName) => {
+      dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    ;['dragenter', 'dragover'].forEach((eventName) => {
+      dropArea.addEventListener(eventName, () => dropArea.classList.add('bg-light'), false);
+    });
+
+    ;['dragleave', 'drop'].forEach((eventName) => {
+      dropArea.addEventListener(eventName, () => dropArea.classList.remove('bg-light'), false);
+    });
+
+    dropArea.addEventListener('drop', (e) => {
+      let dt = e.dataTransfer;
+      let files = dt.files;
+      fileInput.files = files;
+      updateDropAreaText(files);
+      uploadForm.submit(); // Invia automaticamente il modulo
+    });
+
+    dropArea.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', () => {
+      updateDropAreaText(fileInput.files);
+      uploadForm.submit(); // Invia automaticamente il modulo
+    });
+
+    function updateDropAreaText(files) {
+      if (files.length > 0) {
+        dropArea.textContent = files[0].name;
+      } else {
+        dropArea.textContent = 'Trascina qui il file o clicca per selezionarlo';
+      }
+    }
+
+  </script>
+</body>
+</html>

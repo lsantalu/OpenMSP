@@ -1,0 +1,187 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+
+{% block page_title %}
+INPS verifica DURC - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>INPS verifica DURC</h3>
+<h4>Ricerca massiva</h4>
+<br />
+<!-- NOTE: implementazione servizio INPS - DURC con funzioni ed estetica finali -->
+
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+<div class="row col-10 shadow-lg white-bg p-4">
+  <h4>PAGINA DA COMPLETARE</h4>
+
+  <p>Il servizio accetta solo file formato "CSV" e prevede la presenza dei soli<br />codici fiscali nella colonna (A) scritti in carattere MAIUSCOLO</p>
+  <p class="fst-italic" >Le informazioni presenti nel file dalla colonna (B) in poi verranno automaticamente scartate</p>
+  <br />
+
+  <div class="row">
+    <form method="post" action="" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="file" name="cf_csv" id="cf_csv" class="upload" accept="text/csv" />
+      <label for="cf_csv">
+        <svg class="icon icon-sm" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-upload"></use>
+        </svg>
+        <span>Upload</span><span id="uploadingText" style="display: none;">In verifica...</span>
+        <button type="submit" class="btn btn-primary" id="submitBtn" hidden></button>
+      </label>
+    </form>
+  </div>
+
+  <div class="row" id="progressBarContainer" style="display: none;">
+    <div class="progress progress-indeterminate col-5">
+      <div class="progress-bar" role="progressbar"></div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-4">
+      <div aria-live="polite" id="errorMsgContainer"></div>
+    </div>
+  </div>
+
+  {% if data %}
+
+  <div class="col-6">
+    <table id="dataTable" class="table align-middle table-hover table-primary">
+      <thead class="text-center">
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">CF</th>
+          <th scope="col">Verifica</th>
+          <th scope="col">Domicilio digitale</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in data %}
+        {% with row.split as split_row %}
+        <tr {% if split_row.1 == "1" and '@' in split_row.2 %}
+        class="table-success"
+        {% elif split_row.1 == "2" %}class="table-warning"
+        {% else %}
+        class="table-danger"
+        {% endif %}>
+
+        <td class="text-center">{{ forloop.counter }}</td>
+        <td>{{ split_row.0 }}</td>
+        <td class="text-center">
+          {% if split_row.1 == "2" %}
+          <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-warning-circle">{{split_row.1}}</use></svg>
+          {% elif split_row.1 == "1" %}
+          <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check">{{split_row.1}}</use></svg>
+          {% else %}
+          <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big ">{{split_row.1}} </use></svg>
+          {% endif %}</td>
+
+          <td>
+            {{ split_row.2 }} {{ split_row.3 }} {{ split_row.4 }} {{ split_row.5 }} {{ split_row.6 }}
+          </td>
+        </tr>
+        {% endwith %}
+        {% endfor %}
+      </tbody>
+    </table>
+
+
+    <div>
+      <button type="submit" id="exportCsvBtn" class="btn btn-secondary">
+        <svg class="icon icon-sm icon-light" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+        </svg><span>Esporta CSV</span>
+      </div>
+    </div>
+
+    {% endif %}
+
+    {% else %}
+    <div class="col-6">
+      <h4>Utente non abilitato</h4>
+      <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+      <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+      <div class="p-3 text-end">
+        <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+      </div></div>
+      {% endif %}
+
+      {% if error %}
+      <p>{{ error }}</p>
+      {% endif %}
+
+
+      {% else %}
+      <h4>Utente non loggato</h4>
+      <p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+      <a href="{% url 'login' %}" class="btn btn-primary">
+        <svg class="icon icon-sm icon-white" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+        </svg>Accedi
+      </a>
+      {% endif %}
+
+
+      <script>
+
+
+        document.getElementById('cf_csv').addEventListener('change', function() {
+          document.getElementById('uploadingText').style.display = 'inline'; // Mostra la scritta "in caricamento" quando il file viene selezionato
+          document.getElementById('progressBarContainer').style.display = 'block'; // Mostra la progress bar
+          document.getElementById('submitBtn').click();
+          document.querySelector('label[for="cf_csv"] span:not(#uploadingText)').style.display = 'none'; // Nascondi il testo "Upload"
+        });
+
+        document.querySelector('form').addEventListener('submit', function() {
+          document.getElementById('uploadingText').style.display = 'inline'; // Mostra la scritta "in caricamento" quando il form viene inviato
+        });
+
+
+        document.getElementById('exportCsvBtn').addEventListener('click', function () {
+          const table = document.getElementById('dataTable');
+          const rows = table.querySelectorAll('tr');
+          let csv = [];
+          for (let i = 0; i < rows.length; i++) {
+            let row = [], cols = rows[i].querySelectorAll('td, th');
+            for (let j = 0; j < cols.length; j++) {
+              let cellText = cols[j].textContent.trim().replace(/\n/g, ' ');
+              row.push(cellText);
+            }
+            csv.push(row.join(';'));
+          }
+          const csvData = csv.join('\n');
+          const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+          const link = document.createElement('a');
+          if (navigator.msSaveBlob) { // IE 10+
+            navigator.msSaveBlob(blob, 'EsitoVerificaDURC.csv');
+          } else {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'EsitoVerificaDURC.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+        });
+
+        function hideProgressBarAndShowTable() {
+          document.getElementById('progressBarContainer').style.display = 'none'; // Nascondi la progress bar
+          document.getElementById('dataTable').parentNode.style.display = 'block'; // Mostra la tabella dati
+        }
+
+        // Chiamata a questa funzione quando la tabella dati è pronta
+        {% if data %}
+        hideProgressBarAndShowTable();
+        {% endif %}
+
+
+      </script>
+
+
+      {% endblock %}
