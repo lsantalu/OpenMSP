@@ -1,0 +1,123 @@
+<!-- templates/registration/login.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Clona utente - OpenMSP - Multi Services Portal
+{% endblock %}
+
+
+{% block centered_container %}
+{% if user.is_authenticated %}
+<div class="d-flex justify-content-left col-10 shadow-lg white-bg ps-5 pt-3">
+  <div class="col-8">
+    <h2>Clonazione di un utente</h2>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <br />
+      {{ form.non_field_errors }}
+
+      <div class="row form-group">
+        <div class="select-wrapper">
+
+
+          <label for="scegliUtenteLabel" class="float-start">Utente da clonare</label>
+          <select id="scegliUtente" name="scegliUtente">
+            <option value="">Scegli un utente</option>
+            {% for utente in utenti %}
+            <option value="{{ utente.id }}" {% if utente_selezionato == utente.id%} selected="" {% endif %}>{{ utente.first_name }} {{ utente.last_name }} ({{ utente.username }})</option>
+            {% endfor %}
+          </select>
+
+
+        </div>
+      </div>
+      <legend class="mb-4">Nuovo</legend>
+      <div class="row">
+        <div class="row align-items-center form-group">
+          {{ form.first_name.errors }}
+          <label for="{{ form.first_name.id_for_label }}">Nome*:</label>
+          {{ form.first_name }}
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="row align-items-center form-group">
+          {{ form.last_name.errors }}
+          <label for="{{ form.last_name.id_for_label }}">Cognome*:</label>
+          {{ form.last_name }}
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="row align-items-center form-group">
+          {{ form.username.errors }}
+          <label for="{{ form.username.id_for_label }}">Username*:</label>
+          {{ form.username }}
+        </div>
+      </div>
+      <div class="row">
+        <div class="row align-items-center form-group">
+          {{ form.email.errors }}
+          <label for="{{ form.email.id_for_label }}">Email*:</label>
+          {{ form.email }}
+        </div>
+      </div>
+      <div class="row">
+        <div class="row align-items-center form-group">
+          <label for="{{ form.password1.id_for_label }}">Password*:</label>
+          {{ form.password1 }}
+        </div>
+      </div>
+      <div class="row">
+        <div class="row align-items-center form-group">
+          <label for="{{ form.password2.id_for_label }}">Ripeti password*:</label>
+          {{ form.password2 }}
+        </div>
+      </div>
+
+      <div class="row form-group">
+        {{ form.password1.errors }}
+        {{ form.password2.errors }}
+      </div>
+
+
+      <div class="row">
+        <div class="row align-items-center form-group">
+          <div class="toggles">
+            {{ form.is_active.errors }}
+            <label for="{{ form.is_active.id_for_label }}">Utente attivo:<input type="checkbox" name="{{ form.is_active.id_for_label }}" id="{{ form.is_active.id_for_label }}" {% if form.is_active.value %}checked{% endif %} /><span class="lever"></span></label>
+            {{ form.is_active }}
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="row align-items-center form-group">
+          <div class="toggles">
+            {{ form.is_superuser.errors }}
+            <label for="{{ form.is_superuser.id_for_label }}">Utente amministratore:<input type="checkbox" name="{{ form.is_superuser.id_for_label }}" id="{{ form.is_superuser.id_for_label }}"  {% if form.is_superuser.value %}checked{% endif %} /><span class="lever"></span></label>
+            {{ form.is_superuser }}
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group text-end">
+          <button type="submit" class="btn btn-primary" value="Register">Conferma</button>
+          <a href="{% url 'impostazioni_utenti' %}" class="btn btn-danger">Annulla</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% else %}
+<h4>Utente non loggato</h4>
+<p>Per poter effettuare la registrazione di un nuovo utente devi essere amministratore</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+{% endblock %}

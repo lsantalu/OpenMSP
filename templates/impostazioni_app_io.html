@@ -1,0 +1,125 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Impostazioni App IO - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Impostazioni App IO - connettore API</h3>
+<br>
+{% if user.is_superuser %}
+
+<!-- LOADING OVERLAY -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+</div>
+
+<form class="needs-validation shadow-lg col-10 white-bg p-3 pt-5" id="parametri_appio" method="post">
+  {% csrf_token %}
+  <div class="container">
+    <br>
+    <br>
+    <div class="row">
+      <div class="form-group col-3">
+        <label for="dati_url_api">url API:</label>
+        <input type="text" class="form-control" id="dati_url_api_visibile" name="dati_url_api_visibile" maxlength="150" value="{{ dati_parametro.0.api_url }}" required disabled/>
+        <input type="hidden" name="dati_url_api" id="dati_url_api" value="{{ dati_parametro.0.api_url }}">
+      </div>
+      <div class="form-group col-5">
+        <label for="dati_api_ket_master">API key master:</label>
+        <input type="text" class="form-control" id="dati_api_ket_master" name="dati_api_ket_master" maxlength="32" value="{{ dati_parametro.0.api_key_master }}" required />
+      </div>
+      <div class="form-group col-4">
+        <button class="btn btn-primary float-end" type="submit" name="aggiona_servizi" id="aggiornaServiziBtn">
+          <svg class="icon icon-sm icon-white" aria-hidden="true">
+            <use href="{% static 'svg/sprites.svg' %}#it-exchange-circle"></use>
+          </svg> Aggiorna servizi
+        </button>
+
+      </div>
+
+      <div class="form-group col-9"id="progressBarContainer" style="display: none;">
+        <div class="progress progress-indeterminate">
+          <div class="progress-bar" role="progressbar"></div>
+        </div>
+      </div>
+
+      <div class="accordion p-3 mb-3 accordion-background-active" id="accordionExampleHa">
+        {% for dato_catalogo in dati_catalogo %}
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="heading{{ forloop.counter }}"><button class="accordion-button {% if forloop.counter != 1 %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}" aria-expanded="{% if forloop.counter == 1 %}true{% else %}false{% endif %}" aria-controls="collapse{{ forloop.counter }}">{{ dato_catalogo.argomento }}</button></h2>
+          <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse mt-2" {% if forloop.counter == 1 %}show{% endif %}  data-bs-parent="#accordionExampleHa" role="region" aria-labelledby="heading{{ forloop.counter }}">
+            <div class="accordion-body pb-2">
+              <div class="link-list-wrapper">
+                <ul class="link-list">
+                  {% for dato_servizio in dati_servizio %}
+                  {% if dato_servizio.argomento_id.id == forloop.parentloop.counter %}
+                  <li>
+                    <div class="row ">
+                      <div class="form-check col-7">
+                        <div class="toggles">
+                          <label for="toggle{{ dato_servizio.id }}">
+                            {{ dato_servizio.servizio }}
+                          </label>
+                        </div>
+                      </div>
+                      <div class="form-check col-5">
+                        <div class="form-group mb-3">
+                          <label for="chiave{{ dato_servizio.id }}">Chiave</label>
+                          <input type="text" class="form-control" id="chiave{{ dato_servizio.id }}" name="chiave[{{ dato_servizio.id }}]" maxlength="32" value="{{ dato_servizio.chiave_api }}" readonly />
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                  {% endif %}
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="p-3 mb-2 text-end">
+        <button type="submit" class="btn btn-primary">Salva</button>
+        <a href="{% url 'home' %}" class="btn btn-danger">Annulla</a>
+      </div>
+    </div>
+  </form>
+  {% else %}
+
+
+  <h4>Amministratore non loggato</h4>
+  <p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+  <a href="{% url 'login' %}" class="btn btn-primary">
+    <svg class="icon icon-sm icon-white" aria-hidden="true">
+      <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+    </svg>Accedi
+  </a>
+  {% endif %}
+
+  <!-- - Verifica input text vuoti -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var inputs = document.querySelectorAll('input[type="text"]')
+      inputs.forEach(function (input) {
+        if (input.id !== 'dati_url_api' && input.id !== 'dati_api_ket_master' && input.value.trim() === '') {
+          input.disabled = true
+        }
+      })
+    })
+
+    // Funzione per mostrare l'overlay
+    function showOverlay() {
+      document.getElementById('loadingOverlay').classList.add('show');
+    }
+
+    document.getElementById('aggiornaServiziBtn').addEventListener('click', function() {
+      showOverlay(); // Mostra l'overlay
+    });
+  </script>
+
+  {% endblock %}

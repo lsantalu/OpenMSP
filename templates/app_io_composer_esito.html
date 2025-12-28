@@ -1,0 +1,155 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+App IO composer - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>App IO - Esito invio messaggi Composer</h3>
+<br />
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+{% if data %}
+<div class="col-10 white-bg p-4 shadow">
+  <table id="dataTable" class="table align-middle table-hover table-primary">
+    <thead class="text-center">
+      <tr>
+        <th scope="col">#</th>
+        <th scope="col">CF</th>
+        <th scope="col">Verifica CF</th>
+        <th scope="col">Esito invio</th>
+        <th scope="col">ID/errore</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in data %}
+      <tr {% if row.2 == 1 %}
+      class="table-success"
+      {% elif row.2 == 2 %}
+      class="table-warning"
+      {% else %}
+      class="table-danger"
+      {% endif %}>
+      <td class="text-center">{{ forloop.counter }} </td>
+      <td>{{ row.0 }}</td><!-- CF-->
+      <td class="text-center" >{% if row.1 == 2 %}
+        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-warning-circle">{{row.1}}</use></svg>
+        {% elif row.1 == -1 %}
+        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big">{{row.1}} </use></svg>
+        {% else %}
+        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check">{{row.1}}</use></svg>
+        {% endif %}
+      </td> <!-- check verifica CF-->
+      <td class="text-center">
+        {% if row.2 == 2 or row.2 == 0 %}
+        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-warning-circle">{{row.2}}</use></svg>
+        {% elif row.2 == 1 %}
+        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check">{{row.2}} </use></svg>
+        {% else %}
+        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big">{{row.2}}</use></svg>
+        {% endif %}</td><!-- esito messaggio-->
+        <td>{{ row.3 }}</td> <!-- descrizione errore -->
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="d-flex justify-content">
+    <button type="button" id="exportCsvBtn" class="m-1 btn btn-secondary">
+      <svg class="icon icon-sm icon-light" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+      </svg><span>Esporta CSV</span>
+    </button>
+    <a href="{% url 'app_io_composer_export_excel' %}" class="m-1 btn btn-success">
+      <svg class="icon icon-sm icon-light" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+      </svg>  <span>Esporta Excel</span>
+    </a>
+
+  </div>
+</div>
+
+{% endif %}
+{% else %}
+<div class="col-8 white-bg shadow">
+  <h4>Utente non abilitato</h4>
+  <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+  <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+  <div class="p-3 text-end">
+    <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+  </div>
+</div>
+{% endif %}
+
+{% if error %}
+<p>{{ error }}</p>
+{% endif %}
+
+{% else %}
+<h4>Utente non loggato</h4>
+<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+
+
+<script>
+
+  (function() {
+  function exportTableToCSV(filename) {
+    const table = document.getElementById('dataTable');
+    const rows = table.querySelectorAll('tr');
+    let csv = [];
+    for (let i = 0; i < rows.length; i++) {
+      let row = [], cols = rows[i].querySelectorAll('td, th');
+      for (let j = 0; j < cols.length; j++) {
+        let cellText = cols[j].textContent.trim().replace(/\n/g, ' ');
+        row.push(cellText);
+      }
+      csv.push(row.join(';'));
+    }
+
+    const csvData = csv.join('\n');
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (navigator.msSaveBlob) { // IE 10+
+      navigator.msSaveBlob(blob, 'EsitoAppIoComposer.csv');
+    } else {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'EsitoAppIoComposer.csv');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
+
+  // Delegazione: funziona anche se il DOM viene ricreato dopo il binding
+  document.addEventListener('click', function(e) {
+    const btn = e.target.closest && e.target.closest('#exportCsvBtn');
+    if (!btn) return;
+    e.preventDefault();
+    exportTableToCSV('EsitoDomiciliDigitaliPF.csv');
+  }, false);
+})();
+
+  function hideProgressBarAndShowTable() {
+    document.getElementById('progressBarContainer').style.display = 'none'; // Nascondi la progress bar
+    document.getElementById('dataTable').parentNode.style.display = 'block'; // Mostra la tabella dati
+  }
+
+  // Chiamata a questa funzione quando la tabella dati è pronta
+  {% if data %}
+  hideProgressBarAndShowTable();
+  {% endif %}
+
+</script>
+
+
+{% endblock %}

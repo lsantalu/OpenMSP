@@ -1,0 +1,457 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+App IO - Verifica massiva utenti - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>App IO - Verifica massiva utenti</h3>
+<br />
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+
+
+<!-- LOADING OVERLAY -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+</div>
+
+
+<div class="col-8 shadow-lg white-bg p-4">
+  <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
+    <div class="alert alert-info fs-5" role="alert">Il servizio accetta solo file formato <b>Excel (xlsx)</b> e <b>Libreoffice CSV</b></div>
+    <div class="row">
+      <!-- Campi Obbligatori -->
+      <div class="col-12">
+        <div class="callout callout-highlight success h-100">
+          <div class="callout-title">
+            <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check-circle"></use></svg>
+            Campi Obbligatori
+          </div>
+          <p>Questi dati sono necessari per la ricerca.</p>
+          <ul class="list-unstyled">
+            <li><strong>Colonna (A)</strong> - Codici fiscali (scritti in carattere MAIUSCOLO)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <p class="text-muted">
+        <svg class="icon icon-sm me-1"><use href="{% static 'svg/sprites.svg' %}#it-info-circle"></use></svg>
+        Le informazioni presenti nel file dalla colonna (B) in poi verranno automaticamente scartate.
+      </p>
+    </div>
+    <br />
+    <form class="needs-validation" id="app_io_verifica_massivo" method="post" action="" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div class="accordion mb-5 col-8">
+        <div class="select-wrapper">
+          <label for="defaultSelectGroup"></label>
+          <select id="sceltaServizio" name="sceltaServizio">
+            <option selected="" value="">Scegli il servizio</option>
+            {% for dato_catalogo in dati_catalogo %}
+            <optgroup label="{{ dato_catalogo.argomento }}">
+              {% for dato_servizio in dati_servizio %}
+              {% if dato_servizio.argomento_id.id == forloop.parentloop.counter and dato_servizio.chiave_api %}
+              <option value="{{ dato_servizio.id }}">{{ dato_servizio.servizio }}</option>
+              {% endif %}
+              {% endfor %}
+            </optgroup>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="it-card rounded border shadow-lg mb-4 p-4">
+        <div class="p-3" id="uploadSection">
+          <div id="dropZone">
+            <p class="text-center mb-0">Trascina file qui o<br>
+              <label for="fileInput" class="btn btn-sm btn-primary mt-2"><svg class="icon icon-sm" style="fill: white;" aria-hidden="true">
+                <use href="{% static 'svg/sprites.svg' %}#it-upload"></use>
+              </svg> Seleziona file</label>
+            </p>
+            <input type="file" id="fileInput" name="cf_csv" class="d-none" accept=".csv,.xlsx"></div>
+            <div id="filePreview">
+              <div class="d-flex justify-content-between align-items-center fw-bold col-md-8 offset-md-2 border border-danger rounded p-2">
+                <span id="fileName" class="text-truncate"></span>
+                <button type="button" class="btn btn-sm btn-danger delete-file" id="deleteFileBtn"
+                title="Elimina"> <svg class="icon icon-sm icon-light" aria-hidden="true">
+                  <use href="{% static 'svg/sprites.svg' %}#it-delete"></use>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div id="existingFilesList" class="mt-3">
+            <!-- I file esistenti verranno caricati qui -->
+          </div>
+
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <button type="button" id="executeSearchBtn" class="btn btn-primary" disabled>
+          <svg class="icon icon-sm icon-light" aria-hidden="true">
+            <use href="{% static 'svg/sprites.svg' %}#it-search"></use>
+          </svg>
+          Avvia ricerca
+        </button>
+      </div>
+
+    </form>
+
+  </div>
+
+
+  <div class="row">
+    <div aria-live="polite" id="errorMsgContainer"></div>
+  </div>
+</div>
+</div>
+<br>
+{% if data %}
+
+<div class="col-10 white-bg p-4 shadow">
+  <br>
+  <h4>Verifica servizio: <b>{{ servizioScelto }}</b></h4>
+  <table id="dataTable" class="table align-middle table-hover table-primary">
+    <thead class="text-center">
+      <tr>
+        <th scope="col">#</th>
+        <th scope="col">CF</th>
+        <th scope="col">Verifica</th>
+        <th scope="col">Stato App IO</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in data %}
+      {% with row.split as split_row %}
+      <tr {% if split_row.1 == "2" or split_row.1 == "0"  %}class="table-warning"
+      {% elif split_row.1 == "1" %}class="table-success"
+      {% else %}
+      class="table-danger"
+      {% endif %}>
+
+      <td class="text-center">{{ forloop.counter }}</td>
+      <td>{{ split_row.0 }}</td>
+      <td class="text-center">
+        {% if split_row.1 == "2" or split_row.1 == "0" %}
+        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-minus-circle">{{split_row.1}}</use></svg>
+        {% elif split_row.1 == "1" %}
+        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check">{{split_row.1}}</use></svg>
+        {% elif split_row.1 == "-1" %}
+        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big">{{split_row.1}}</use></svg>
+        {% else %}
+        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-error">{{split_row.1}}</use></svg>
+        {% endif %}</td>
+
+        <td>
+          {% if split_row.1 == "8" %}
+          Utente non trovato
+          {% elif split_row.1 == "1" %}
+          Servizio attivo
+          {% elif split_row.1 == "-1" %}
+          Codice fiscale errato
+          {% elif split_row.1 == "9" %}
+          Errore di comunicazione
+          {% elif split_row.1 == "2" %}
+          Persona minorenne
+          {% elif split_row.1 == "7" %}
+          Richiesta non permessa
+          {% else %}
+          Servizio non attivo
+          {% endif %}</td>
+        </tr>
+        {% endwith %}
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="d-flex justify-content">
+      <button type="button" id="exportCsvBtn" class="m-1 btn btn-secondary">
+        <svg class="icon icon-sm icon-light" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+        </svg><span>Esporta CSV</span>
+      </button>
+      <a href="{% url 'app_io_verifica_massivo_export_excel' %}" class="m-1 btn btn-success">
+        <svg class="icon icon-sm icon-light" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+        </svg>  <span>Esporta Excel</span>
+      </a>
+
+    </div>
+  </div>
+  <br/>
+  {% endif %}
+
+  {% else %}
+  <div class="col-6">
+    <h4>Utente non abilitato</h4>
+    <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+    <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+    <div class="p-3 text-end">
+      <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+    </div></div>
+    {% endif %}
+
+    {% if error %}
+    <p>{{ error }}</p>
+    {% endif %}
+
+    {% else %}
+    <h4>Utente non loggato</h4>
+    <p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+    <a href="{% url 'login' %}" class="btn btn-primary">
+      <svg class="icon icon-sm icon-white" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+      </svg>Accedi
+    </a>
+    {% endif %}
+
+
+    <script>
+
+
+      // Funzione per mostrare l'overlay
+      function showOverlay() {
+        document.getElementById('loadingOverlay').classList.add('show');
+      }
+
+      // Funzione per nascondere l'overlay
+      function hideOverlay() {
+        document.getElementById('loadingOverlay').classList.remove('show');
+      }
+
+      document.querySelector('form').addEventListener('submit', function() {
+        showOverlay(); // Mostra l'overlay
+      });
+
+      function toggleUploadButton() {
+        var selectServizio = document.getElementById('sceltaServizio');
+        var executeBtn = document.getElementById('executeSearchBtn');
+        var cfInput = document.getElementById('cf_csv');
+
+        // Controlla se è selezionato un servizio e se è stato caricato un file
+        if (selectServizio.value === '' || !currentFile) {
+          executeBtn.disabled = true;
+        } else {
+          executeBtn.disabled = false;
+        }
+      }
+
+      document.getElementById('sceltaServizio').addEventListener('change', toggleUploadButton);
+
+      toggleUploadButton(); // Call the function on page load
+
+
+      (function() {
+  function exportTableToCSV(filename) {
+        const table = document.getElementById('dataTable');
+        const rows = table.querySelectorAll('tr');
+        let csv = [];
+        for (let i = 0; i < rows.length; i++) {
+          let row = [], cols = rows[i].querySelectorAll('td, th');
+          for (let j = 0; j < cols.length; j++) {
+            let cellText = cols[j].textContent.trim().replace(/\n/g, ' ');
+            row.push(cellText);
+          }
+          csv.push(row.join(';'));
+        }
+        const csvData = csv.join('\n');
+        const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        if (navigator.msSaveBlob) { // IE 10+
+          navigator.msSaveBlob(blob, 'EsitoVerificaServizioAppIO.csv');
+        } else {
+          const url = URL.createObjectURL(blob);
+          link.setAttribute('href', url);
+          link.setAttribute('download', 'EsitoVerificaServizioAppIO.csv');
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      }
+
+  // Delegazione: funziona anche se il DOM viene ricreato dopo il binding
+  document.addEventListener('click', function(e) {
+    const btn = e.target.closest && e.target.closest('#exportCsvBtn');
+    if (!btn) return;
+    e.preventDefault();
+    exportTableToCSV('EsitoDomiciliDigitaliPF.csv');
+  }, false);
+})();
+
+      function hideOverlaySpinner() {
+        hideOverlay(); // Nasconde l'overlay
+        document.getElementById('dataTable').parentNode.style.display = 'block'; // Mostra la tabella dati
+      }
+
+      // Chiamata a questa funzione quando la tabella dati è pronta
+      {% if data %}
+      hideProgressBarAndShowTable();
+      {% endif %}
+
+    </script>
+
+    <script>
+
+      // Funzione per mostrare l'overlay
+      function showOverlay() {
+        document.getElementById('loadingOverlay').classList.add('show');
+      }
+
+      // Funzione per nascondere l'overlay
+      function hideOverlay() {
+        document.getElementById('loadingOverlay').classList.remove('show');
+      }
+
+      (function() {
+        const uploadSection = document.getElementById('uploadSection');
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const filePreview = document.getElementById('filePreview');
+        const fileName = document.getElementById('fileName');
+        const deleteBtn = document.getElementById('deleteFileBtn');
+        const executeBtn = document.getElementById('executeSearchBtn');
+        const selectServizio = document.getElementById('sceltaServizio');
+        let currentFile = null;
+
+        // Formati consentiti
+        const allowedExtensions = [".csv", ".xlsx"];
+
+        // Funzione per disabilitare o abilitare il bottone
+        function toggleUploadButton() {
+          // Verifica se è selezionato un servizio e se è stato caricato un file
+          if (selectServizio.value === '' || !currentFile) {
+            executeBtn.disabled = true;
+          } else {
+            executeBtn.disabled = false;
+          }
+        }
+
+        // Disabilita il bottone inizialmente
+        toggleUploadButton();
+
+        // Aggiungi evento di cambio nella selezione del servizio
+        selectServizio.addEventListener('change', toggleUploadButton);
+
+        // Aggiungi evento di caricamento del file
+        fileInput.addEventListener('change', handleFileSelect, false);
+
+        // Gestione eventi drag & drop
+        function preventDefaults(e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, preventDefaults, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, () => {
+                uploadSection.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, () => {
+                uploadSection.classList.remove('dragover');
+            }, false);
+        });
+
+        document.getElementById('executeSearchBtn').addEventListener('click', function() {
+          showOverlay(); // Mostra l'overlay
+          document.getElementById('dataTable').parentNode.style.display = 'none'; // Nasconde la tabella
+        });
+
+        uploadSection.addEventListener('drop', handleDrop, false);
+        fileInput.addEventListener('change', handleFileSelect, false);
+
+
+        function handleDrop(e) {
+          const dt = e.dataTransfer;
+          const files = dt.files;
+          handleFiles(files);
+        }
+
+        // Gestisce la selezione del file
+        function handleFileSelect(e) {
+          const files = e.target.files;
+          handleFiles(files);
+        }
+
+        function handleFiles(files) {
+          if (files.length > 0) {
+            const file = files[0];
+            if (isValidFile(file)) {
+              currentFile = file;
+              showFilePreview(currentFile);
+            } else {
+              alert("Formato file non consentito! Puoi caricare solo CSV o Excel (.xlsx)");
+              resetUpload();
+            }
+          }
+          toggleUploadButton(); // Verifica lo stato del bottone
+        }
+
+        function isValidFile(file) {
+          const fileName = file.name.toLowerCase();
+          return allowedExtensions.some(ext => fileName.endsWith(ext));
+        }
+
+        function showFilePreview(file) {
+          fileName.textContent = file.name;
+          filePreview.style.display = 'block';
+          dropZone.style.display = 'none';
+          executeBtn.disabled = false; // Abilita ricerca
+        }
+
+        deleteBtn.addEventListener('click', function() {
+          resetUpload();
+          toggleUploadButton(); // Disabilita il bottone quando il file viene rimosso
+        });
+
+        function resetUpload() {
+          currentFile = null;
+          filePreview.style.display = 'none';
+          dropZone.style.display = 'block';
+          executeBtn.disabled = true;
+          fileInput.value = '';
+        }
+
+        // Invio AJAX al backend
+        executeBtn.addEventListener('click', () => {
+          if (!currentFile || selectServizio.value === '') return; // Verifica che ci sia sia un file che un servizio
+
+          const formData = new FormData();
+          formData.append('cf_csv', currentFile);
+          formData.append('sceltaServizio', selectServizio.value); // Aggiungi il valore del servizio al FormData
+
+          // Esegui la richiesta AJAX
+          fetch("", {
+            method: "POST",
+            body: formData,
+            headers: {
+              "X-CSRFToken": "{{ csrf_token }}" // Include il token CSRF
+            }
+          })
+          .then(response => response.text())
+          .then(html => {
+            document.body.innerHTML = html; // aggiorna con i risultati
+          })
+          .catch(err => console.error("Errore:", err));
+        });
+
+
+      })();
+
+
+
+    </script>
+
+
+    {% endblock %}

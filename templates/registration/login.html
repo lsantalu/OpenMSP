@@ -1,0 +1,52 @@
+<!-- templates/registration/login.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Login - OpenMSP - Multi Services Portal
+{% endblock %}
+
+<!-- NOTE: Aggiungere accesso a 2 fattori con authenticator -->
+{% block centered_container %}
+<div class="col-8 shadow-lg white-bg p-4">
+  <h2>Accedi a OpenMSP</h2>
+  <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <div class="row">
+        <div class="row align-items-center">
+          {{ form.username.errors }}
+          <label for="{{ form.username.id_for_label }}">Username:</label>
+          {{ form.username }}
+        </div>
+      </div>
+      <div class="row">
+        <div class="row align-items-center">
+          {{ form.password.errors }}
+          <label for="{{ form.password.id_for_label }}">Password:</label>
+          {{ form.password }}
+        </div>
+      </div>
+      <br />
+      <div class="row">
+        <!-- NOTE: Se utente disabilitato cerca di entrare, deve apparire un popup che avvisa dello stato di disabilitato e contattare amministratore -->
+        <div class="form-group">
+          <button type="submit" class="btn btn-primary">
+            <svg class="icon icon-sm icon-white" aria-hidden="true">
+              <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+            </svg>Accedi
+          </button>
+          <a href="{% url 'password_reset' %}" class="btn btn-danger">
+            <svg class="icon icon-sm icon-white" aria-hidden="true">
+              <use href="{% static 'svg/sprites.svg' %}#it-help-circle"></use>
+            </svg>Password dimenticata
+          </a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+</div>
+{% endblock %}

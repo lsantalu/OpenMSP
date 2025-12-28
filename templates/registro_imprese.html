@@ -1,0 +1,584 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% load custom_filters %}
+
+{% block page_title %}
+Registro imprese - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Registro Imprese CCIAA</h3>
+<h4>Ricerca singola</h4>
+<br />
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+<div class="col-8 shadow-lg white-bg p-4">
+  <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
+    <form class="needs-validation" id="registro_imprese" method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="input_CF">Inserisci il Codice Fiscale azienda</label>
+        <input type="text" class="form-control" id="input_CF" name="input_CF" minlength="11" maxlength="16"
+          oninput="this.value = this.value.toUpperCase();" required />
+      </div>
+      <div>
+        <button class="btn btn-primary" type="submit">
+          <svg class="icon icon-sm icon-white" aria-hidden="true">
+            <use href="{% static 'svg/sprites.svg' %}#it-search"></use>
+          </svg>Avvia ricerca
+        </button>
+      </div>
+    </form>
+    <div class="row">
+      <div aria-live="polite" id="errorMsgContainer"></div>
+    </div>
+  </div>
+</div>
+
+<br />
+{% if data %}
+<div class="col-12 col-lg-10 shadow-lg white-bg p-4">
+
+  {% if 'Codice fiscale non corretto' in data.1 %}
+  <div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <strong>Attenzione</strong> Codice fiscale non corretto.
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+  {% endif %}
+
+  <h3 class="mb-4">Registro imprese di <b>{{ data.0 }}</b></h3>
+
+  {% if 'Codice fiscale non corretto' in data.1 %}
+    <!-- Alert already shown above -->
+  {% elif not dati_identificativi %}
+  <div class="alert alert-warning" role="alert">
+    <strong>Attenzione</strong> Ditta non presente.
+  </div>
+  {% else %}
+  <div id="dati-impresa" class="dati-impresa">
+    
+    <!-- Dati Identificativi -->
+    <div class="card-wrapper card-space mb-4">
+      <div class="card card-bg">
+        <div class="card-body">
+          <h5 class="card-title">Dati Identificativi</h5>
+          <dl class="row">
+            {% for key, value in dati_identificativi.items %}
+            {% if 'Forma_giuridica' in key %}
+            <dt class="col-sm-4">Forma giuridica</dt>
+            <dd class="col-sm-8">{{ dati_identificativi.Forma_giuridica.Testo }}</dd>
+            {% elif 'Indirizzo' in key %}
+            <dt class="col-sm-4">Indirizzo</dt>
+            <dd class="col-sm-8">
+              {{ dati_identificativi.Indirizzo.toponimo }} {{ dati_identificativi.Indirizzo.via }} {{ dati_identificativi.Indirizzo.n_civico }} - {{ dati_identificativi.Indirizzo.CAP }}, {{ dati_identificativi.Indirizzo.Comune }} ({{ dati_identificativi.Indirizzo.Provincia }})
+            </dd>
+            {% else %}
+            <dt class="col-sm-4">{{ key }}</dt>
+            <dd class="col-sm-8">{{ value }}</dd>
+            {% endif %}
+            {% endfor %}
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info Attività -->
+    {% if info_attivita %}
+    <div class="card-wrapper card-space mb-4">
+      <div class="card card-bg">
+        <div class="card-body">
+          <h5 class="card-title">Info Attività</h5>
+          <dl class="row">
+            {% for key, value in info_attivita.items %}
+            {% if not value.items %}
+            <dt class="col-sm-4">{{ key }}</dt>
+            <dd class="col-sm-8">{{ value }}</dd>
+            {% endif %}
+            {% endfor %}
+          </dl>
+
+          {% if info_attivita.Classificazioni_ATECO %}
+          <h6 class="mt-3">Classificazioni ATECO</h6>
+          <div class="accordion" id="accordionAteco">
+            {% for key, value in info_attivita.Classificazioni_ATECO.items %}
+            {% if 'classificazione_ateco' in key %}
+            {% for item in info_attivita.Classificazioni_ATECO.classificazione_ateco %}
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="headingAteco{{ forloop.counter }}">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAteco{{ forloop.counter }}" aria-expanded="false" aria-controls="collapseAteco{{ forloop.counter }}">
+                  ATECO {{ item|get_item:"Codice attività" }}
+                </button>
+              </h2>
+              <div id="collapseAteco{{ forloop.counter }}" class="accordion-collapse collapse" aria-labelledby="headingAteco{{ forloop.counter }}" data-bs-parent="#accordionAteco">
+                <div class="accordion-body">
+                  <dl class="row">
+                    {% for subkey, subvalue in item.items %}
+                    <dt class="col-sm-4">{{ subkey }}</dt>
+                    <dd class="col-sm-8">{{ subvalue }}</dd>
+                    {% endfor %}
+                  </dl>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="row">
+                <div class="col-sm-4 fw-bold">{{ key }}</div>
+                <div class="col-sm-8">{{ value }}</div>
+            </div>
+            {% endif %}
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Albi Ruoli Licenze Ridotti -->
+    {% if albi_ruoli_licenze_ridotti %}
+    <div class="card-wrapper card-space mb-4">
+      <div class="card card-bg">
+        <div class="card-body">
+          <h5 class="card-title">Albi Ruoli Licenze Ridotti</h5>
+          <ul class="list-group list-group-flush">
+            {% for key, value in albi_ruoli_licenze_ridotti.items %}
+            {% for sub_key, sub_value in value.items %}
+            <li class="list-group-item">
+              <strong>{{ sub_key }}</strong>
+              <ul class="mt-2">
+                {% for sub_sub_key, sub_sub_value in sub_value.items %}
+                <li>{{ sub_sub_key }}: <strong>{{ sub_sub_value }}</strong></li>
+                {% endfor %}
+                {% for item in sub_value %}
+                {% for sub_sub_key, sub_sub_value in item.items %}
+                <li>{{ sub_sub_key }}: <strong>{{ sub_sub_value }}</strong></li>
+                {% endfor %}
+                <hr class="my-2" />
+                {% endfor %}
+              </ul>
+            </li>
+            {% endfor %}
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Soggetti -->
+    {% if persone_sede %}
+    <div class="card-wrapper card-space mb-4">
+      <div class="card card-bg">
+        <div class="card-body">
+          <h5 class="card-title">Soggetti</h5>
+          <div class="accordion" id="accordionSoggetti">
+            {% for p in persone_sede.persona|to_list %}
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="headingSoggetto{{ forloop.counter }}">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSoggetto{{ forloop.counter }}" aria-expanded="false" aria-controls="collapseSoggetto{{ forloop.counter }}">
+                  {% with pf=p|get_item:"Persona fisica" %}
+                  {{ pf.Cognome }} {{ pf.Nome }}
+                  {% endwith %}
+                </button>
+              </h2>
+              <div id="collapseSoggetto{{ forloop.counter }}" class="accordion-collapse collapse" aria-labelledby="headingSoggetto{{ forloop.counter }}" data-bs-parent="#accordionSoggetti">
+                <div class="accordion-body">
+                  {% with pf=p|get_item:"Persona fisica" %}
+                  <p><strong>CF:</strong> {{ pf|get_item:"Codice fiscale dell'impresa" }} - <strong>Nato il:</strong> {{ pf|get_item:"Estremi di nascita"|get_item:"Data" }}</p>
+                  {% endwith %}
+                  
+                  {% with empty1=p|get_item:"" %}
+                  {% with empty2=empty1|get_item:"" %}
+                  <ul class="list-unstyled">
+                    {% for item in empty2|to_list %}
+                    {% if item.Cariche %}
+                    <li class="mb-2">
+                      <span class="badge bg-primary">Carica</span> <strong>{{ item.Cariche.Carica.Testo }}</strong> ({{ item.Cariche.Carica|get_item:"Codice carica" }})
+                    </li>
+                    {% endif %}
+                    {% if item|get_item:"Poteri persona" %}
+                    <li class="mb-2">
+                      <span class="badge bg-secondary">Poteri</span> {{ item|get_item:"Poteri persona"|get_item:"Testo"|linebreaks }}
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                  </ul>
+                  {% endwith %}
+                  {% endwith %}
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Localizzazioni -->
+    {% if localizzazioni %}
+    <div class="card-wrapper card-space mb-4">
+      <div class="card card-bg">
+        <div class="card-body">
+          <h5 class="card-title">Localizzazioni</h5>
+          <div class="accordion" id="accordionLocalizzazioni">
+            {% for loc in localizzazioni.localizzazione|to_list %}
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="headingLoc{{ forloop.counter }}">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseLoc{{ forloop.counter }}" aria-expanded="false" aria-controls="collapseLoc{{ forloop.counter }}">
+                  {{ loc.Indirizzo.Comune }} ({{ loc.Indirizzo.Provincia }})
+                </button>
+              </h2>
+              <div id="collapseLoc{{ forloop.counter }}" class="accordion-collapse collapse" aria-labelledby="headingLoc{{ forloop.counter }}" data-bs-parent="#accordionLocalizzazioni">
+                <div class="accordion-body">
+                  <p><strong>Data apertura:</strong> {{ loc|get_item:"Data apertura" }}</p>
+                  {% with ind=loc.Indirizzo %}
+                  <p><strong>Indirizzo:</strong> {{ ind.Toponimo }} {{ ind.via }} {{ ind.n_civico }} - {{ ind.CAP }} {{ ind.Comune }} ({{ ind.Provincia }})</p>
+                  {% endwith %}
+                  {% if loc|get_item:"Descrizione dell'attività esercitata" %}
+                  <p><strong>Attività:</strong> {{ loc|get_item:"Descrizione dell'attività esercitata"|linebreaks }}</p>
+                  {% endif %}
+                  
+                  {% if loc.Classificazioni_ATECO %}
+                  <h6 class="mt-3">ATECO</h6>
+                  <ul class="list-unstyled">
+                    {% for ateco in loc.Classificazioni_ATECO.classificazione_ateco|to_list %}
+                    <li>
+                      <span class="badge bg-info">{{ ateco|get_item:"Codice attività" }}</span> {{ ateco|get_item:"Attività" }} ({{ ateco.Importanza }})
+                    </li>
+                    {% endfor %}
+                  </ul>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Elenco Soci -->
+    {% if elenco_soci %}
+    <div class="card-wrapper card-space mb-4">
+      <div class="card card-bg">
+        <div class="card-body">
+          <h5 class="card-title">Elenco Soci</h5>
+          <ul class="list-group list-group-flush">
+            {% for key, value in elenco_soci.items %}
+            {% if value.items %}
+            {% for subkey, subvalue in value.items %}
+            {% for item in subvalue %}
+            <li class="list-group-item">
+              <strong>{{ subkey }}</strong>
+              <ul class="mt-2">
+                {% for itemkey, itemvalue in item.items %}
+                <li>
+                  {{ itemkey }}:
+                  <ul>
+                    {% for sub_subkey, sub_subvalue in itemvalue.items %}
+                    {% if sub_subvalue.items %}
+                    {% for sub_sub_subkey, sub_sub_subvalue in sub_subvalue.items %}
+                    <li>
+                      {{ sub_sub_subkey }}:
+                      <ul>
+                        {% for sub_sub_sub_subkey, sub_sub_sub_subvalue in sub_sub_subvalue.items %}
+                        <li>{{ sub_sub_sub_subkey }}: <strong>{{ sub_sub_sub_subvalue }}</strong></li>
+                        {% endfor %}
+                      </ul>
+                    </li>
+                    {% endfor %}
+                    {% else %}
+                    {% if 'Titolare' in sub_subkey %}
+                    {% for oggetti in sub_subvalue %}
+                    {% for k_subkey, k_subvalue in oggetti.items %}
+                    <li>
+                      {{ k_subkey }}:
+                      <ul>
+                        {% for sub_k_subkey, sub_k_subvalue in k_subvalue.items %}
+                        <li>{{ sub_k_subkey }}: <strong>{{ sub_k_subvalue }}</strong></li>
+                        {% endfor %}
+                      </ul>
+                    </li>
+                    {% endfor %}
+                    <hr />
+                    {% endfor %}
+                    {% else %}
+                    <li>{{ sub_subkey }}: <strong>{{ sub_subvalue }}</strong></li>
+                    {% endif %}
+                    {% endif %}
+                    {% endfor %}
+                  </ul>
+                </li>
+                {% endfor %}
+              </ul>
+            </li>
+            {% endfor %}
+            {% endfor %}
+            {% else %}
+            <li class="list-group-item">{{ key }}: <strong>{{ value }}</strong></li>
+            {% endif %}
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Info Statuto -->
+    {% if info_statuto %}
+    <div class="card-wrapper card-space mb-4">
+      <div class="card card-bg">
+        <div class="card-body">
+          <h5 class="card-title">Informazioni sullo Statuto</h5>
+          <ul class="list-unstyled">
+            <li>
+              <strong>Durata società</strong>
+              <ul id="durata_societa">
+                {% for key, value in info_statuto.items %}
+                {% for subkey, subvalue in value.items %}
+                {% for sub_subkey, sub_subvalue in subvalue.items %}
+                <li>{{ sub_subkey }}: <strong>{{ sub_subvalue }}</strong></li>
+                {% endfor %}
+                {% endfor %}
+                {% endfor %}
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Amministrazione e Controllo -->
+    {% if amministrazione_controllo %}
+    <div class="card-wrapper card-space mb-4">
+      <div class="card card-bg">
+        <div class="card-body">
+          <h5 class="card-title">Amministrazione e Controllo</h5>
+          <dl class="row">
+            {% for key, value in amministrazione_controllo.items %}
+            {% if 'Forma di amministrazione' in key %}
+            <dt class="col-sm-4">{{ key }}</dt>
+            <dd class="col-sm-8">{{ value.forma_amministrativa.text }}</dd>
+            {% elif 'Collegio sindacale' in key %}
+            <dt class="col-sm-4">Collegio sindacale</dt>
+            <dd class="col-sm-8">
+              <ul class="list-unstyled mb-0">
+                <li>Numero effettivi: <strong>{{ value.n_effettivi }}</strong></li>
+                <li>Numero supplenti: <strong>{{ value.n_supplenti }}</strong></li>
+              </ul>
+            </dd>
+            {% else %}
+            <dt class="col-sm-4">{{ key }}</dt>
+            <dd class="col-sm-8">{{ value.text }}</dd>
+            {% endif %}
+            {% endfor %}
+          </dl>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Info Patrimoniali e Finanziarie -->
+    {% if info_patrimoniali_finanziarie %}
+    <div class="card-wrapper card-space mb-4">
+      <div class="card card-bg">
+        <div class="card-body">
+          <h5 class="card-title">Informazioni Patrimoniali e Finanziarie</h5>
+          <ul class="list-group list-group-flush">
+            {% for key, value in info_patrimoniali_finanziarie.items %}
+            <li class="list-group-item">
+              <strong>Capitale sociale</strong>
+              <ul class="mt-2">
+                {% for subkey, subvalue in value.items %}
+                {% if 'Deliberato' in subkey or 'Sottoscritto' in subkey or 'Versato' in subkey %}
+                <li>{{ subkey }}: <strong>{{ subvalue.Ammontare }}</strong></li>
+                {% else %}
+                <li>{{ subkey }}: <strong>{{ subvalue }}</strong></li>
+                {% endif %}
+                {% endfor %}
+              </ul>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Procedure concorsuali -->
+    {% if scritta_pco_s %}
+    <div class="card-wrapper card-space mb-4">
+      <div class="card card-bg">
+        <div class="card-body">
+          <h5 class="card-title">Procedure concorsuali</h5>
+          <dl class="row">
+            {% for key, value in scritta_pco_s.items %}
+            <dt class="col-sm-4">{{ key }}</dt>
+            <dd class="col-sm-8">{{ value }}</dd>
+            {% endfor %}
+          </dl>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <br />
+  <div class="row">
+    <div class="col-6 mb-4">
+      <button id="printButton" class="btn btn-secondary">
+        <svg class="icon icon-sm icon-white" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-print"></use>
+        </svg>Stampa ricerca
+      </button>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="accordion p-3 mb-5 accordion-background-active" id="accordionExampleHa">
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="heading"><button class="accordion-button collapsed" type="button"
+          data-bs-toggle="collapse" data-bs-target="#collapse" aria-expanded="false" aria-controls="collapse">Dettaglio
+          interrogazione</button></h2>
+      <div id="collapse" class="accordion-collapse collapse" data-bs-parent="#accordionExampleHa" role="region"
+        aria-labelledby="heading">
+        <div class="accordion-body">
+          <div class="link-list-wrapper">
+            <pre id="json-display"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% else %}
+<div class="col-6">
+  <h4>Utente non abilitato</h4>
+  <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+  <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+  <div class="p-3 text-end">
+    <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+  </div>
+</div>
+{% endif %}
+{% else %}
+<h4>Utente non loggato</h4>
+<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+
+<script>
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Il campo "Codice Fiscale" è da controllare.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
+    const errorWrapper = document.querySelector('#errorMsgContainer')
+    const validate = new bootstrap.FormValidate('#registro_imprese', {
+      errorFieldCssClass: 'is-invalid',
+      errorLabelCssClass: 'form-feedback',
+      errorLabelStyle: '',
+      focusInvalidField: false
+    })
+    validate
+      .addField('#input_CF', [
+        {
+          rule: 'required',
+          errorMessage: 'Questo campo è richiesto'
+        },
+        {
+          rule: 'minLength',
+          value: 11,
+          errorMessage: 'Il C.F. deve avere 11 o 16 caratteri'
+        },
+        {
+          rule: 'maxLength',
+          value: 16,
+          errorMessage: 'Il C.F. deve avere 11 o 16 caratteri'
+        },
+        {
+          rule: 'customRegexp',
+          value: '^(?:[0-9]{11}|[a-zA-Z]{6}[0-9]{2}[a-zA-Z][0-9]{2}[a-zA-Z][0-9]{3}[a-zA-Z])$', // Nuova espressione regolare per CF o PIVA
+          errorMessage: 'Il C.F. o la Partita IVA non sono validi'
+        }
+      ])
+      .onSuccess(() => {
+        document.forms['registro_imprese'].submit()
+      })
+      .onFail((fields) => {
+        errorWrapper.innerHTML = ''
+        errorWrapper.innerHTML = errorMessage
+      })
+  })
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const printButton = document.getElementById('printButton');
+
+    printButton.addEventListener('click', function () {
+      const user = '{{ user.username }}';
+      const pageTitle = document.title;
+      const currentDate = new Date();
+      const formattedDate = currentDate.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const formattedTime = currentDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+      const printWindow = window.open('', '', 'height=600,width=800');
+
+      let printContent = '<html><head><title>Ricerca Registro Imprese</title>';
+      printContent += '<style>';
+      printContent += '.dati-impresa { border: 1px solid black; margin-bottom: 20px; padding: 10px; }';
+      printContent += 'body { font-family: Arial, sans-serif; }';
+      printContent += '.header { margin-bottom: 20px; }';
+      printContent += '.header h3 { margin: 0; text-decoration: underline; }';
+      printContent += 'h5 { margin: 0; text-decoration: underline; font-size: 1.225em; }';
+      printContent += '.header p { margin: 0; }';
+      printContent += 'hr { border: none; border-top: 1px solid black; margin: 10px 0; }';
+      printContent += '</style>';
+      printContent += '</head><body>';
+
+      printContent += '<div class="header">';
+      printContent += `<h3>${pageTitle}</h3>`;
+      printContent += `<p>Richiesta effettuata da: <b>${user}</b></p>`;
+      printContent += `<p>Data: <b>${formattedDate}</b> Ora: <b>${formattedTime}</b></p>`;
+      printContent += '<hr>';
+      printContent += '</div>';
+
+      const cardWrappers = document.querySelectorAll('.dati-impresa');
+
+      cardWrappers.forEach(wrapper => {
+        const cardClone = wrapper.cloneNode(true); // Cloniamo il contenuto della card
+        const topIcon = cardClone.querySelector('.it-card-image-wrapper'); // Selezioniamo la classe da rimuovere
+        if (topIcon) {
+          topIcon.remove(); // Rimuoviamo l'elemento con la classe "top-icon"
+        }
+        printContent += cardClone.outerHTML; // Aggiungiamo il contenuto modificato alla finestra di stampa
+      });
+
+      printContent += '</body></html>';
+
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    });
+  });
+
+  // Ottieni il JSON passato dal contesto Django
+  const responseJson = {{ data| safe }};
+
+  // Formatta e visualizza il JSON
+  document.getElementById('json-display').textContent = JSON.stringify(responseJson, null, 4);
+
+</script>
+{% endblock %}

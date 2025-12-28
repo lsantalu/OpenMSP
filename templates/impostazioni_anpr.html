@@ -1,0 +1,145 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Impostazioni ANPR - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3 id="page-title">Impostazioni ANPR</h3>
+<br />
+{% if user.is_authenticated %}
+
+<form class="needs-validation shadow-lg col-10 white-bg" id="parametri_anpr" method="post">
+  {% csrf_token %}
+  <div class="container">
+    <ul class="nav nav-tabs nav-tabs-cards neutral-2-bg p-4 shadow" id="sceltaAnpr" role="tablist">
+      {% for servizio_anpr in servizi_anpr %}
+      <li class="nav-item">
+        <a class="nav-link {% if servizio_anpr.id == 1 %}active {% endif %}" id="tab{{ servizio_anpr.id }}-tab" data-bs-toggle="tab" href="#tab{{ servizio_anpr.id }}" role="tab" aria-controls="tab{{ servizio_anpr.id }}" aria-selected="false">{{ servizio_anpr.servizio }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <div class="tab-content" id="myTabContent">
+      <br />
+      {% for servizio_anpr in servizi_anpr %}
+      {% for parametro_anpr in parametri_anpr %}
+      {% if parametro_anpr.id == forloop.parentloop.counter %}
+      <div class="tab-pane p-4 fade {% if servizio_anpr.id == 1 %}show active {% endif %}" id="tab{{ servizio_anpr.id }}" role="tabpanel" aria-labelledby="tab{{ servizio_anpr.id }}-tab">
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="kid{{ servizio_anpr.id }}">kid (keyid):</label>
+            <input type="text" class="form-control" id="kid{{ servizio_anpr.id }}" name="kid{{ servizio_anpr.id }}" maxlength="43" value="{{ parametro_anpr.kid }}" required />
+          </div>
+          <div class="form-group col-6">
+            <label for="alg{{ servizio_anpr.id }}">alg:</label>
+            <input type="text" class="form-control" id="alg{{ servizio_anpr.id }}_visibile" name="alg{{ servizio_anpr.id }}_visibile" maxlength="10" value="{{ parametro_anpr.alg }}" required disabled/>
+            <input type="hidden" name="alg{{ servizio_anpr.id }}" id="alg{{ servizio_anpr.id }}" value="{{ parametro_anpr.alg }}">
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="typ{{ servizio_anpr.id }}">typ:</label>
+            <input type="text" class="form-control" id="typ{{ servizio_anpr.id }}_visibile" name="typ{{ servizio_anpr.id }}_visibile" maxlength="10" value="{{ parametro_anpr.typ }}" required disabled/>
+            <input type="hidden" name="typ{{ servizio_anpr.id }}" id="typ{{ servizio_anpr.id }}" value="{{ parametro_anpr.typ }}">
+          </div>
+          <div class="form-group col-6">
+            <label for="iss{{ servizio_anpr.id }}">iss:</label>
+            <input type="text" class="form-control" id="iss{{ servizio_anpr.id }}" name="iss{{ servizio_anpr.id }}" maxlength="36" value="{{ parametro_anpr.iss }}" required />
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="sub{{ servizio_anpr.id }}">sub:</label>
+            <input type="text" class="form-control" id="sub{{ servizio_anpr.id }}" name="sub{{ servizio_anpr.id }}" maxlength="36" value="{{ parametro_anpr.sub }}" required />
+          </div>
+          <div class="form-group col-6">
+            <label for="aud{{ servizio_anpr.id }}">aud assertion:</label>
+            <input type="text" class="form-control" id="aud{{ servizio_anpr.id }}_visibile" name="aud{{ servizio_anpr.id }}_visibile" maxlength="150" value="{{ parametro_anpr.aud }}" required disabled/>
+            <input type="hidden" name="aud{{ servizio_anpr.id }}" id="aud{{ servizio_anpr.id }}" value="{{ parametro_anpr.aud }}">
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="purposeid{{ servizio_anpr.id }}">purposeid:</label>
+            <input type="text" class="form-control" id="purposeid{{ servizio_anpr.id }}" name="purposeid{{ servizio_anpr.id }}" maxlength="36" value="{{ parametro_anpr.purposeid }}" required />
+          </div>
+          <div class="form-group col-6">
+            <label for="audience{{ servizio_anpr.id }}">audience:</label>
+            <input type="text" class="form-control" id="audience{{ servizio_anpr.id }}_visibile" name="audience{{ servizio_anpr.id }}_visibile" maxlength="150" value="{{ parametro_anpr.audience }}" required disabled/>
+            <input type="hidden" name="audience{{ servizio_anpr.id }}" id="audience{{ servizio_anpr.id }}" value="{{ parametro_anpr.audience }}">
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="baseurlauth{{ servizio_anpr.id }}">baseurlauth:</label>
+            <input type="text" class="form-control" id="baseurlauth{{ servizio_anpr.id }}_visibile" name="baseurlauth{{ servizio_anpr.id }}_visibile" maxlength="150" value="{{ parametro_anpr.baseurlauth }}" required disabled/>
+            <input type="hidden" name="baseurlauth{{ servizio_anpr.id }}" id="baseurlauth{{ servizio_anpr.id }}" value="{{ parametro_anpr.baseurlauth }}">
+
+          </div>
+          <div class="form-group col-6">
+            <label for="target{{ servizio_anpr.id }}">target:</label>
+            <input type="text" class="form-control" id="target{{ servizio_anpr.id }}_visibile" name="target{{ servizio_anpr.id }}_visibile" maxlength="150" value="{{ parametro_anpr.target }}" required disabled/>
+            <input type="hidden" name="target{{ servizio_anpr.id }}" id="target{{ servizio_anpr.id }}" value="{{ parametro_anpr.target }}">
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="clientid{{ servizio_anpr.id }}">clientid:</label>
+            <input type="text" class="form-control" id="clientid{{ servizio_anpr.id }}" name="clientid{{ servizio_anpr.id }}" maxlength="50" value="{{ parametro_anpr.clientid }}" required />
+          </div>
+          <div class="form-group col-6">
+            <label for="ver_eservice{{ servizio_anpr.id }}">versione e-service:</label>
+            <input type="text" class="form-control" id="ver_eservice{{ servizio_anpr.id }}_visibile" name="ver_eservice{{ servizio_anpr.id }}_visibile" maxlength="10" value="{{ parametro_anpr.ver_eservice }}" required disabled/>
+            <input type="hidden" name="ver_eservice{{ servizio_anpr.id }}" id="ver_eservice{{ servizio_anpr.id }}" value="{{ parametro_anpr.ver_eservice }}">
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-10 shadow">
+            <label for="private_key{{ servizio_anpr.id }}">private key:</label>
+            <textarea class="form-control font-monospace" id="private_key{{ servizio_anpr.id }}" name="private_key{{ servizio_anpr.id }}" rows="10" maxlength="2500" required>{{ parametro_anpr.private_key }}</textarea>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+  <div class="p-3 mb-5 text-end">
+    <button type="submit" class="btn btn-primary">Salva</button>
+    <a href="{% url 'home' %}" class="btn btn-danger">Annulla</a>
+  </div>
+</form>
+{% else %}
+<h4>Utente non loggato</h4>
+<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+
+
+<script>
+  document.addEventListener('DOMContentLoaded', (event) => {
+    const hash = window.location.hash;
+    if (hash) {
+      const tabLink = document.querySelector(`a[href="${hash}"]`);
+      const tabPane = document.querySelector(hash);
+      if (tabLink && tabPane) {
+        const tabTrigger = new bootstrap.Tab(tabLink);
+        tabTrigger.show();
+        setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: 'auto' });
+        }, 50);
+      }
+    }
+  });
+</script>
+
+{% endblock %}

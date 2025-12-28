@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Impostazioni Utenti - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Impostazioni Utenti</h3>
+<br />
+{% if user.is_superuser %}
+<form class="shadow-lg col-8 p-3 bg-white" id="trova_utente" method="post">
+    {% csrf_token %}
+    <div class="select-wrapper">
+        <div class="clearfix">
+            <div class="float-start col-8">
+                <label for="scegliUtenteLabel" class="float-start">Seleziona utente</label>
+                <select id="scegliUtente" name="scegliUtente">
+                    <option value="">Scegli un utente</option>
+                    {% for utente in utenti %}
+                    <option value="{{ utente.id }}" {% if utente_selezionato == utente.id%} selected="" {% endif %}>{{ utente.first_name }} {{ utente.last_name }} ({{ utente.username }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button class="btn btn-primary float-end" type="submit" name="trova_utente" id="trovaUtenteBtn">
+                <svg class="icon icon-sm icon-white" aria-hidden="true">
+                    <use href="{% static 'svg/sprites.svg' %}#it-search"></use>
+                </svg>Carica permessi utente
+            </button>
+        </div>
+    </div>
+</form>
+<br />
+<br />
+<div id="checkboxList-permessi">
+    <form class="shadow-lg col-8 p-3 bg-white" id="parametri_utente" method="post">
+        {% csrf_token %}
+        <div data-bs-transfer>
+            <div class="row">
+                <div class="col-xs-12 col-md-5">
+                    <div class="it-transfer-wrapper source">
+                        <div class="transfer-header">
+                            <div class="form-check" aria-describedby="">
+                                <input type="checkbox" id="checkbox1" />
+                                <label for="checkbox1">
+                                    <span>
+                                        <span class="num">
+                                            {% if numero_servizi_disattivi %}
+                                            {{ numero_servizi_disattivi }}
+                                            {% else %}
+                                            0
+                                            {% endif %}
+                                        </span>
+                                        <span>Servizi</span>
+                                    </span>
+                                    <span class="descr">Disponibili</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="transfer-scroll">
+                            <div class="transfer-group">
+                                {% if utente_selezionato %}
+                                {% if not servizi_utente.ipa_singolo %}
+                                <div class="form-check" aria-describedby="">
+                                    <input type="checkbox" id="checkbox-ipa_singolo" />
+                                    <label for="checkbox-ipa_singolo"><span><span>Indice PA singolo</span></span></label>
+                                </div>
+                                {% endif %}
+                                {% for utente in utenti %}
+                                {% if utente.id == utente_selezionato and not utente.is_superuser %}
+                                <div class="form-check" aria-describedby="">
+                                    <input type="checkbox" id="checkbox-adm" disabled="disabled" />
+                                    <label for="checkbox-adm"><span><span>Amministratore</span></span></label>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" name="utente_selezionato" value="{{ utente_selezionato }}" />
+                <div class="col-xs-12 col-md-2">
+                    <div class="it-transfer-buttons">
+                        <a class="transfer" href="#" role="button" aria-label="Sposta avanti">
+                            <svg class="icon">
+                                <use href="{% static 'svg/sprites.svg' %}#it-arrow-right"></use>
+                            </svg>
+                        </a>
+                        <span class="visually-hidden">Aggiungi permesso</span>
+                        <a class="backtransfer" href="#" role="button" aria-label="Sposta indietro">
+                            <svg class="icon">
+                                <use href="{% static 'svg/sprites.svg' %}#it-arrow-left"></use>
+                            </svg>
+                        </a>
+                        <span class="visually-hidden">Rimuovi permesso</span>
+                        <a class="reset" href="#" role="button" aria-label="Reset">
+                            <svg class="icon">
+                                <use href="{% static 'svg/sprites.svg' %}#it-restore"></use>
+                            </svg>
+                        </a>
+                        <span class="visually-hidden">Annulla operazione</span>
+                    </div>
+                </div>
+                <div class="col-xs-12 col-md-5">
+                    <div class="it-transfer-wrapper target">
+                        <div class="transfer-header">
+                            <div class="form-check" aria-describedby="">
+                                <input type="checkbox" id="checkbox1b" />
+                                <label for="checkbox1b">
+                                    <span>
+                                        <span class="num">
+                                            {% if numero_servizi_attivi %}
+                                            {{ numero_servizi_attivi }}
+                                            {% else %}
+                                            0
+                                            {% endif %}
+                                        </span>
+                                        <span>Servizi</span>
+                                    </span>
+                                    <span class="descr">Attivi</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="transfer-scroll">
+                            <div class="transfer-group">
+                                {% if utente_selezionato %}
+                                {% if servizi_utente.ipa_singolo %}
+                                <div class="form-check" aria-describedby="">
+                                    <input type="checkbox" id="checkbox-ipa_singolo" value="ipa_singolo" />
+                                    <label for="checkbox-ipa_singolo"><span><span>Indice PA singolo</span></span></label>
+                                </div>
+                                {% endif %}
+                                {% for utente in utenti %}
+                                {% if utente.id == utente_selezionato and utente.is_superuser %}
+                                <div class="form-check" aria-describedby="">
+                                    <input type="checkbox" id="checkbox-adm" disabled="disabled" />
+                                    <label for="checkbox-adm"><span><span>Amministratore</span></span></label>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <br />
+        <div class="p-3 d-flex">
+            <button type="submit" class="me-auto m-1 btn btn-warning" name="disattiva_utente" id="disattivaUtenteBtn">{% if user.is_active %}Disattiva Utente{% else %}Attiva Utente{% endif %}
+            </button>
+            <button type="submit" class="m-1 bd-highlight btn btn-primary" name="parametri_utente">Salva</button>
+            <a href="{% url 'home' %}" class="m-1 bd-highlight btn btn-danger">Annulla</a>
+        </div>
+    </form>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var form = document.getElementById('parametri_utente')
+        form.addEventListener('submit', function (event) {
+            event.preventDefault()
+            var checkboxes = document.querySelectorAll('.it-transfer-wrapper.target input[type="checkbox"][id^="checkbox-"]')
+            var selectedIds = []
+            checkboxes.forEach(function (checkbox) {
+                if (checkbox.checked) {
+                    var idWithoutPrefix = checkbox.id.substring('checkbox-'.length) // Rimuovi il prefisso
+                    selectedIds.push(idWithoutPrefix)
+                }
+            })
+            var input = document.createElement('input')
+            input.type = 'hidden'
+            input.name = 'array_permessi' // Nome per l'input nascosto
+            input.value = JSON.stringify(selectedIds) // Converti l'array in una stringa JSON
+            form.appendChild(input)
+            // Invia il form dopo aver aggiunto l'elemento input
+            form.submit()
+        })
+    })
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var form = document.getElementById('trova_utente')
+        var selectUtente = document.getElementById('scegliUtente')
+        var trovaUtenteButton = document.querySelector('[name="trova_utente"]')
+        trovaUtenteButton.setAttribute('disabled', 'disabled')
+        if (selectUtente.value !== '') {
+            trovaUtenteButton.removeAttribute('disabled')
+        }
+        selectUtente.addEventListener('change', function () {
+            if (selectUtente.value !== '') {
+                trovaUtenteButton.removeAttribute('disabled')
+            } else {
+                trovaUtenteButton.setAttribute('disabled', 'disabled')
+            }
+        })
+    })
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var scegliUtente = document.getElementById('scegliUtente')
+        var disattivaUtenteBtn = document.getElementById('disattivaUtenteBtn')
+        scegliUtente.addEventListener('change', function () {
+            if (scegliUtente.value) {
+                disattivaUtenteBtn.removeAttribute('disabled')
+            } else {
+                disattivaUtenteBtn.setAttribute('disabled', 'disabled')
+            }
+        })
+    })
+</script>
+{% endif %}
+{% endblock %}

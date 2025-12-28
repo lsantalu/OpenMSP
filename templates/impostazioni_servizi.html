@@ -1,0 +1,137 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Impostazioni E-Servizi - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Impostazioni E-Service</h3>
+<br />
+{% if user.is_superuser %}
+<form class="needs-validation shadow-lg col-10 bg-white" id="parametri_appio" method="post">
+  {% csrf_token %}
+  <div class="accordion p-3 mb-5 accordion-background-active white-bg" id="accordionExampleHa">
+    {% for gruppo in gruppi_parametri%}
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="heading{{ forloop.counter }}"><button class="accordion-button {% if forloop.counter != 1 %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}" aria-expanded="{% if forloop.counter == 1 %}true{% else %}false{% endif %}" aria-controls="collapse{{ forloop.counter }}">{{gruppo.descrizione}}</button></h2>
+      <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse {% if forloop.counter == 1 %}show{% endif %}" data-bs-parent="#accordionExampleHa" role="region" aria-labelledby="heading{{ forloop.counter }}">
+        <div class="accordion-body pb-1">
+          <div class="link-list-wrapper">
+            <ul class="link-list">
+              {% for servizio in servizi_impostazioni %}
+              {% if servizio.gruppo_id.id == gruppo.id %}
+              <li>
+                <div class="row">
+                  <div class="form-check col-9 align-content-center">
+                    <div class="toggles">
+                      <label for="toggle-{{ servizio.codice_servizio }}">
+                        {{ servizio.descrizione }}
+                        <input type="checkbox" name="toggle_{{ servizio.codice_servizio }}" value="1" id="toggle-{{ servizio.codice_servizio }}" {% if servizio.attivo == 1 %} checked {% endif %} /><span class="lever"></span>
+                      </label>
+                    </div>
+                  </div>
+                  <!-- FIXME: Attenzione impostazione diritti app io su utenti vuoti-->
+                  <div class="form-check col-3">
+                    <div class="form-group m-2">
+                      <a href="{% url 'home' %}{{ servizio.url }}" id="bottom-{{ servizio.codice_servizio }}" class="btn btn-primary {% if servizio.attivo != 1 %} disabled {% endif %}">Impostazioni</a>
+                    </div>
+                  </div>
+                </div>
+              </li>
+              {% endif %}
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+
+    <div class=" p-3 mb-1 text-end">
+      <button type="submit" class="btn btn-primary">Salva</button>
+      <a href="{% url 'home' %}" class="btn btn-danger">Annulla</a>
+    </div>
+  </div>
+</form>
+{% else %}
+<h4>Amministratore non loggato</h4>
+<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const toggles = document.querySelectorAll('input[type="checkbox"]');
+
+    toggles.forEach(toggle => {
+      toggle.addEventListener('change', function() {
+        // Usa substring o replace per evitare problemi se il codice servizio contiene trattini
+        const serviceCode = this.id.replace('toggle-', '');
+        const button = document.getElementById(`bottom-${serviceCode}`);
+        const isChecked = this.checked;
+
+        // Gestione UI bottone
+        if (isChecked) {
+          button.classList.remove('disabled');
+          button.removeAttribute('aria-disabled');
+        } else {
+          button.classList.add('disabled');
+          button.setAttribute('aria-disabled', 'true');
+        }
+
+        // Chiamata AJAX per salvare lo stato
+        fetch("{% url 'impostazioni_servizi_toggle' %}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+          },
+          body: JSON.stringify({
+            service_code: serviceCode,
+            active: isChecked
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.status === 'success') {
+            console.log(data.message);
+            // Opzionale: mostrare un feedback visivo (toast, ecc.)
+          } else {
+            console.error('Errore salvataggio:', data.message);
+            // Revert dello stato in caso di errore
+            this.checked = !isChecked;
+            if (!isChecked) { // Revert UI bottone
+                button.classList.remove('disabled');
+            } else {
+                button.classList.add('disabled');
+            }
+            alert('Errore durante il salvataggio: ' + data.message);
+          }
+        })
+        .catch(error => {
+          console.error('Errore di rete:', error);
+          // Revert dello stato in caso di errore
+          this.checked = !isChecked;
+            if (!isChecked) { // Revert UI bottone
+                button.classList.remove('disabled');
+            } else {
+                button.classList.add('disabled');
+            }
+          alert('Errore di comunicazione con il server.');
+        });
+      });
+    });
+  });
+</script>
+
+
+
+{% endblock %}

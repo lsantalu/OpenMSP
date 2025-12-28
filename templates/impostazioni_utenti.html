@@ -1,0 +1,243 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load custom_filters %}
+
+{% load static %}
+
+{% block page_title %}
+Impostazioni Utenti - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Impostazioni Utenti</h3>
+<br />
+{% if user.is_superuser %}
+<form class="shadow-lg col-10 pt-5 p-3 bg-white" id="trova_utente" method="post">
+  {% csrf_token %}
+  <div class="select-wrapper">
+    <div class="clearfix">
+      <div class="float-start col-8">
+        <label for="scegliUtenteLabel" class="float-start">Seleziona utente</label>
+        <select id="scegliUtente" name="scegliUtente">
+          <option value="">Scegli un utente</option>
+          {% for utente in utenti %}
+          <option value="{{ utente.id }}" {% if utente_selezionato == utente.id%} selected="" {% endif %}>{{ utente.first_name }} {{ utente.last_name }} ({{ utente.username }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-primary float-end" type="submit" name="trova_utente" id="trovaUtenteBtn">
+        <svg class="icon icon-sm icon-white" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-search"></use>
+        </svg>Carica permessi utente
+      </button>
+    </div>
+  </div>
+</form>
+<form class="shadow-lg col-10 p-3 bg-white" id="disattiva_utente" method="post">
+  {% csrf_token %}
+  <input type="hidden" name="scegliUtente" id="hiddenScegliUtente" value="{{ utente_selezionato }}">
+  <div class="d-flex justify-content-end">
+    <button class="m-1 btn btn-warning" type="submit" name="disattiva_utente" id="disattivaUtenteBtn"
+    {% if user.id == utente_selezionato %} disabled {% endif %}>
+    {% if utente_selezionato and utente_selezionato.is_active %}Disattiva Utente{% else %}Attiva Utente{% endif %}
+  </button>
+  <a href="{% url 'clone_user' %}" class="m-1 btn btn-danger">Clona utente</a>
+  <a href="{% url 'register' %}" class="m-1 btn btn-success">Crea nuovo utente</a>
+</div>
+</form>
+<br />
+
+{% if utente_selezionato %}
+<form class="shadow-lg col-8 bg-white" id="parametri_utente" method="post">
+  {% csrf_token %}
+  <input type="hidden" name="utente_selezionato" id="utente_selezionato" value={{utente_selezionato}}>
+  <input type="hidden" name="array_permessi" id="array_permessi">
+  <div class="accordion p-3 mb-5 accordion-background-active shadow-lg " id="accordionExampleHa">
+    {% for gruppo in gruppi_parametri%}
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="heading{{ forloop.counter }}">
+        <button class="accordion-button {% if forloop.counter != 1 %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}" aria-expanded="{% if forloop.counter == 1 %}true{% else %}false{% endif %}" aria-controls="collapse{{ forloop.counter }}">
+          {{gruppo.descrizione}}
+        </button>
+      </h2>
+      <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse {% if forloop.counter == 1 %}show{% endif %}" data-bs-parent="#accordionExampleHa" role="region" aria-labelledby="heading{{ forloop.counter }}">
+        <div class="accordion-body pb-1">
+          <div class="link-list-wrapper">
+            <div class="toggles text-end">
+              <label for="attiva_gruppo_{{ forloop.counter }}">
+                Attiva/Disattiva permessi gruppo
+                <input type="checkbox" id="attiva_gruppo_{{ forloop.counter }}">
+                <span class="lever"></span>
+              </label>
+            </div>
+
+            <ul class="link-list">
+              {% for servizio in descrizioni_eservices %}
+              {% if servizio.2.id == gruppo.id %}
+              {% if servizio.3 == 1 %}
+              {% for utente_impostazioni in utenti_impostazioni %}
+              {% if utente_impostazioni.id == utente_selezionato %}
+              <li>
+                <div class="row">
+                  <div class="form-check align-content-center">
+                    <div class="toggles">
+                      <label for="toggle-{{ servizio.0 }}">
+                        {{servizio.1}}
+                        {% with field=servizio.0 %}
+                        <input type="checkbox" class="toggle-input" name="toggle_{{ servizio.0 }}" id="toggle-{{ servizio.0 }}" data-servizio-id="{{ servizio.0 }}" {% if utente_impostazioni|getattribute:field %} checked {% endif %} /><span class="lever"></span>
+                        {% endwith %}
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </li>
+              {% endif %}
+
+              {% endfor %}
+              {% endif %}
+              {% endif %}
+              {% endfor %}
+
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+
+    <div class="p-3 text-end">
+      <button type="submit" class="btn btn-primary" name="parametri_utente" >Salva</button>
+      <a href="{% url 'home' %}" class="btn btn-danger">Annulla</a>
+    </div>
+    {% endif %}
+  </div>
+</form>
+
+<script>
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('parametri_utente');
+    var toggles = document.querySelectorAll('input[type="checkbox"]');
+
+    form.addEventListener('submit', function (e) {
+      var array_permessi = [];
+      toggles.forEach(function (toggle) {
+        if (toggle.checked) {
+          var toggleName = toggle.name.replace('toggle_', '');
+          array_permessi.push(toggleName);
+        }
+      });
+      var inputHidden = document.createElement('input');
+      inputHidden.type = 'hidden';
+      inputHidden.name = 'array_permessi';
+      inputHidden.value = JSON.stringify(array_permessi);
+      form.appendChild(inputHidden);
+    });
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var formTrovaUtente = document.getElementById('trova_utente')
+    var selectUtente = document.getElementById('scegliUtente')
+    var trovaUtenteButton = document.querySelector('[name="trova_utente"]')
+
+    trovaUtenteButton.setAttribute('disabled', 'disabled')
+    if (selectUtente.value !== '') {
+      trovaUtenteButton.removeAttribute('disabled')
+    }
+
+    selectUtente.addEventListener('change', function () {
+      if (selectUtente.value !== '') {
+        trovaUtenteButton.removeAttribute('disabled')
+        var inputHidden = document.createElement('input');
+        inputHidden.type = 'hidden';
+        inputHidden.name = 'trova_utente';
+        inputHidden.value = selectUtente.value;
+        formTrovaUtente.appendChild(inputHidden);
+        formTrovaUtente.submit();
+      } else {
+        trovaUtenteButton.setAttribute('disabled', 'disabled')
+      }
+    })
+  })
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var loggedInUserId = "{{ user.id }}";
+    var form = document.getElementById('parametri_utente');
+    var selectUtente = document.getElementById('scegliUtente');
+    var disattivaUtenteButton = document.getElementById('disattivaUtenteBtn');
+
+    var utentiData = {
+      {% for utente in utenti %}
+      "{{ utente.id }}": {
+        "is_active": {{ utente.is_active|yesno:"true,false" }}
+      },
+      {% endfor %}
+    };
+
+    function toggleDisattivaButton() {
+      var selectedUserId = selectUtente.value;
+      if (selectedUserId && selectedUserId !== loggedInUserId) {
+        disattivaUtenteButton.removeAttribute('disabled');
+
+        if (utentiData[selectedUserId].is_active) {
+          disattivaUtenteButton.textContent = "Disattiva Utente";
+        } else {
+          disattivaUtenteButton.textContent = "Attiva Utente";
+        }
+      } else {
+        disattivaUtenteButton.setAttribute('disabled', 'disabled');
+      }
+    }
+
+    toggleDisattivaButton();
+
+    selectUtente.addEventListener('change', function () {
+      toggleDisattivaButton();
+    });
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var selectUtente = document.getElementById('scegliUtente');
+    var hiddenScegliUtente = document.getElementById('hiddenScegliUtente');
+
+    selectUtente.addEventListener('change', function () {
+      hiddenScegliUtente.value = selectUtente.value;
+    });
+
+    hiddenScegliUtente.value = selectUtente.value;
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const gruppi = document.querySelectorAll('[id^="attiva_gruppo_"]');
+
+    gruppi.forEach(function (toggleGruppo) {
+      toggleGruppo.addEventListener('change', function () {
+        const groupId = this.id.replace('attiva_gruppo_', '');
+        const collapseContainer = document.getElementById('collapse' + groupId);
+
+        if (collapseContainer) {
+          const permessiCheckbox = collapseContainer.querySelectorAll('input[type="checkbox"].toggle-input');
+          permessiCheckbox.forEach(function (checkbox) {
+            checkbox.checked = toggleGruppo.checked;
+          });
+        }
+      });
+    });
+  });
+
+</script>
+
+
+
+{% else %}
+<h4>Utente non loggato</h4>
+<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,29 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+
+{% block page_title %}
+Profilo utente - OpenMSP - Multi Services Portal
+{% endblock %}
+
+
+{% block centered_container %}
+{% block content %}
+<div class="col-8 shadow-lg white-bg p-4">
+  <h2>Profilo utente</h2>
+  <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
+    <p>Nome utente : <strong>{{user.first_name}} {{user.last_name}}</strong></p>
+    <p>Email : <strong>{{user.email}}</strong></p>
+    <p>Data creazione utente : <strong>{{user.date_joined}}</strong></p>
+    <p>Data ultimo accesso : <strong>{{user.last_login}}</strong></p>
+
+    <div class="form-group mb-2">
+      <a href="{% url 'home' %}" class="btn btn-danger">Annulla</a>
+      <a href="{% url 'password_change' %}" class="btn btn-secondary">Cambio password</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,260 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+C021 - ANPR Stato famiglia - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>ANPR - Anagrafe Nazionale Popolazione Residente</h3>
+<h4>Consultazione stato famiglia - (C021)</h4>
+<br />
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+
+<div class="col-8 shadow-lg white-bg p-4">
+  <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
+    <form class="needs-validation" id="anpr_stato_famiglia" method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="input_CF">Inserisci il Codice Fiscale</label>
+        <input type="text" class="form-control" id="input_CF" name="input_CF" maxlength="16" oninput="this.value = this.value.toUpperCase();" required />
+      </div>
+      <div>
+        <button class="btn btn-primary" type="submit">
+          <svg class="icon icon-sm icon-white" aria-hidden="true">
+            <use href="{% static 'svg/sprites.svg' %}#it-search"></use>
+          </svg>Avvia ricerca
+        </button>
+      </div>
+    </form>
+
+    <div class="row">
+      <div aria-live="polite" id="errorMsgContainer"></div>
+    </div>
+  </div>
+</div>
+<br>
+{% if data %}
+<h5 class="it-card-title it-card-title-icon">Stato famiglia di <b>{{ data.0 }}</b></h5>
+<br />
+{% if 'Codice fiscale non corretto' in data.1 or 'listaErrori' in data.1 %}
+<div class="col-12 col-lg-4">
+  <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
+    <h5 class="it-card-title it-card-title-icon">Scheda di {{ data.0 }}</h5>
+    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+    </div>
+    <div class="it-card-body">
+      <p class="it-card-text">
+        <b> La richiesta effettuata non produce alcun risultato </b>
+      </p>
+    </div>
+  </article>
+</div>
+
+{% else %}
+<div class="row">
+  {% for soggetto in data.1.listaSoggetti.datiSoggetto %}
+  <div class="col-12 mb-4 col-lg-4">
+    <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
+      <h5 class="it-card-title it-card-title-icon">Scheda di {{ soggetto.generalita.codiceFiscale.codFiscale }}</h5>
+      <div class="it-card-body">
+        {% if soggetto.infoSoggettoEnte != null %}
+        <h5>Deceduto</h5>
+        {%else%}
+        <h5>Legame:
+          {% for parentela_soggetto in parentela %}
+          {% if soggetto.legameSoggetto.codiceLegame == parentela_soggetto.0 %}
+          {{ parentela_soggetto.1 }}
+          {% endif%}
+          {% endfor %}
+        </h5>
+        {% endif%}
+        <p class="it-card-text">
+          Cognome: <b>{{ soggetto.generalita.cognome }}</b><br />
+          Nome: <b>{{ soggetto.generalita.nome }}</b><br />
+          Sesso: <b>{{ soggetto.generalita.sesso }}</b><br />
+          Data Nascita: <b>{{ soggetto.generalita.dataNascita }}</b><br />
+          {% if soggetto.generalita.luogoNascita.comune != null %}
+          Luogo nascita: <b>{{ soggetto.generalita.luogoNascita.comune.nomeComune }} ({{ soggetto.generalita.luogoNascita.comune.siglaProvinciaIstat }})</b><br />
+          {% endif %}
+          {% if soggetto.generalita.luogoNascita.localita != null %}
+          Luogo nascita: <b>{{ soggetto.generalita.luogoNascita.localita.descrizioneLocalita }} ({{ soggetto.generalita.luogoNascita.localita.descrizioneStato }})</b><br />
+          {% endif %}
+          Soggetto AIRE: <b>
+            {% if "N" in soggetto.generalita.soggettoAIRE %}
+            No</b>
+            {% else%}
+            Si</b>
+            {% endif %}
+            <br>
+            idANPR: <b>{{ soggetto.identificativi.idANPR }}</b><br />
+            ID scheda ANPR: <b>{{ soggetto.generalita.idSchedaSoggettoANPR }}</b><br />
+            {% if soggetto.infoSoggettoEnte.0.valoreData %}
+            Data decesso: <b>{{ soggetto.infoSoggettoEnte.0.valoreData }}</b><br />
+            {% endif %}
+          </p>
+        </div>
+      </article>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <br>
+  <div class="row">
+    <div class="col-6 mb-4">
+      <button id="printButton" class="btn btn-secondary">
+        <svg class="icon icon-sm icon-white" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-print"></use>
+        </svg> Stampa ricerca
+      </button>
+    </div>
+  </div>
+
+  {% if user.is_superuser %}
+  <div class="col-10 shadow-lg white-bg">
+    <div class="accordion p-3 accordion-background-active" id="accordionExampleHa">
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="heading">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"    data-bs-target="#collapse" aria-expanded="false" aria-controls="collapse">Dettaglio interrogazione
+          </button>
+        </h2>
+        <div id="collapse" class="accordion-collapse collapse" data-bs-parent="#accordionExampleHa" role="region" aria-labelledby="heading">
+          <div class="accordion-body">
+            <div class="link-list-wrapper">
+              <pre id="json-display"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% endif %}
+
+  {% else %}
+  <div class="col-6">
+    <h4>Utente non abilitato</h4>
+    <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+    <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+    <div class="p-3 text-end">
+      <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+    </div></div>
+    {% endif %}
+
+    {% else %}
+    <h4>Utente non loggato</h4>
+    <p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+    <a href="{% url 'login' %}" class="btn btn-primary">
+      <svg class="icon icon-sm icon-white" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+      </svg>Accedi
+    </a>
+    {% endif %}
+
+    <script>
+
+      document.addEventListener('DOMContentLoaded', function () {
+        const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Il campo "Codice Fiscale" è da controllare.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
+        const errorWrapper = document.querySelector('#errorMsgContainer')
+        const validate = new bootstrap.FormValidate('#anpr_stato_famiglia', {
+          errorFieldCssClass: 'is-invalid',
+          errorLabelCssClass: 'form-feedback',
+          errorLabelStyle: '',
+          focusInvalidField: false
+        })
+        validate
+        .addField('#input_CF', [
+        {
+          rule: 'required',
+          errorMessage: 'Questo campo è richiesto'
+        },
+        {
+          rule: 'minLength',
+          value: 16,
+          errorMessage: 'Il C.F. deve avere 16 caratteri'
+        },
+        {
+          rule: 'maxLength',
+          value: 16,
+          errorMessage: 'Il C.F. deve avere 16 caratteri'
+        },
+        {
+          rule: 'customRegexp',
+          value: '^[a-zA-Z]{6}[0-9]{2}[a-zA-Z][0-9]{2}[a-zA-Z][0-9]{3}[a-zA-Z]$',
+          errorMessage: 'Il C.F. è scritto correttamente'
+        }
+        ])
+        .onSuccess(() => {
+          document.forms['anpr_stato_famiglia'].submit()
+        })
+        .onFail((fields) => {
+          errorWrapper.innerHTML = ''
+          errorWrapper.innerHTML = errorMessage
+        })
+      })
+
+      document.addEventListener('DOMContentLoaded', function () {
+        const printButton = document.getElementById('printButton');
+
+        printButton.addEventListener('click', function () {
+          const user = '{{ user.username }}';
+          const pageTitle = document.title;
+          const currentDate = new Date();
+          const formattedDate = currentDate.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+          const formattedTime = currentDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+          const printWindow = window.open('', '', 'height=600,width=800');
+
+          let printContent = '<html><head><title>Ricerca ANPR Stato famiglia</title>';
+          printContent += '<style>';
+          printContent += '.card { border: 1px solid black; margin-bottom: 20px; padding: 10px; }';
+          printContent += 'body { font-family: Arial, sans-serif; }';
+          printContent += '.header { margin-bottom: 20px; }';
+          printContent += '.header h3 { margin: 0; text-decoration: underline; }';
+          printContent += 'h5 { margin: 0; text-decoration: underline; font-size: 1.225em; }';
+          printContent += '.header p { margin: 0; }';
+          printContent += 'hr { border: none; border-top: 1px solid black; margin: 10px 0; }';
+          printContent += '</style>';
+          printContent += '</head><body>';
+
+          printContent += '<div class="header">';
+          printContent += `<h3>${pageTitle}</h3>`;
+          printContent += `<p>Richiesta effettuata da: <b>${user}</b></p>`;
+          printContent += `<p>Data: <b>${formattedDate}</b> Ora: <b>${formattedTime}</b></p>`;
+          printContent += '<hr>';
+          printContent += '</div>';
+
+          const cardWrappers = document.querySelectorAll('.it-card');
+
+          cardWrappers.forEach(wrapper => {
+            const cardClone = wrapper.cloneNode(true); // Cloniamo il contenuto della card
+            const topIcon = cardClone.querySelector('.it-card-image-wrapper'); // Selezioniamo la classe da rimuovere
+            if (topIcon) {
+              topIcon.remove(); // Rimuoviamo l'elemento con la classe "top-icon"
+            }
+            printContent += cardClone.outerHTML; // Aggiungiamo il contenuto modificato alla finestra di stampa
+          });
+
+          printContent += '</body></html>';
+
+          printWindow.document.write(printContent);
+          printWindow.document.close();
+          printWindow.focus();
+          printWindow.print();
+          printWindow.close();
+        });
+      });
+
+      // Ottieni il JSON passato dal contesto Django
+      const responseJson = {{ data|safe }};
+
+      // Formatta e visualizza il JSON
+      document.getElementById('json-display').textContent = JSON.stringify(responseJson, null, 4);
+
+
+    </script>
+    {% endblock %}

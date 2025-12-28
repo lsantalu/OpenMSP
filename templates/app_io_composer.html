@@ -1,0 +1,715 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+App IO Message Composer - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>App IO - Message Composer</h3>
+<br />
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+
+<div class="white-bg col-10 shadow-lg p-3">
+
+  {%if not titoliVariabiliTesto %}
+  <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
+
+      <p>Qui puoi trovare il file di esempio
+        <svg class="icon icon-sm text-success me-1"><use href="{% static 'svg/sprites.svg' %}#it-file-xlsx"></use></svg>
+        <a href="{% static '/TemplateAppIO_Composer.xlsx' %}" class="fw-bold">Template Excel</a>
+        o
+        <svg class="icon icon-sm text-success me-1"><use href="{% static 'svg/sprites.svg' %}#it-file-csv"></use></svg>
+        <a href="{% static '/TemplateAppIO_Composer.csv' %}" class="fw-bold">Template CSV</a>
+        per compilare il file.
+      </p>
+      <p class="text-muted">
+        <svg class="icon icon-sm me-1"><use href="{% static 'svg/sprites.svg' %}#it-info-circle"></use></svg>
+        Le informazioni presenti nel file dalla colonna (J) in poi verranno automaticamente scartate.
+      </p>
+    <form class="needs-validation" id="app_io_composer" method="post" enctype="multipart/form-data"
+      action="{% url 'app_io_composer' %}">
+      {% csrf_token %}
+
+      <div class="it-card rounded border shadow-lg mb-4 p-4">
+        <div class="p-3" id="uploadSection">
+          <div id="dropZone">
+            <p class="text-center mb-0">Trascina file qui o<br>
+              <label for="fileInput" class="btn btn-sm btn-primary mt-2"><svg class="icon icon-sm" style="fill: white;" aria-hidden="true">
+                <use href="{% static 'svg/sprites.svg' %}#it-upload"></use>
+              </svg> Seleziona file</label>
+            </p>
+            <input type="file" id="fileInput" name="cf_csv" class="d-none" accept=".csv,.xlsx">
+          </div>
+          <div id="filePreview">
+              <div class="d-flex justify-content-between align-items-center fw-bold col-md-8 offset-md-2 border border-danger rounded p-2">
+                <span id="fileName" class="text-truncate"></span>
+                <button type="button" class="btn btn-sm btn-danger delete-file" id="deleteFileBtn"
+                title="Elimina"> <svg class="icon icon-sm icon-light" aria-hidden="true">
+                  <use href="{% static 'svg/sprites.svg' %}#it-delete"></use>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div id="existingFilesList" class="mt-3">
+            <!-- I file esistenti verranno caricati qui -->
+          </div>
+
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <button type="button" id="executeSearchBtn" class="btn btn-primary" disabled>
+          <svg class="icon icon-sm icon-light" aria-hidden="true">
+            <use href="{% static 'svg/sprites.svg' %}#it-horn"></use>
+          </svg>
+          Componi messaggi
+        </button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if error_colonne %}
+  <div>
+    <br>
+    <p><strong>Errore</strong></p>
+    <p>il file importato non contiene le colonne richieste per il servizio App IO Message Composer</p>
+
+  </div>
+  {% endif %}
+
+  {% if error_validation_msg %}
+  <div class="alert alert-danger" role="alert">
+    <strong>Errore di validazione:</strong> {{ error_validation_msg }}
+  </div>
+  {% endif %}
+
+  {% if error_iuv %}
+  <div class="alert alert-danger" role="alert">
+    <strong>Errore:</strong> Uno o più IUV nel file non sono corretti. Assicurati che siano composti da 18 numeri.
+  </div>
+  {% endif %}
+
+  {%if titoliVariabiliTesto %}
+  <div class="callout callout-more mb-3 shadow-lg col-6">
+    <div class="callout-title">
+      <span>Variabili del messaggio</span>
+    </div>
+    <div class="row">
+      <div class="form-group col-6 mb-0">
+        {% for titolo in titoliVariabiliTesto %}
+        {% if forloop.counter|divisibleby:2 == False %}
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="checkbox_{{ forloop.counter }}"
+          name="checkbox_{{ forloop.counter }}" value="{{ titolo }}" disabled>
+          <label for="checkbox_{{ forloop.counter }}" class="disabled" id="label_checkbox_{{ forloop.counter }}">
+            {{ titolo }}
+          </label>
+        </div>
+        {%endif%}
+        {% endfor %}
+
+      </div>
+      <div class="form-group col-6 mb-0">
+        {% for titolo in titoliVariabiliTesto %}
+        {% if forloop.counter|divisibleby:2 == True %}
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="checkbox_{{ forloop.counter }}"
+          name="checkbox_{{ forloop.counter }}" value="{{ titolo }}" disabled>
+          <label for="checkbox_{{ forloop.counter }}" id="label_checkbox_{{ forloop.counter }}" class="disabled">
+            {{ titolo }}
+          </label>
+        </div>
+        {%endif%}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {%endif%}
+
+  
+
+{% if upload_csv %}
+  <div>
+    <div class="shadow-lg border rounded p-4 mb-5 white-bg">
+      <form class="needs-validation" id="app_io_composer_composer" method="post" action="{% url 'app_io_composer_conferma' %}">
+        {% csrf_token %}
+        <input type="hidden" name="preview" value="True">
+        <div class="form-group col-8 mb-0">
+          <div class="accordion mb-4">
+            <div class="select-wrapper">
+              <label for="sceltaServizio">Seleziona servizio</label>
+              <select id="sceltaServizio" name="sceltaServizio">
+                <option selected="" value="">Scegli il servizio</option>
+                {% for dato_catalogo in dati_catalogo %}
+                <optgroup label="{{ dato_catalogo.argomento }}">
+                  {% for dato_servizio in dati_servizio %}
+                  {% if dato_servizio.argomento_id.id == forloop.parentloop.counter and dato_servizio.chiave_api %}
+                  <option value="{{ dato_servizio.id }}">{{ dato_servizio.servizio }}</option>
+                  {% endif %}
+                  {% endfor %}
+                </optgroup>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="form-group col-8">
+          <label for="subject">Inserisci il titolo del messaggio</label>
+          <input type="text" class="form-control" id="subject" name="subject" minlength="10" maxlength="120" required />
+        </div>
+        <div class="row">
+          <div class="form-group shadow-lg mb-3 col-6" id="editor">
+            <textarea class="form-control" id="MessageArea" name="MessageArea" minlength="80" maxlength="10000" rows="15"
+            style="overflow-y: hidden; resize: none;"></textarea>
+            <label for="MessageArea">Scrivi il messaggio</label>
+          </div>
+          <div class="form-group shadow-lg mb-3 col-6" id="preview">
+            <div id="preview-content"></div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="row col-9"></div>
+          <div class="row col-3">
+            <span class="badge bg-primary" data-bs-toggle="modal" data-bs-target="#modalGuida">Guida alla formattazione</span>
+
+            <!-- Modal -->
+            <div class="modal it-dialog-scrollable fade" data-bs-backdrop="false" tabindex="-1" role="dialog" id="modalGuida" aria-labelledby="modalGuidaTitle" style="pointer-events: none; background-color: rgba(0, 0, 0, 0.7);">
+                <div class="modal-dialog modal-dialog-right" role="document" style="pointer-events: auto;">
+                      <div class="modal-content">
+
+                  <div class="modal-header">
+                    <h2 class="modal-title h5 " id="modalGuidaTitle">Guida alla formattazione del messaggio</h2>
+                    <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Chiudi finestra modale">
+                      <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close"></use></svg>
+                    </button>
+                  </div>
+                  <div class="modal-body text-start">
+                    <br>
+                    <h4>TITOLI</h4>
+                    <code class="highlighter-rouge"># Titolo livello 1</code>
+                    <h1 class="no-anchor" data-toc-skip="" id="heading-level-1">Titolo livello 1</h1>
+                    <br>
+                    <code class="highlighter-rouge">## Titolo livello 2</code>
+                    <h2 class="no-anchor" data-toc-skip="" id="heading-level-2">Titolo livello 2</h2>
+                    <br>
+                    <code class="highlighter-rouge">### Titolo livello 3</code>
+                    <h3 class="no-anchor" data-toc-skip="" id="heading-level-3">Titolo livello 3</h3>
+                    <br>
+                    <code class="highlighter-rouge">#### Titolo livello 4</code>
+                    <h4 class="no-anchor" id="heading-level-4">Titolo livello 4</h4>
+                    <br>
+                    <code class="highlighter-rouge">##### Titolo livello 5</code>
+                    <h5 class="no-anchor" id="heading-level-5">Titolo livello 5</h5>
+                    <br>
+                    <code class="highlighter-rouge">###### Titolo livello 6</code>
+                    <h6 class="no-anchor">Titolo livello 6</h6>
+                    <br>
+                    <br>
+                    <h4>STILE</h4>
+                    <h5>Grassetto</h5>
+                    <code class="highlighter-rouge">Questo è scritto in **grassetto**.</code><br>
+                    Questo è scritto in  <strong>grassetto</strong>.<br><br>
+                    <h5>Corsivo</h5>
+                    <code class="highlighter-rouge">Questo è scritto in *corsivo*.</code><br>
+                    Questo è scritto in <em>corsivo</em>.<br><br>
+                    <h5>Grassetto e corsivo</h5>
+                    <code class="highlighter-rouge">Questo è scritto in ***grassetto e corsivo***.</code><br>
+                    Questo è scritto in <em><strong>grassetto e corsivo</strong></em>.<br><br>
+                    <br>
+
+                    <h4>LISTE</h4>
+                    <h5>Ordinate</h5>
+                    <code class="highlighter-rouge">
+                      1. Primo elemento<br>
+                      2. Secondo elemento<br>
+                      22. Terzo elemento<br>
+                      32. Quarto elemento
+                    </code>
+                    <br>
+                    <ol>
+                      <li>Primo elemento</li>
+                      <li>Secondo elemento</li>
+                      <li>Terzo elemento</li>
+                      <li>Quarto elemento</li>
+                    </ol>
+
+                    <h5>NON Ordinate</h5>
+                    <code class="highlighter-rouge">
+                      - Primo elemento<br>
+                      + Secondo elemento<br>
+                      * Terzo elemento<br>
+                      - Quarto elemento
+                    </code>
+
+                    <ul>
+                      <li>Primo elemento</li>
+                      <li>Secondo elemento</li>
+                      <li>Terzo elemento</li>
+                      <li>Quarto elemento</li>
+                    </ul>
+
+                    <br>
+                    <h4>Linee orizzontali</h4>
+                    ---
+                    <hr>
+                    <br>
+                    <h4>LINK</h4>
+
+                    <code class="highlighter-rouge">
+                      Sito del [{{ my_ente }}](https://www.google.it).
+                    </code>
+                    <p>
+                      Sito del <a href="https://www.google.it">{{ my_ente }}</a>.
+                    </p>
+                    <h5>Grassetto</h5>
+
+                    <code class="highlight">Sito del **[{{ my_ente }}](https://www.google.it)**.</code>
+                    <p>Sito del <strong><a href="https://www.google.it">{{ my_ente }}</a></strong>.</p>
+
+                    <h5>Corsivo</h5>
+                    <code class="highlight">Sito del *[{{ my_ente }}](https://www.google.it)*.</code>
+                    <p>Sito del <em><a href="https://www.google.it">{{ my_ente }}</a></em>.</p>
+
+                  </div>
+                  <div class="modal-footer">
+                    <button class="btn btn-primary btn-sm" data-bs-dismiss="modal" aria-label="Chiudi finestra modale" type="button">Chiudi</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <br>
+
+        <div class="p-4 mb-5 text-end">
+          <a href="{% url 'home' %}" class="btn btn-danger">Annulla</a>
+          <button id="verificaButton" name="verificaButton" class="btn btn-primary" type="submit">
+            Mosta anteprima<svg class="icon icon-sm icon-white" aria-hidden="true">
+              <use href="{% static 'svg/sprites.svg' %}#it-horn"></use>
+            </svg>
+          </button>
+        </div>
+      </form>
+
+      <div class="row">
+        <div class="col-4">
+          <div aria-live="polite" id="errorMsgContainer"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+{%endif%}
+
+
+</div>
+
+
+
+
+
+{% else %}
+<div class="col-6">
+  <h4>Utente non abilitato</h4>
+  <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+  <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+  <div class="p-3 text-end">
+    <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+  </div>
+</div>
+{% endif %}
+{% else %}
+<h4>Utente non loggato</h4>
+<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+
+<!-- Libreria Marked.js per il rendering del markdown -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<script>
+
+
+
+  // Funzione per mostrare l'overlay
+  function showOverlay() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+      overlay.classList.add('show');
+    }
+  }
+
+  // Funzione per nascondere l'overlay
+  function hideOverlay() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+      overlay.classList.remove('show');
+    }
+  }
+
+  const mainForm = document.querySelector('form');
+  if (mainForm) {
+    mainForm.addEventListener('submit', function() {
+      showOverlay(); // Mostra l'overlay
+    });
+  }
+
+
+
+  // Parse delle variabili solo se non vuoto
+  var titoliVariabiliTesto = [];
+  var variabiliJS = '{{ variabiliJS|escapejs }}';
+  if (variabiliJS && variabiliJS.trim() !== '') {
+    try {
+      titoliVariabiliTesto = JSON.parse(variabiliJS);
+    } catch (e) {
+      console.error('Errore nel parsing delle variabili:', e);
+      titoliVariabiliTesto = [];
+    }
+  }
+  
+  var titoliConParentesi = titoliVariabiliTesto.map(function (titolo) {
+    return '[[' + titolo + ']]';
+  });
+
+
+  function checkTextAndToggleCheckbox() {
+    const subjectEl = document.getElementById('subject');
+    const messageAreaEl = document.getElementById('MessageArea');
+    
+    // Verifica che gli elementi esistano
+    if (!subjectEl || !messageAreaEl) return;
+
+    const subjectText = subjectEl.value;
+    const messageText = messageAreaEl.value;
+
+    titoliConParentesi.forEach((variabile, index) => {
+      const checkbox = document.getElementById(`checkbox_${index + 1}`);
+      const label_checkbox = document.getElementById(`label_checkbox_${index + 1}`);
+
+      if (checkbox) {
+        checkbox.checked = subjectText.includes(variabile) || messageText.includes(variabile);
+      }
+      if (label_checkbox) {
+        // Memorizza il testo originale senza tag HTML se non esiste già
+        if (!label_checkbox.dataset.originalText) {
+          label_checkbox.dataset.originalText = label_checkbox.textContent.trim();
+        }
+        
+        if (checkbox && checkbox.checked) {
+          label_checkbox.innerHTML = `<del>${label_checkbox.dataset.originalText}</del>`;
+        } else {
+          label_checkbox.innerHTML = label_checkbox.dataset.originalText;
+        }
+      }
+    });
+  }
+
+  // Inizializzazione - eseguito dopo il caricamento del DOM
+  document.addEventListener('DOMContentLoaded', function() {
+    // Aggiungi event listener per checkbox solo se gli elementi esistono
+    const subjectEl = document.getElementById('subject');
+    const messageAreaEl = document.getElementById('MessageArea');
+    
+    if (subjectEl) {
+      subjectEl.addEventListener('input', checkTextAndToggleCheckbox);
+    }
+    if (messageAreaEl) {
+      messageAreaEl.addEventListener('input', checkTextAndToggleCheckbox);
+    }
+    checkTextAndToggleCheckbox();
+
+    // Auto-resize textarea solo se esiste
+    const textarea = document.getElementById('MessageArea');
+    if (textarea) {
+      const autoResize = (event) => {
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
+      };
+
+      textarea.addEventListener('input', autoResize);
+      autoResize();
+    }
+
+    // Preview markdown
+    const input = document.getElementById('MessageArea');
+    const previewContent = document.getElementById('preview-content');
+
+    if (input && previewContent) {
+      // Funzione per aggiornare l'anteprima
+      const updatePreview = () => {
+        const markdownText = input.value;
+        // Verifica che la libreria marked sia disponibile
+        if (typeof marked !== 'undefined' && marked.parse) {
+          const htmlContent = marked.parse(markdownText);
+          previewContent.innerHTML = htmlContent;
+        } else {
+          console.warn('Libreria marked non disponibile');
+          previewContent.textContent = markdownText;
+        }
+      };
+
+      input.addEventListener('input', updatePreview);
+      
+      // Aggiorna l'anteprima iniziale se c'è già del testo
+      updatePreview();
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const errorWrapper = document.querySelector('#errorMsgContainer')
+    const selectServizio = document.getElementById('sceltaServizio')
+    const subject = document.getElementById('subject')
+    const MessageArea = document.getElementById('MessageArea')
+    const verificaButton = document.getElementById('verificaButton')
+
+    // Esegui la validazione solo se gli elementi esistono
+    if (selectServizio && subject && MessageArea && verificaButton) {
+      const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Ci sono campi da controllare<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
+
+      const validate = new bootstrap.FormValidate('#app_io_composer_composer', {
+        errorFieldCssClass: 'is-invalid',
+        errorLabelCssClass: 'form-feedback',
+        errorLabelStyle: '',
+        focusInvalidField: false
+      })
+
+      function checkFields() {
+        const isFormValid = selectServizio.value !== '' && subject.value.length >= 10 && MessageArea.value.length >= 80;
+        const areAllCheckboxesChecked = Array.from(document.querySelectorAll('input[type="checkbox"]')).every(checkbox => checkbox.checked);
+
+        verificaButton.disabled = !(isFormValid && areAllCheckboxesChecked);
+
+        console.log(verificaButton.disabled)
+      }
+
+      selectServizio.addEventListener('change', checkFields)
+      subject.addEventListener('input', checkFields)
+      MessageArea.addEventListener('input', checkFields)
+
+      // Controlla all'avvio
+      checkFields()
+
+      validate
+      .addField('#subject', [
+      // Aggiungi la validazione per il campo subject
+      {
+        rule: 'required',
+        errorMessage: 'Questo campo è richiesto'
+      },
+      {
+        rule: 'minLength',
+        value: 10,
+        errorMessage: 'Il titolo del messaggio deve essere lungo almeno 10 caratteri'
+      },
+      {
+        rule: 'maxLength',
+        value: 120,
+        errorMessage: 'Il titolo del messaggio deve essere lungo massimo 120 caratteri'
+      }
+      ])
+      .onSuccess(() => {
+        document.forms['app_io_composer_composer'].submit()
+      })
+      .onFail((fields) => {
+        if (errorWrapper) {
+          errorWrapper.innerHTML = ''
+          errorWrapper.innerHTML = errorMessage
+        }
+      })
+    }
+  })
+
+
+
+</script>
+
+
+<script>
+
+  (function() {
+    const uploadSection = document.getElementById('uploadSection');
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const filePreview = document.getElementById('filePreview');
+    const fileName = document.getElementById('fileName');
+    const deleteBtn = document.getElementById('deleteFileBtn');
+    const executeBtn = document.getElementById('executeSearchBtn');
+    const selectServizio = document.getElementById('sceltaServizio');
+    let currentFile = null;
+
+    // Formati consentiti
+    const allowedExtensions = [".csv", ".xlsx"];
+
+    // Funzione per disabilitare o abilitare il bottone
+    function toggleUploadButton() {
+      // Verifica se è selezionato un servizio (se il selettore esiste) e se è stato caricato un file
+      const isServiceSelected = selectServizio ? selectServizio.value !== '' : true;
+      
+      if (!isServiceSelected || !currentFile) {
+        executeBtn.disabled = true;
+      } else {
+        executeBtn.disabled = false;
+      }
+    }
+
+    // Disabilita il bottone inizialmente
+    toggleUploadButton();
+
+    // Aggiungi evento di cambio nella selezione del servizio
+    if (selectServizio) {
+      selectServizio.addEventListener('change', toggleUploadButton);
+    }
+
+    // Gestione eventi drag & drop
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadSection.addEventListener(eventName, preventDefaults, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadSection.addEventListener(eventName, () => {
+            uploadSection.classList.add('dragover');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadSection.addEventListener(eventName, () => {
+            uploadSection.classList.remove('dragover');
+        }, false);
+    });
+
+    const executeSearchBtn2 = document.getElementById('executeSearchBtn');
+    if (executeSearchBtn2) {
+      executeSearchBtn2.addEventListener('click', function() {
+        showOverlay(); // Mostra l'overlay
+        const dataTable = document.getElementById('dataTable');
+        if (dataTable && dataTable.parentNode) {
+          dataTable.parentNode.style.display = 'none'; // Nasconde la tabella
+        }
+      });
+    }
+
+    // Event listener per drop e file select (evitati duplicati)
+    uploadSection.addEventListener('drop', handleDrop, false);
+    fileInput.addEventListener('change', handleFileSelect, false);
+
+
+    function handleDrop(e) {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      handleFiles(files);
+    }
+
+    // Gestisce la selezione del file
+    function handleFileSelect(e) {
+      const files = e.target.files;
+      handleFiles(files);
+    }
+
+    function handleFiles(files) {
+      if (files.length > 0) {
+        const file = files[0];
+        if (isValidFile(file)) {
+          currentFile = file;
+          
+          // Sync with fileInput for form submission
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+          fileInput.files = dataTransfer.files;
+
+          showFilePreview(currentFile);
+        } else {
+          alert("Formato file non consentito! Puoi caricare solo CSV o Excel (.xlsx)");
+          resetUpload();
+        }
+      }
+      toggleUploadButton(); // Verifica lo stato del bottone
+    }
+
+    function isValidFile(file) {
+      const fileName = file.name.toLowerCase();
+      return allowedExtensions.some(ext => fileName.endsWith(ext));
+    }
+
+    function showFilePreview(file) {
+      fileName.textContent = file.name;
+      filePreview.style.display = 'block';
+      dropZone.style.display = 'none';
+      executeBtn.disabled = false; // Abilita ricerca
+    }
+
+    deleteBtn.addEventListener('click', function() {
+      resetUpload();
+      toggleUploadButton(); // Disabilita il bottone quando il file viene rimosso
+    });
+
+    function resetUpload() {
+      currentFile = null;
+      filePreview.style.display = 'none';
+      dropZone.style.display = 'block';
+      executeBtn.disabled = true;
+      fileInput.value = '';
+    }
+
+    // Invio form standard
+    executeBtn.addEventListener('click', () => {
+      const isServiceSelected = selectServizio ? selectServizio.value !== '' : true;
+      if (!currentFile || !isServiceSelected) return; 
+
+      // Il file è già sincronizzato in fileInput da handleFiles
+      // Sottomettiamo il form direttamente
+      const form = document.getElementById('app_io_composer');
+      if (form) {
+        form.submit();
+      }
+    });
+
+
+  })();
+
+  // Gestione chiusura modale Guida al click esterno (globale)
+  document.addEventListener('click', function(event) {
+    const modalGuida = document.getElementById('modalGuida');
+    
+    // Verifica che il modale esista prima di accedere alle sue proprietà
+    if (!modalGuida) return;
+    
+    const modalContent = modalGuida.querySelector('.modal-content');
+    
+    // Verifica se il modale è aperto (ha la classe 'show' aggiunta da Bootstrap)
+    // e se il click è avvenuto fuori dal contenuto del modale
+    if (modalGuida.classList.contains('show') && modalContent && !modalContent.contains(event.target)) {
+       // Verifica che il click non sia sul bottone che apre il modale (per evitare conflitti)
+       // Anche se bootstrap gestisce il toggle, è meglio assicurarsi di non interferire se non necessario.
+       // Tuttavia, se cliccano fuori, si chiude. Se cliccano sul bottone toggle, bootstrap lo chiuderebbe/aprirebbe.
+       // Se noi lo chiudiamo qui, e bootstrap lo apre/chiude, potrebbe esserci un race condition.
+       // Ma dato che il click passa attraverso, bootstrap riceverà l'evento sul bottone.
+       
+       // Controlliamo se l'elemento cliccato è un toggle per questo modale
+       const isToggle = event.target.closest('[data-bs-toggle="modal"][data-bs-target="#modalGuida"]');
+       if (!isToggle) {
+          // Usa getOrCreateInstance per essere sicuri di ottenere l'istanza
+          const modalInstance = bootstrap.Modal.getOrCreateInstance(modalGuida);
+          if (modalInstance) {
+            modalInstance.hide();
+          }
+       }
+    }
+  });
+
+</script>
+
+
+{% endblock %}

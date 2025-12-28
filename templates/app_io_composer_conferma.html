@@ -1,0 +1,257 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+App IO composer - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>App IO - Conferma invio messaggi Composer</h3>
+<br />
+
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+{% if elencoMessaggi %}
+<input type="hidden" name="id_servizio" value="{{id_servizio}}">
+Servizio: <strong>{{ servizioScelto }}</strong>
+<form class="needs-validation white-bg col-10 p-4 shadow" id="app_io_singolo_conferma_prev" method="post" action="{% url 'app_io_composer_esito' %}">
+  {% csrf_token %}
+  <div class="">
+
+    {% for messaggio in page_obj %}
+    <table class="table table-hover table-striped align-middle table-bordered">
+      <td scope="row" colspan="2" class="table-light">
+        <strong>CORPO DEL MESSAGGIO</strong>
+      </td>
+      <tr>
+        <td scope="row" style="min-width: 250px;">Codice Fiscale:</td><td><strong>{{messaggio.0}}</strong></td>
+      </tr>
+      <tr>
+        <td scope="row">Titolo del messaggio:</td><td>{{ titolo_personalizzato | safe }}</td>
+      </tr>
+      <tr>
+        <td scope="row">Testo del messaggio:</td><td>{{ testo_personalizzato | safe }}</td>
+      </tr>
+
+      {% if messaggio.1 %}
+      <tr>
+        <input type="hidden" name="dataScadenza" value="{{ messaggio.1 }}">
+        <td>Scadenza:</td><td><strong>{{messaggio.1}}</strong></td>
+      </tr>
+      {% endif %}
+
+      {% if messaggio.2 %}
+
+      <tr>
+        <td scope="row" colspan="2" class="table-light">
+          <input type="hidden" name="input_IUV" value="{{ messaggio.2 }}">
+          <strong>ESTREMI PAGAMENTO</strong></td>
+        </tr>
+        <tr>
+          <td>Codice IUV:</td><td><strong>{{messaggio.2}}</strong></td>
+        </tr>
+        <tr>
+        </tr>
+
+        <tr>
+          <td scope="row" colspan="2" class="table-light">
+            <strong>BOTTONE PAGAMENTO</strong></td>
+          </tr>
+          <tr>
+            <td class="text-center"><button class="btn btn-primary" disabled style="width: 80%; background-color: #007bff; color: white; opacity: 1; pointer-events: none;">Paga</td><td></td>
+            </tr>
+            {% endif %}
+
+            {% if messaggio.3 %}
+            <tr>
+              <td scope="row" colspan="2" class="table-light">
+                <input type="hidden" name="radio_bottone1" value="{{ messaggio.3 }}">
+                <input type="hidden" name="testo_bottone1" value="{{ messaggio.4 }}">
+                <input type="hidden" name="comando_bottone1" value="{{ messaggio.5 }}">
+                <strong>BOTTONE COMANDO 1</strong></td>
+              </tr>
+
+              <tr>
+                <td class="text-center">
+                  {%if messaggio.1 %}
+                  <button class="btn btn-outline-primary border" disabled style="width: 80%; opacity: 1; pointer-events: none;">
+                    {% else %}
+                    <button class="btn btn-primary" disabled style="width: 80%; background-color: #007bff; color: white; opacity: 1; pointer-events: none;">
+                      {% endif %}
+
+
+                      {{messaggio.4}}</td><td>
+                        {%if "web1" in messaggio.3%}Apri il sito
+                        {% elif "mail1" in messaggio.3 %}Invia una mail a
+                        {% elif "sms1" in messaggio.3 %}Invia un SMS a
+                        {% elif "call1" in messaggio.3 %}Avvia una telefonata a
+                        {%endif%} {{messaggio.5}}</td>
+                      </tr>
+                      {% endif %}
+
+                      {% if messaggio.6 %}
+                      <tr>
+                        <td scope="row" colspan="2" class="table-light">
+                          <input type="hidden" name="radio_bottone2" value="{{ messaggio.6 }}">
+                          <input type="hidden" name="testo_bottone2" value="{{ messaggio.7 }}">
+                          <input type="hidden" name="comando_bottone2" value="{{ messaggio.8 }}">
+                          <strong>BOTTONE COMANDO 2</strong></td>
+                        </tr>
+
+                        <tr>
+                          <td class="text-center">
+                            {%if messaggio.1 %}
+                            <button class="btn text-primary" disabled style="width: 80%; opacity: 1; pointer-events: none;">
+                              {% else %}
+                              <button class="btn btn-outline-primary border" disabled style="width: 80%; opacity: 1; pointer-events: none;">
+                                {% endif %}
+                                {{messaggio.7}}</td><td>
+                                  {%if "web2" in messaggio.6%}Apri il sito
+                                  {% elif "mail2" in messaggio.6 %}Invia una mail a
+                                  {% elif "sms2" in messaggio.6 %}Invia un SMS a
+                                  {% elif "call2" in messaggio.6%}Avvia una telefonata a
+                                  {%endif%} {{messaggio.8}}</td>
+                                </tr>
+                                {% endif %}
+
+                              </table>
+                            </div>
+
+                            {% endfor %}
+
+                            {%if page_obj.paginator.num_pages > 1 %}
+
+                            <!-- Paginazione -->
+                            <div class="it-pagination">
+                              <ul class="pagination">
+
+                                {%if not page_obj.has_previous %}
+                                <li class="page-item disabled">
+                                  <a class="page-link" href="#" aria-label="Precedente">
+                                    <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-left"></use></svg>
+                                    <span class="visually-hidden">Pagina precedente</span>
+                                  </a>
+                                </li>
+                                <li class="page-item disabled">
+                                  <a class="page-link" href="#" aria-current="page">
+                                    <span class="d-inline-block d-sm-none">{{ page_obj.number }} </span>{{ page_obj.number }}
+                                  </a>
+                                </li>
+                                {%else%}
+                                <li class="page-item">
+                                  <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" aria-label="Precedente">
+                                    <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-left"></use></svg>
+                                    <span class="visually-hidden">Pagina precedente</span>
+                                  </a>
+                                </li>
+                                <li class="page-item">
+                                  <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1" aria-label="1">
+                                    <span class="d-inline-block d-sm-none">1 </span>1
+                                  </a>
+                                </li>
+                                {%endif%}
+
+
+                                {%if page_obj.number > 2%}
+                                <li class="page-item">
+                                  <span class="page-link">...</span>
+                                </li>
+
+                                {%endif%}
+
+
+                                {%if page_obj.number > 1 and page_obj.number < page_obj.paginator.num_pages%}
+                                <li class="page-item disabled">
+                                  <a class="page-link" href="#" aria-current="page">
+                                    <span class="d-inline-block d-sm-none">{{ page_obj.number }} </span>{{ page_obj.number }}
+                                  </a>
+                                </li>
+                                {%endif%}
+
+
+
+                                {% if page_obj.number < page_obj.paginator.num_pages|add:"-1"  %}
+
+                                <li class="page-item">
+                                  <span class="page-link">...</span>
+                                </li>
+
+                                {%endif%}
+
+
+
+
+
+                                {%if not page_obj.has_next %}
+                                <li class="page-item disabled">
+                                  <a class="page-link" href="#" aria-current="page">
+                                    <span class="d-inline-block d-sm-none">{{ page_obj.number }} </span>{{ page_obj.number }}
+                                  </a>
+                                </li>
+                                <li class="page-item disabled">
+                                  <a class="page-link" href="#" aria-label="Successivo">
+                                    <span class="visually-hidden">Pagina successiva</span>
+                                    <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-right"></use></svg>
+                                  </a>
+                                </li>
+                                {%else%}
+                                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                                  <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}" aria-label="Ultimo">
+                                    <span aria-hidden="true">{{ page_obj.paginator.num_pages }}</span>
+                                  </a>
+                                </li>
+                                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                                  <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" aria-label="Successivo">
+                                    <span class="visually-hidden">Pagina successiva</span>
+                                    <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-right"></use></svg>
+                                  </a>
+                                </li>
+                                {%endif%}
+                              </ul>
+                            </div>
+
+                            {%endif%}
+
+
+
+                            {% csrf_token %}
+                            <div class="text-end">
+                              <button id="backButton" class="btn btn-danger" type="button" onclick="window.history.back();">
+                                Indietro
+                              </button>
+                              <button id="verificaButton" name="verificaButton" class="btn btn-primary" type="submit">
+                                Conferma invio messaggi<svg class="icon icon-sm icon-white" aria-hidden="true">
+                                  <use href="{% static 'svg/sprites.svg' %}#it-horn"></use>
+                                </svg>
+                              </button>
+                            </div>
+                          </form>
+                          <div class="row">
+                            <div class="col-4">
+                              <div aria-live="polite" id="errorMsgContainer"></div>
+                            </div>
+                          </div>
+                          {% endif %}
+                          {% else %}
+                          <div class="col-8 white-bg shadow">
+                            <h4>Utente non abilitato</h4>
+                            <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+                            <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+                            <div class="p-3 text-end">
+                              <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+                            </div>
+                          </div>
+                          {% endif %}
+                          {% else %}
+                          <h4>Utente non loggato</h4>
+                          <p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+                          <a href="{% url 'login' %}" class="btn btn-primary">
+                            <svg class="icon icon-sm icon-white" aria-hidden="true">
+                              <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+                            </svg>Accedi
+                          </a>
+                          {% endif %}
+
+                          {% endblock %}

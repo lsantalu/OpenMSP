@@ -1,0 +1,273 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+App IO singolo - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>App IO - Conferma invio messaggio a un singolo cittadino</h3>
+<br />
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+{% if data %}
+<form class="needs-validation white-bg col-10 p-4 shadow" id="app_io_singolo_conferma" method="post" action="">
+  {% csrf_token %}
+  <div class="">
+    <input type="hidden" name="conferma" value=True>
+    <input type="hidden" name="input_CF" value="{{ data.0 }}">
+    <input type="hidden" name="sceltaServizio" value="{{ data.1 }}">
+    <input type="hidden" name="subject" value="{{ data.2 }}">
+    <input type="hidden" name="MessageArea" value="{{ data.3 }}">
+
+    <table class="table table-hover table-striped align-middle table-bordered">
+      <td scope="row" colspan="2" class="table-light">
+        <strong>CORPO DEL MESSAGGIO</strong>
+      </td>
+      <tr>
+        <td scope="row">Codice Fiscale:</td><td><strong>{{data.0}}</strong></td>
+      </tr>
+      <tr>
+        <td scope="row">
+          <input type="hidden" name="id_servizio" value="{{dato_servizio.id}}">
+          Servizio:</td><td><strong>
+            {% for dato_servizio in dati_servizio %}
+            {% if dato_servizio.id|stringformat:"s" == data.1 %}
+            {{ dato_servizio.servizio }}
+            {% endif %}
+            {% endfor %}</strong>
+          </td>
+        </tr>
+        <tr>
+          <td scope="row">Titolo del messaggio:</td><td>{{ data.2 | safe }}</td>
+        </tr>
+        <tr>
+          <td scope="row">Testo del messaggio:</td><td>{{ data.4 | safe }}</td>
+        </tr>
+
+        {% if data.5 %}
+        <tr>
+          <input type="hidden" name="dataScadenza" value="{{ data.7 }}">
+          <td>Scadenza:</td><td><strong>{{data.7}}</strong></td>
+        </tr>
+        {% endif %}
+
+
+        {% if data.8 %}
+
+        <tr>
+          <td scope="row" colspan="2" class="table-light">
+            <input type="hidden" name="input_IUV" value="{{ data.9 }}">
+            <strong>ESTREMI PAGAMENTO</strong></td>
+          </tr>
+          <tr>
+            <td>Codice IUV:</td><td><strong>{{data.9}}</strong></td>
+          </tr>
+          <tr>
+          </tr>
+
+          <tr>
+            <td scope="row" colspan="2" class="table-light">
+              <strong>BOTTONE PAGAMENTO</strong></td>
+            </tr>
+            <tr>
+              <td class="text-center"><button class="btn btn-primary" disabled style="width: 80%; background-color: #007bff; color: white; opacity: 1; pointer-events: none;">Paga</td><td></td>
+              </tr>
+              {% endif %}
+
+
+
+
+              {% if data.10 %}
+              <tr>
+                <td scope="row" colspan="2" class="table-light">
+                  <input type="hidden" name="radio_bottone1" value="{{ data.11 }}">
+                  <input type="hidden" name="testo_bottone1" value="{{ data.12 }}">
+                  <input type="hidden" name="comando_bottone1" value="{{ data.13 }}">
+                  <strong>BOTTONE COMANDO 1</strong></td>
+                </tr>
+
+                <tr>
+                  <td class="text-center">
+                    {%if data.8 %}
+                    <button class="btn btn-outline-primary border" disabled style="width: 80%; opacity: 1; pointer-events: none;">
+                      {% else %}
+                      <button class="btn btn-primary" disabled style="width: 80%; background-color: #007bff; color: white; opacity: 1; pointer-events: none;">
+                        {% endif %}
+
+
+                        {{data.12}}</td><td>
+                          {%if "web1" in data.11%}Apri il sito
+                          {% elif "mail1" in data.11 %}Invia una mail a
+                          {% elif "sms1" in data.11 %}Invia un SMS a
+                          {% elif "call1" in data.11%}Avvia una telefonata a
+                          {%endif%} {{data.13}}</td>
+                        </tr>
+                        {% endif %}
+
+                        {% if data.14 %}
+                        <tr>
+                          <td scope="row" colspan="2" class="table-light">
+                            <input type="hidden" name="radio_bottone2" value="{{ data.15 }}">
+                            <input type="hidden" name="testo_bottone2" value="{{ data.16 }}">
+                            <input type="hidden" name="comando_bottone2" value="{{ data.17 }}">
+                            <strong>BOTTONE COMANDO 2</strong></td>
+                          </tr>
+
+                          <tr>
+                            <td class="text-center">
+                              {%if data.8  %}
+                              <button class="btn text-primary" disabled style="width: 80%; opacity: 1; pointer-events: none;">
+                                {% else %}
+                                <button class="btn btn-outline-primary border" disabled style="width: 80%; opacity: 1; pointer-events: none;">
+                                  {% endif %}
+                                  {{data.16}}</td><td>
+                                    {%if "web2" in data.15%}Apri il sito
+                                    {% elif "mail2" in data.15 %}Invia una mail a
+                                    {% elif "sms2" in data.15 %}Invia un SMS a
+                                    {% elif "call2" in data.15%}Avvia una telefonata a
+                                    {%endif%} {{data.17}}</td>
+                                  </tr>
+                                  {% endif %}
+
+                                </table>
+                              </div>
+                              <br>
+
+
+
+                              {%if page_obj.paginator.num_pages > 1 %}
+
+                              <!-- Paginazione -->
+                              <div class="it-pagination">
+                                <ul class="pagination">
+
+                                  {%if not page_obj.has_previous %}
+                                  <li class="page-item disabled">
+                                    <a class="page-link" href="#" aria-label="Precedente">
+                                      <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-left"></use></svg>
+                                      <span class="visually-hidden">Pagina precedente</span>
+                                    </a>
+                                  </li>
+                                  <li class="page-item disabled">
+                                    <a class="page-link" href="#" aria-current="page">
+                                      <span class="d-inline-block d-sm-none">{{ page_obj.number }} </span>{{ page_obj.number }}
+                                    </a>
+                                  </li>
+                                  {%else%}
+                                  <li class="page-item">
+                                    <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" aria-label="Precedente">
+                                      <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-left"></use></svg>
+                                      <span class="visually-hidden">Pagina precedente</span>
+                                    </a>
+                                  </li>
+                                  <li class="page-item">
+                                    <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1" aria-label="1">
+                                      <span class="d-inline-block d-sm-none">1 </span>1
+                                    </a>
+                                  </li>
+                                  {%endif%}
+
+
+                                  {%if page_obj.number > 2%}
+                                  <li class="page-item">
+                                    <span class="page-link">...</span>
+                                  </li>
+
+                                  {%endif%}
+
+
+                                  {%if page_obj.number > 1 and page_obj.number < page_obj.paginator.num_pages%}
+                                  <li class="page-item disabled">
+                                    <a class="page-link" href="#" aria-current="page">
+                                      <span class="d-inline-block d-sm-none">{{ page_obj.number }} </span>{{ page_obj.number }}
+                                    </a>
+                                  </li>
+                                  {%endif%}
+
+
+
+                                  {% if page_obj.number < page_obj.paginator.num_pages|add:"-1"  %}
+
+                                  <li class="page-item">
+                                    <span class="page-link">...</span>
+                                  </li>
+
+                                  {%endif%}
+
+
+
+
+
+                                  {%if not page_obj.has_next %}
+                                  <li class="page-item disabled">
+                                    <a class="page-link" href="#" aria-current="page">
+                                      <span class="d-inline-block d-sm-none">{{ page_obj.number }} </span>{{ page_obj.number }}
+                                    </a>
+                                  </li>
+                                  <li class="page-item disabled">
+                                    <a class="page-link" href="#" aria-label="Successivo">
+                                      <span class="visually-hidden">Pagina successiva</span>
+                                      <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-right"></use></svg>
+                                    </a>
+                                  </li>
+                                  {%else%}
+                                  <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                                    <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}" aria-label="Ultimo">
+                                      <span aria-hidden="true">{{ page_obj.paginator.num_pages }}</span>
+                                    </a>
+                                  </li>
+                                  <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                                    <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" aria-label="Successivo">
+                                      <span class="visually-hidden">Pagina successiva</span>
+                                      <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-right"></use></svg>
+                                    </a>
+                                  </li>
+                                  {%endif%}
+                                </ul>
+                              </div>
+
+                              {%endif%}
+
+
+
+                              <div class="text-end">
+                                <button id="backButton" class="btn btn-danger" type="button" onclick="window.history.back();">
+                                  Indietro
+                                </button>
+                                <button id="verificaButton" name="verificaButton" class="btn btn-primary" type="submit">
+                                  Conferma invio messaggio<svg class="icon icon-sm icon-white" aria-hidden="true">
+                                    <use href="{% static 'svg/sprites.svg' %}#it-horn"></use>
+                                  </svg>
+                                </button>
+                              </div>
+                            </form>
+                            <div class="row">
+                              <div class="col-4">
+                                <div aria-live="polite" id="errorMsgContainer"></div>
+                              </div>
+                            </div>
+                            {% endif %}
+                            {% else %}
+                            <div class="col-8 white-bg shadow">
+                              <h4>Utente non abilitato</h4>
+                              <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+                              <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+                              <div class="p-3 text-end">
+                                <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+                              </div>
+                            </div>
+                            {% endif %}
+                            {% else %}
+                            <h4>Utente non loggato</h4>
+                            <p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+                            <a href="{% url 'login' %}" class="btn btn-primary">
+                              <svg class="icon icon-sm icon-white" aria-hidden="true">
+                                <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+                              </svg>Accedi
+                            </a>
+                            {% endif %}
+
+                            {% endblock %}

@@ -1,0 +1,317 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Indice PA - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Indice PA - Domicilio digitale delle PA</h3>
+<h5>Inserire un solo campo di ricerca</h5>
+<br />
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+<div class="col-8 shadow-lg white-bg p-4">
+  <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
+    <form class="needs-validation" id="ipa_singolo" method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="input_descrizione_ente">Ricerca libera</label>
+        <input type="text" class="form-control" id="input_descrizione_ente" name="input_descrizione_ente" />
+      </div>
+
+      <div class="form-group">
+        <label for="input_CF">Inserisci il Codice Fiscale</label>
+        <input type="text" class="form-control" id="input_CF" name="input_CF" maxlength="11" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '');" />
+      </div>
+      <div class="form-group">
+        <label for="input_codice_ente">Codice iPA</label>
+        <input type="text" class="form-control" id="input_codice_ente" name="input_codice_ente" />
+      </div>
+
+      <div>
+        <button class="btn btn-primary" type="submit" id="submit-button" disabled>
+          <svg class="icon icon-sm icon-white" aria-hidden="true">
+            <use href="{% static 'svg/sprites.svg' %}#it-search"></use>
+          </svg>Avvia ricerca
+        </button>
+      </div>
+    </form>
+    <div class="row">
+      <div class="col-4">
+        <div aria-live="polite" id="errorMsgContainer"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<br />
+{% if data %}
+{% if data.0.result.num_items == 0 or 'Codice fiscale non corretto' in data %}
+<div class="col-6 mb-4">
+  <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
+    <h5 class="it-card-title it-card-title-icon">Domicilio digitale non presente</h5>
+    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;"></div>
+    <div class="it-card-body">
+      <p class="it-card-subtitle">
+        <b>La richiesta effettuata non produce alcun risultato</b>
+      </p>
+    </div>
+  </article>
+</div>
+{% else %}
+<div class="row">
+  {% for ente in data %}
+  <div class="col-4 mb-4">
+    <article class="it-card rounded shadow-lg border it-card-height-full">
+      {% if ente.result.num_items == 1 %}
+      <h5 class="it-card-title it-card-title-icon"><b>{{ ente.data.denominazione }}</b></h5>
+      {% else %}
+      <h5 class="it-card-title it-card-title-icon"><b>{{ ente.data.0.denominazione }}</b></h5>
+      {% endif %}
+
+      <div class="it-card-body">
+        <p class="it-card-text">
+          {% if ente.result.num_items == 1 %}
+          PEC: <b>{{ ente.data.pec }}</b><br />
+          {% else %}
+          {% for dd_singolo in ente.data %}
+          PEC: <b>{{ dd_singolo.pec }}</b><br />
+          {% endfor %}
+          {% endif %}
+          {% if ente.result.num_items == 1 %}
+          Denominazione: <b>{{ ente.data.denominazione }}</b><br />
+          Indirizzo: <b>{{ ente.data.indirizzo }}</b><br />
+          Cap: <b>{{ ente.data.cap }}</b><br />
+          Comune: <b>{{ ente.data.comune }} ({{ ente.data.provincia }})</b><br />
+          Regione: <b>{{ ente.data.regione }}</b><br />
+          Codice amministrazione: <b>{{ ente.data.cod_amm }}</b><br />
+          {% else %}
+          Denominazione: <b>{{ ente.data.0.denominazione }}</b><br />
+          Indirizzo: <b>{{ ente.data.0.indirizzo }}</b><br />
+          Cap: <b>{{ ente.data.0.cap }}</b><br />
+          Comune: <b>{{ ente.data.0.comune }} ({{ ente.data.0.provincia }})</b><br />
+          Regione: <b>{{ ente.data.0.regione }}</b><br />
+          Codice amministrazione: <b>{{ ente.data.0.cod_amm }}</b>
+          {% endif %}
+        </p>
+      </div>
+    </article>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="row">
+  <div class="col-6 mb-4">
+    <button id="printButton" class="btn btn-secondary">
+      <svg class="icon icon-sm icon-white" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-print"></use>
+      </svg>Stampa ricerca
+    </button>
+  </div>
+</div>
+
+{% if user.is_superuser %}
+<div class="col-10 shadow-lg white-bg">
+  <div class="accordion p-3 accordion-background-active" id="accordionExampleHa">
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="heading"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse" aria-expanded="false" aria-controls="collapse">Dettaglio interrogazione</button></h2>
+      <div id="collapse" class="accordion-collapse collapse" data-bs-parent="#accordionExampleHa" role="region" aria-labelledby="heading">
+        <div class="accordion-body">
+          <div class="link-list-wrapper">
+            <pre id="json-display"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+{% else %}
+<div class="col-6">
+  <h4>Utente non abilitato</h4>
+  <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+  <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+  <div class="p-3 text-end">
+    <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+  </div>
+</div>
+{% endif %}
+{% else %}
+<h4>Utente non loggato</h4>
+<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Il campo "Codice Fiscale" è da controllare.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
+    const errorWrapper = document.querySelector('#errorMsgContainer')
+    const validate = new bootstrap.FormValidate('#ipa_singolo', {
+      errorFieldCssClass: 'is-invalid',
+      errorLabelCssClass: 'form-feedback',
+      errorLabelStyle: '',
+      focusInvalidField: false
+    })
+    validate
+    .addField('#input_CF', [
+    {
+      rule: 'minLength',
+      value: 11,
+      errorMessage: 'Il C.F. deve avere 11 caratteri'
+    },
+    {
+      rule: 'maxLength',
+      value: 11,
+      errorMessage: 'Il C.F. deve avere 11 caratteri'
+    },
+    {
+      rule: 'customRegexp',
+      value: '^(?:[0-9]{11})$', // Nuova espressione regolare per CF o PIVA
+      errorMessage: 'Il C.F. o la Partita IVA non sono validi'
+    }
+    ])
+    .onSuccess(() => {
+    // Aggiungi la classe 'is-valid' ai campi validi
+      document.querySelectorAll('#ipa_singolo input[type="text"]').forEach(input => {
+        if (input.value.trim() !== '') {
+          input.classList.add('is-valid')
+        }
+      })
+      document.querySelectorAll('.just-validate-success-field').forEach(el => {
+        el.classList.remove('just-validate-success-field');
+      })
+    // Invia il modulo solo se tutto è valido
+    document.forms['ipa_singolo'].submit()
+    })
+     // Rimuovi la classe 'is-valid' sui campi che hanno fallito la validazione
+    fields.forEach(field => {
+      const input = document.querySelector(`#${field.id}`)
+      if (input) {
+        input.classList.remove('is-valid')
+      }
+    })
+  })
+
+
+
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const submitButton = document.getElementById('submit-button')
+    const inputs = document.querySelectorAll('#ipa_singolo input[type="text"]')
+
+    function checkInputs() {
+      let isAnyFieldPopulated = false
+      inputs.forEach((input) => {
+        if (input.value.trim() !== '') {
+          isAnyFieldPopulated = true
+        }
+      })
+      submitButton.disabled = !isAnyFieldPopulated
+    }
+    checkInputs()
+    inputs.forEach((input) => {
+      input.addEventListener('input', checkInputs)
+    })
+  })
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const inputs = document.querySelectorAll('#ipa_singolo input[type="text"]')
+
+    function toggleInputs(currentInput) {
+      inputs.forEach((input) => {
+        if (input !== currentInput) {
+          input.disabled = currentInput.value.trim() !== ''
+        }
+      })
+    }
+
+    inputs.forEach((input) => {
+      input.addEventListener('input', function () {
+        toggleInputs(this)
+      })
+    })
+
+    // Reset inputs on page load
+    inputs.forEach((input) => {
+      input.disabled = false
+      input.value = '' // Optional: clear input values on page load
+    })
+  })
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const printButton = document.getElementById('printButton')
+
+    printButton.addEventListener('click', function () {
+      // Recupera le informazioni dell'utente e la data/ora
+      const user = '{{ user.username }}' // Django inserisce il nome dell'utente autenticato
+      const pageTitle = document.title
+      const currentDate = new Date()
+      const formattedDate = currentDate.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      const formattedTime = currentDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+
+      // Crea una nuova finestra per la stampa
+      const printWindow = window.open('', '', 'height=600,width=800')
+
+      // Aggiungi l'intestazione con le informazioni desiderate
+      let printContent = '<html><head><title>Ricerca iPA</title>'
+
+      // Inserisci uno stile CSS direttamente nel documento per contornare le card
+      printContent += '<style>'
+      printContent += '.it-card { border: 1px solid black; margin-bottom: 20px; padding: 10px; }'
+      printContent += 'body { font-family: Arial, sans-serif; }' // Stile di base
+      printContent += '.header { margin-bottom: 20px; }'
+      printContent += '.header h3 { margin: 0; text-decoration: underline; }'
+      printContent += 'h5 { margin: 0; text-decoration: underline; font-size: 1.225em; }'
+      printContent += '.header p { margin: 0; }'
+      printContent += 'hr { border: none; border-top: 1px solid black; margin: 10px 0; }' // Linea orizzontale
+      printContent += '</style>'
+
+      printContent += '</head><body>'
+
+      // Aggiungi l'intestazione con data, utente e software
+      printContent += '<div class="header">'
+      printContent += `<h3>${pageTitle}</h3>`
+      printContent += `<p>Richiesta effettuata da: <b>${user}</b></p>`
+      printContent += `<p>Data: <b>${formattedDate}</b> Ora: <b>${formattedTime}</b></p>`
+      printContent += '<hr>' // Linea lunga tutta la pagina
+      printContent += '</div>'
+
+      const cardWrappers = document.querySelectorAll('.it-card')
+
+      cardWrappers.forEach((wrapper) => {
+        const cardClone = wrapper.cloneNode(true) // Cloniamo il contenuto della card
+        const topIcon = cardClone.querySelector('.it-card-image-wrapper') // Selezioniamo la classe da rimuovere
+        if (topIcon) {
+          topIcon.remove() // Rimuoviamo l'elemento con la classe "top-icon"
+        }
+        printContent += cardClone.outerHTML // Aggiungiamo il contenuto modificato alla finestra di stampa
+      })
+
+      printContent += '</body></html>'
+
+      // Inserisci il contenuto e lancia la funzione di stampa
+      printWindow.document.write(printContent)
+      printWindow.document.close()
+      printWindow.focus()
+      printWindow.print()
+      printWindow.close()
+    })
+  })
+
+  document.addEventListener('DOMContentLoaded', function () {
+    let rawData = `{{ data|safe }}`.trim()
+    let validJsonString = rawData.replace(/'/g, '"')
+    let jsonData = JSON.parse(validJsonString)
+    let formattedJson = JSON.stringify(jsonData, null, 4)
+    document.getElementById('json-display').textContent = formattedJson
+  })
+</script>
+{% endblock %}

@@ -1,0 +1,25 @@
+CF,Titolo,Messaggio,Scadenza,IUV,Mezzo1,TestoBottone1,Comando1,Mezzo2,TestoBottone2,Comando2
+AAABBB12C34D567E,Titolo messaggio 1,"Testo messaggio 1
+Testo messaggio 1
+Testo messaggio 1
+Testo messaggio 1
+Testo messaggio 1
+Testo messaggio 1",01/06/2027,3010 0000 0000 0236 23,web,Visita la pagina web,https://www.google.com,mail,Invia una mail,prova@email.com
+BBBCCC23D45E678F,Titolo messaggio 2,"Testo messaggio 2
+Testo messaggio 2
+Testo messaggio 2
+Testo messaggio 2
+Testo messaggio 2
+Testo messaggio 2",02/06/2027,3010 0000 0000 0254 25,mail,Invia una mail,prova@email.com,sms,Manda un sms,393456789013
+CCCDDD34E56F789G,Titolo messaggio 3,"Testo messaggio 3
+Testo messaggio 3
+Testo messaggio 3
+Testo messaggio 3
+Testo messaggio 3
+Testo messaggio 3",03/06/2027,3010 0000 0000 0365 89,sms,Manda un sms,393456789013,tel,Chiama l’ufficio,390236152647
+DDDEEE45F67G890H,Titolo messaggio 4,"Testo messaggio 4
+Testo messaggio 4
+Testo messaggio 4
+Testo messaggio 4
+Testo messaggio 4
+Testo messaggio 4",04/06/2027,3010 0000 0000 0235 03,tel,Chiama l’ufficio,390236152647,web,Visita la pagina web,https://www.google.com
