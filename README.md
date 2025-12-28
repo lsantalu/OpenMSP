@@ -53,9 +53,9 @@ Restituzione di tutti i dati indicati nella visura camerale per soggetti iscritt
 * Dettagli sedi, legali rappresentanti, domicilio digitale, codici ATECO, iscrizioni ad albi, statuti, soci, capitale sociale, ecc.
 
 ### 4. ANIS e ANIST
-Restituzione di tutti i dati indicati la formazione dalla scuola primaria all'università:
-* **ANIS (Istruzione Superiore ed univesitaria):** Consultazione iscrizioni e titoli conseguiti presso Istituti di Formazione Superiore ed Universitari (modalità singola o massiva).
-* **ANIST (Istruzione primo e secondo grado):** Consultazione frequenza e titoli conseguiti presso Istituti di primo e secondo grado (modalità singola o massiva).
+Restituzione di tutti i dati indicanti la formazione dalla scuola primaria all'università:
+* **ANIS (Istruzione Superiore ed universitaria):** Consultazione iscrizioni e titoli conseguiti presso Istituti di Formazione Superiore ed Universitari (modalità singola o massiva).
+* **ANIST (Istruzione di primo e secondo grado):** Consultazione frequenza e titoli conseguiti presso Istituti di primo e secondo grado (modalità singola o massiva).
 
 ### 5. PROSSIME IMPLEMENTAZIONI
 * **INPS - ISEE:** Richiesta attestazione per varie tipologie (standard, università, socio-sanitario, minorenni, ecc.).
@@ -73,7 +73,7 @@ Modulo completo per la gestione delle notifiche verso l'App dei servizi pubblici
 * **Check Utente:** Verifica se il CF è attivo su App IO e se il servizio dell'Ente è attivo (include check formale CF e maggiore età). Disponibile anche in modalità massiva.
 * **Invio Messaggi:** Invio messaggi personalizzati attingendo dal catalogo servizi pagoPA (inclusi eventuali estremi di pagamento).
 * **Invio Massivo:** Caricamento file XLSX/CSV per invii multipli con informazioni personalizzate per ogni cittadino.
-* **Invio Massivo tramite "Composer":** Caricamento file XLSX/CSV per invii multipli con informazioni personalizzate per ogni cittadino.
+* **Invio Massivo tramite "Composer":** Caricamento file XLSX/CSV per invii multipli con la possibilità di comporre il messaggio attraverso la funzione "Campi unione".
 * **Tracking:** Restituzione ID messaggio per prova accettazione e verifica successiva della messa a disposizione al cittadino.
 
 ---
@@ -112,7 +112,7 @@ Modulo completo per la gestione delle notifiche verso l'App dei servizi pubblici
     pip install -r requirements.txt
     ```
 
-4.  **Rinomina il file .env.example in .env e configuralo con i tuoi parametri:**
+4.  **Rinomina il file .env_example in .env e configuralo con i tuoi parametri:**
     ```bash
     cp .env_example .env
     ```
@@ -147,6 +147,7 @@ Crea un file `.env` nella root del progetto inserendo le chiavi ottenute dal por
 DEBUG=True
 DJANGO_BOOTSTRAP_ITALIA_USE_CDN = True
 DJANGO_BOOTSTRAP_ITALIA_CDN = 'https://cdn.jsdelivr.net/npm/bootstrap-italia@2.17.0/dist'
+DJANGO_SECRET_KEY = 'my_password_django_complex6m^*)p!ryk)=xcpn9*rxpznm'
 
 # PARAMETRI MAIL 
 EMAIL_HOST = 'mail.host.com'
@@ -199,7 +200,7 @@ Questo progetto utilizza librerie e componenti di terze parti. Di seguito l'elen
 *   **[Pillow](https://github.com/python-pillow/Pillow/blob/main/LICENSE)**: HPND (Historical Permission Notice and Disclaimer)
 *   **[typing-extensions](https://github.com/python/typing_extensions/blob/main/LICENSE)**: PSF (Python Software Foundation License)
 
-Tutti i marchi riportati appartengono ai legittimi proprietari; marchi di terzi, nomi di prodotti, nomi commerciali, nomi corporativi e società citati possono essere marchi di proprietà dei rispettivi titolari o marchi registrati d’altre società e sono stati utilizzati a puro scopo esplicativo per favorire l’integrazione, senza alcun fine di violazione dei diritti di Copyright vigenti.
+Tutti i marchi riportati appartengono ai legittimi proprietari; marchi di terzi, nomi di prodotti, nomi commerciali, nomi corporativi e società citati possono essere marchi di proprietà dei rispettivi titolari o marchi registrati di altre società e sono stati utilizzati a puro scopo esplicativo per favorire l’integrazione, senza alcun fine di violazione dei diritti di Copyright vigenti.
 
 
 ## ℹ️ Credits
