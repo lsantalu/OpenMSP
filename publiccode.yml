@@ -1,0 +1,120 @@
+publiccodeYmlVersion: 0.5.0
+name: OpenMSP
+applicationSuite: OpenCED - Multi Services Portal
+url: https://github.com/lsantalu/OpenMSP
+landingURL: https://www.openced.it
+softwareVersion: 1.0.0
+releaseDate: 2026-01-01
+logo: https://openced.it/logo.png
+platforms:
+  - web
+categories:
+  - data-collection
+  - identity-management
+  - instant-messaging
+organisation:
+  uri: https://www.openced.it
+developmentStatus: stable
+softwareType: standalone/web
+description:
+  en:
+    shortDescription: "Multi-service portal for PA digitization: PDND
+      interoperability, national database consultation, and App IO integration."
+    longDescription: >-
+      OpenMSP is the solution designed to drive the digitization of Public
+      Administrations. The software acts as a Multi Services Portal for
+      simplified and interoperable access to national data.
+
+
+      Key features include:
+
+      * **PDND Interoperability:** Direct and updated consultation of main
+      national databases via the National Digital Data Platform.
+
+      * **App IO Integration:** Sending single or bulk messages to citizens,
+      with active user verification and pagoPA integration.
+
+      * **ANPR:** Detailed consultation of personal details, residence,
+      citizenship, family status, and marriage records.
+
+      * **Digital Domicile:** Consultation and verification of INAD
+      (individuals), INI-PEC (companies/professionals), and IPA (PA).
+
+      * **INPS and CCIAA:** Access to ISEE, DURC, and full Chamber of Commerce
+      records.
+
+      * **Other Databases:** Integration with ANIS (higher education) and ANIST
+      (higher education).
+
+
+      The system allows for granular management of operator permissions and
+      dynamic updates according to new APIs released on the PDND
+    features:
+      - ANPR Consultation (National Resident Population Register)
+      - App IO Messaging Integration (Single and Bulk)
+      - Digital Domicile Verification (INAD, INI-PEC)
+      - Business Register Access (CCIAA)
+      - ISEE and DURC Consultation (INPS)
+      - ANIS and ANIST Consultation
+  it:
+    shortDescription: "Portale multiservizi per la digitalizzazione degli Enti:
+      interoperabilità PDND, consultazione banche dati nazionali e integrazione
+      App IO."
+    longDescription: >-
+      OpenMSP è la soluzione progettata per guidare la digitalizzazione della
+      Pubblica Amministrazione. Il software funge da Multi Services Portal per
+      l'accesso semplificato e interoperabile ai dati nazionali.
+
+
+      Le principali funzionalità includono:
+
+      * **Interoperabilità PDND:** Consultazione diretta e aggiornata delle
+      principali banche dati nazionali tramite la Piattaforma Digitale Nazionale
+      Dati.
+
+      * **Integrazione App IO:** Invio di messaggi singoli o massivi ai
+      cittadini, con verifica degli utenti attivi e integrazione con pagoPA.
+
+      * **ANPR:** Consultazione dettagliata di generalità, residenza,
+      cittadinanza, stato di famiglia e matrimonio.
+
+      * **Domicilio Digitale:** Consultazione e verifica di INAD (persone
+      fisiche), INI-PEC (imprese/professionisti) e IPA (PA).
+
+      * **INPS e CCIAA:** Accesso a dati ISEE, DURC e Visure Camerali complete.
+
+      * **Altre Banche Dati:** ANIS (istruzione superiore) e ANIST (istruzione
+      superiore).
+
+
+      Il sistema permette la gestione granulare dei permessi degli operatori e
+      l'aggiornamento dinamico in funzione delle nuove API rilasciate sulla
+      PDND.
+    features:
+      - Consultazione ANPR (Anagrafe Nazionale Popolazione Residente)
+      - Integrazione Messaggistica App IO (Singola e Massiva)
+      - Verifica Domicilio Digitale (INAD, INI-PEC)
+      - Accesso Registro Imprese (CCIAA)
+      - Consultazione ANIS e ANIST
+      - Consultazione ISEE e DURC (INPS)
+      - Gestione permessi operatori
+legal:
+  license: BSD-3-Clause
+maintenance:
+  type: community
+  contacts:
+    - name: Luca Santalucia
+      email: info@openced.it
+      phone: +39 351 9779497
+localisation:
+  localisationReady: true
+  availableLanguages:
+    - it
+IT:
+  countryExtensionVersion: "1.0"
+  piattaforme:
+    spid: false
+    cie: false
+    anpr: true
+    pagopa: true
+    io: true
