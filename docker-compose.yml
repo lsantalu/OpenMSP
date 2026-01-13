@@ -1,0 +1,13 @@
+services:
+  web:
+    build: .
+    image: openmsp:latest
+    container_name: openmsp_container
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - sqlite_data:/app/db_data
+
+volumes:
+  sqlite_data:
