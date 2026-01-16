@@ -1,6 +1,8 @@
 services:
   web:
-    build: .
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     image: openmsp:latest
     container_name: openmsp_container
     restart: always

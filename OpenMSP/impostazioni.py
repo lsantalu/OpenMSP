@@ -145,6 +145,16 @@ def impostazioni_parametri(request):
 
             with open(settings_path, 'w') as file:
                 file.writelines(new_lines)
+
+            dati_ente.nome = request.POST.get('nome_ente')
+            dati_ente.cf = request.POST.get('cf_ente')
+            dati_ente.piva = request.POST.get('piva_ente')
+            dati_ente.via = request.POST.get('via_ente')
+            dati_ente.cap = request.POST.get('cap_ente')
+            dati_ente.citta = request.POST.get('citta_ente')
+            dati_ente.telefono = request.POST.get('telefono_ente')
+            dati_ente.mail = request.POST.get('mail_ente')
+            dati_ente.pec = request.POST.get('pec_ente')
             dati_ente.save()
             salva_log(request.user, "Impostazioni Parametri", "modifica parametri")
 

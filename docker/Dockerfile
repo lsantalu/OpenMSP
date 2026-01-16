@@ -25,7 +25,7 @@ RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copia lo script di entrypoint
-COPY entrypoint.sh /app/
+COPY docker/entrypoint.sh /app/
 
 # FONDAMENTALE: Converte il file da formato Windows a Linux e lo rende eseguibile
 RUN dos2unix /app/entrypoint.sh && chmod +x /app/entrypoint.sh
