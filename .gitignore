@@ -8,3 +8,4 @@ impostazioni/__pycache__/*
 impostazioni/templatetags/__pycache__/*
 OpenMSP/__pycache__/*
 .dockerignore
+TODO

@@ -217,6 +217,8 @@ def registro_imprese_get_bearer():
         "--data-urlencode 'grant_type=client_credentials'"
     )
 
+    if not sys.platform.startswith('linux'):
+        curl_command=curl_command.replace("'", '"')
     result = subprocess.run(curl_command, shell=True, capture_output=True, text=True)
     data = json.loads(result.stdout)
     return data['access_token']
