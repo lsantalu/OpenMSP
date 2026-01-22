@@ -13,6 +13,9 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 from pathlib import Path
 from decouple import AutoConfig
 import os
+import ldap
+import json
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 config = AutoConfig(search_path=BASE_DIR)
@@ -23,7 +26,7 @@ config = AutoConfig(search_path=BASE_DIR)
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config("DJANGO_SECRET_KEY")
 
-ALLOWED_HOSTS = config("ALLOWED_HOSTS")
+ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=list)
 
 # Application definition
 
@@ -62,7 +65,22 @@ LOGOUT_REDIRECT_URL = "home"
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
+    'django_auth_ldap.backend.LDAPBackend',
 )
+
+
+from django_auth_ldap.config import LDAPSearch
+AUTH_LDAP_SERVER_URI = config("AUTH_LDAP_SERVER_URI")
+AUTH_LDAP_BIND_DN = config("AUTH_LDAP_BIND_DN")
+AUTH_LDAP_BIND_PASSWORD = config("AUTH_LDAP_BIND_PASSWORD")
+AUTH_LDAP_USER_SEARCH = LDAPSearch(config("AUTH_LDAP_USER_SEARCH_BASEDN"),ldap.SCOPE_SUBTREE,config("AUTH_LDAP_USER_SEARCH_FILTER"))
+AUTH_LDAP_USER_ATTR_MAP = config(
+    "AUTH_LDAP_USER_ATTR_MAP",
+    cast=json.loads,
+    default='{}'
+)
+AUTH_LDAP_NO_NEW_USERS = config("AUTH_LDAP_NO_NEW_USERS", cast=bool)
+
 
 TEMPLATES = [
     {
