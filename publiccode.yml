@@ -107,6 +107,15 @@ description:
       Il sistema permette la gestione granulare dei permessi degli operatori e
       l'aggiornamento dinamico in funzione delle nuove API rilasciate sulla
       PDND.
+    screenshots:
+      - >-
+         https://raw.githubusercontent.com/lsantalu/OpenMSP/master/gallery/OpenMSP-Multi-Services-Portal.png
+      - >-
+         https://raw.githubusercontent.com/lsantalu/OpenMSP/master/gallery/C015-ANPR-Generalità-OpenMSP-Multi-Services-Portal.png
+      - >-
+         https://raw.githubusercontent.com/lsantalu/OpenMSP/master/gallery/App-IO-smartphone-preview-OpenMSP-Multi-Services-Portal.png
+      - >-
+         https://raw.githubusercontent.com/lsantalu/OpenMSP/master/gallery/Indice-PA-OpenMSP-Multi-Services-Portal.png
     features:
       - Consultazione ANPR (Anagrafe Nazionale Popolazione Residente)
       - Integrazione Messaggistica App IO (Singola e Massiva)
