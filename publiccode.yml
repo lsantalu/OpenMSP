@@ -5,13 +5,30 @@ url: https://github.com/lsantalu/OpenMSP
 landingURL: https://www.openced.it
 softwareVersion: 1.0.0
 releaseDate: 2026-01-01
-logo: https://openced.it/logo.png
+logo: https://openced.it/OpenCED_logo.png
 platforms:
   - web
 categories:
   - data-collection
   - identity-management
   - instant-messaging
+dependsOn:
+  open:
+    - name: SQLite3
+      optional: false
+      version: ''
+      versionMax: ''
+      versionMin: ''
+    - name: Python
+      optional: false
+      version: ''
+      versionMax: ''
+      versionMin: ''
+    - name: Django
+      optional: false
+      version: ''
+      versionMax: ''
+      versionMin: '
 organisation:
   uri: https://www.openced.it
 developmentStatus: stable
