@@ -16,7 +16,7 @@ MIT - Lista patenti persona fisica - OpenMSP - Multi Services Portal
 
 <div class="col-10 shadow-lg white-bg p-4">
   <div class="row col-8">
-    <form class="needs-validation" id="mit_lista_patenti" method="post">
+    <form class="needs-validation" id="mit_whitelist" method="post">
       {% csrf_token %}
       <div class="form-group col-3">
         <label for="input_CF">Inserisci il Codice Fiscale</label>
@@ -109,7 +109,7 @@ MIT - Lista patenti persona fisica - OpenMSP - Multi Services Portal
     document.addEventListener('DOMContentLoaded', function () {
       const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Il campo "Codice Fiscale" è da controllare.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
       const errorWrapper = document.querySelector('#errorMsgContainer')
-      const validate = new bootstrap.FormValidate('#mit_lista_patenti', {
+      const validate = new bootstrap.FormValidate('#mit_whitelist', {
         errorFieldCssClass: 'is-invalid',
         errorLabelCssClass: 'form-feedback',
         errorLabelStyle: '',
@@ -138,7 +138,7 @@ MIT - Lista patenti persona fisica - OpenMSP - Multi Services Portal
       }
       ])
       .onSuccess(() => {
-        document.forms['mit_lista_patenti'].submit()
+        document.forms['mit_whitelist'].submit()
       })
       .onFail((fields) => {
         errorWrapper.innerHTML = ''

@@ -35,11 +35,11 @@ def mit_dettaglio_cude(request):
     return render(request, 'mit_dettaglio_cude.html', { 'utente_abilitato': utente_abilitato })
 
 
-def mit_lista_patenti(request):
+def mit_whitelist(request):
     if request.user.id:
         utente_sessione = UtentiParametri.objects.get(id=request.user.id)
-        utente_abilitato = utente_sessione.mit_patenti
-    return render(request, 'mit_lista_patenti.html', { 'utente_abilitato': utente_abilitato })
+        utente_abilitato = utente_sessione.mit_whitelist
+    return render(request, 'mit_whitelist.html', { 'utente_abilitato': utente_abilitato })
 
 
 def mit_lista_veicoli_cude(request):
