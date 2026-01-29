@@ -70,7 +70,7 @@ from .inps import impostazioni_inps_durc
 from .mit import mit_dettaglio_cude
 from .mit import mit_lista_veicoli_cude
 from .mit import mit_verifica_targa_cude
-from .mit import mit_lista_patenti
+from .mit import mit_whitelist
 from .mit import impostazioni_mit
 
 from .anis import anis_iscrizioni_singola
@@ -149,7 +149,7 @@ urlpatterns = [
     path("inps_durc_singolo/", inps_durc_singolo, name="inps_durc_singolo"),
     path("inps_durc_massivo/", inps_durc_massivo, name="inps_durc_massivo"),
 
-    path("mit_lista_patenti/", mit_lista_patenti, name="mit_lista_patenti"),
+    path("mit_whitelist/", mit_whitelist, name="mit_whitelist"),
     path("mit_dettaglio_cude/", mit_dettaglio_cude, name="mit_dettaglio_cude"),
     path("mit_lista_veicoli_cude/", mit_lista_veicoli_cude, name="mit_lista_veicoli_cude"),
     path("mit_verifica_targa_cude/", mit_verifica_targa_cude, name="mit_verifica_targa_cude"),

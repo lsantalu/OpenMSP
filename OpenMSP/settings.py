@@ -81,6 +81,18 @@ AUTH_LDAP_USER_ATTR_MAP = config(
 )
 AUTH_LDAP_NO_NEW_USERS = config("AUTH_LDAP_NO_NEW_USERS", cast=bool)
 
+_raw_ldap_options = config(
+    "AUTH_LDAP_CONNECTION_OPTIONS",
+    cast=json.loads,
+    default="{}",
+)
+
+AUTH_LDAP_CONNECTION_OPTIONS = {
+    getattr(ldap, key): value
+    for key, value in _raw_ldap_options.items()
+}
+
+
 
 TEMPLATES = [
     {
