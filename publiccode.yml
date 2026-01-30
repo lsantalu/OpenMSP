@@ -15,28 +15,18 @@ categories:
 dependsOn:
   open:
     - name: SQLite3
-      optional: false
-      version: ''
-      versionMax: ''
-      versionMin: ''
+      versionMin: '3.0'
     - name: Python
-      optional: false
-      version: ''
-      versionMax: ''
-      versionMin: ''
+      versionMin: '3.8'
     - name: Django
-      optional: false
-      version: ''
-      versionMax: ''
-      versionMin: '
+      versionMin: '3.2'
 organisation:
   uri: https://www.openced.it
 developmentStatus: stable
 softwareType: standalone/web
 description:
   en:
-    shortDescription: "Multi-service portal for PA digitization: PDND
-      interoperability, national database consultation, and App IO integration."
+    shortDescription: "Multi-service portal for PA digitization: PDND interoperability, national database consultation, and App IO integration."
     longDescription: >-
       OpenMSP is the solution designed to drive the digitization of Public
       Administrations. The software acts as a Multi Services Portal for
@@ -74,9 +64,7 @@ description:
       - ISEE and DURC Consultation (INPS)
       - ANIS and ANIST Consultation
   it:
-    shortDescription: "Portale multiservizi per la digitalizzazione degli Enti:
-      interoperabilità PDND, consultazione banche dati nazionali e integrazione
-      App IO."
+    shortDescription: "Portale multiservizi per la digitalizzazione degli Enti: interoperabilità PDND, consultazione banche dati nazionali e integrazione App IO."
     longDescription: >-
       OpenMSP è la soluzione progettata per guidare la digitalizzazione della
       Pubblica Amministrazione. Il software funge da Multi Services Portal per
@@ -107,15 +95,6 @@ description:
       Il sistema permette la gestione granulare dei permessi degli operatori e
       l'aggiornamento dinamico in funzione delle nuove API rilasciate sulla
       PDND.
-    screenshots:
-      - >-
-         https://raw.githubusercontent.com/lsantalu/OpenMSP/master/gallery/OpenMSP-Multi-Services-Portal.png
-      - >-
-         https://raw.githubusercontent.com/lsantalu/OpenMSP/master/gallery/C015-ANPR-Generalità-OpenMSP-Multi-Services-Portal.png
-      - >-
-         https://raw.githubusercontent.com/lsantalu/OpenMSP/master/gallery/App-IO-smartphone-preview-OpenMSP-Multi-Services-Portal.png
-      - >-
-         https://raw.githubusercontent.com/lsantalu/OpenMSP/master/gallery/Indice-PA-OpenMSP-Multi-Services-Portal.png
     features:
       - Consultazione ANPR (Anagrafe Nazionale Popolazione Residente)
       - Integrazione Messaggistica App IO (Singola e Massiva)
@@ -124,8 +103,14 @@ description:
       - Consultazione ANIS e ANIST
       - Consultazione ISEE e DURC (INPS)
       - Gestione permessi operatori
+    screenshots:
+      - https://raw.githubusercontent.com/lsantalu/OpenMSP/master/gallery/OpenMSP-Multi-Services-Portal.png
+      - https://raw.githubusercontent.com/lsantalu/OpenMSP/master/gallery/C015-ANPR-Generalità-OpenMSP-Multi-Services-Portal.png
+      - https://raw.githubusercontent.com/lsantalu/OpenMSP/master/gallery/App-IO-smartphone-preview-OpenMSP-Multi-Services-Portal.png
+      - https://raw.githubusercontent.com/lsantalu/OpenMSP/master/gallery/Indice-PA-OpenMSP-Multi-Services-Portal.png
 legal:
   license: BSD-3-Clause
+  mainCopyrightOwner: "OpenCED"
 maintenance:
   type: community
   contacts:
@@ -136,8 +121,8 @@ localisation:
   localisationReady: true
   availableLanguages:
     - it
-IT:
-  countryExtensionVersion: "1.0"
+it:
+  countryExtensionVersion: "1.0.0"
   piattaforme:
     spid: false
     cie: false
