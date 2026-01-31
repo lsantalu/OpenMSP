@@ -121,8 +121,8 @@ localisation:
   localisationReady: true
   availableLanguages:
     - it
-it:
-  countryExtensionVersion: "1.0.0"
+IT:
+  countryExtensionVersion: "1.0"
   piattaforme:
     spid: false
     cie: false
