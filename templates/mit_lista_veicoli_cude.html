@@ -14,11 +14,11 @@ MIT - Lista Veicoli Cude - OpenMSP - Multi Services Portal
 {% if user.is_authenticated %}
 {% if utente_abilitato %}
 
-<div class="col-10 shadow-lg white-bg p-4">
-  <div class="row col-8">
+<div class="col-8 shadow-lg white-bg p-4">
+  <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
     <form class="needs-validation" id="mit_lista_veicoli_cude" method="post">
       {% csrf_token %}
-      <div class="form-group col-3">
+      <div class="form-group">
         <label for="input_CF">Inserisci il Codice Fiscale</label>
         <input type="text" class="form-control" id="input_CF" name="input_CF" maxlength="16" oninput="this.value = this.value.toUpperCase();" required />
       </div>
@@ -31,35 +31,33 @@ MIT - Lista Veicoli Cude - OpenMSP - Multi Services Portal
       </div>
     </form>
     <div class="row">
-      <div class="col-3">
-        <div aria-live="polite" id="errorMsgContainer"></div>
-      </div>
+      <div aria-live="polite" id="errorMsgContainer"></div>
     </div>
   </div>
+</div>
+<br>
 
   {% if data %}
-  <div class="col-4">
-    <div class="card card-bg shadow">
-      <div class="card-body">
-        <div class="top-icon">
-          {% if 'Codice fiscale non corretto' in data.1 %}
-          <svg class="icon icon-xl icon-danger bg-light">
-            <use href="{% static 'svg/sprites.svg' %}#it-close-big"></use>
-          </svg>
-          {% else %}
-          <svg class="icon icon-xl icon-success bg-light">
-            <use href="{% static 'svg/sprites.svg' %}#it-check"></use>
-          </svg>
-          {% endif %}
-        </div>
+<div class="col-6 mb-4">
+  <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
+    <h5 class="it-card-title it-card-title-icon">Generalità di {{ data.0 }}</h5>
+    {% if 'Codice fiscale non corretto' in data.1 or 'listaErrori' in data.1 %}
+    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+      {% else %}
+      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
+        {% endif %}
+      </div>
+      <div class="it-card-body">
         {% if 'Codice fiscale non corretto' in data.1 %}
-        <h3 class="card-title h5">Patenti di <b>{{ data.0 }}</b></h3>
         <p class="it-card-text">
           <b> {{data.1}} </b>
         </p>
+        {%elif 'listaErrori' in data.1 %}
+        <p class="it-card-text">
+          <b> La richiesta effettuata non produce alcun risultato </b>
+        </p>
         {% else %}
         {% with soggetto=data.1.listaSoggetti.datiSoggetto.0 %}
-        <h3 class="card-title h5">Patenti di <b>{{ data.0 }}</b></h3>
         <p class="it-card-text">
           Cognome: <b>{{ soggetto.generalita.cognome }}</b><br>
           Nome: <b>{{ soggetto.generalita.nome }}</b><br>
@@ -72,18 +70,85 @@ MIT - Lista Veicoli Cude - OpenMSP - Multi Services Portal
           Luogo nascita: <b>{{ soggetto.generalita.luogoNascita.localita.descrizioneLocalita }} ({{ soggetto.generalita.luogoNascita.localita.descrizioneStato }})</b><br>
           {% endif %}
           idANPR: <b>{{ soggetto.identificativi.idANPR }}</b><br>
-          ID scheda ANPR: <b>{{ soggetto.generalita.idSchedaSoggettoANPR }}</b><br>
-          {% if soggetto.infoSoggettoEnte.0.valoreData %}
-          Data decesso: <b>{{ soggetto.infoSoggettoEnte.0.valoreData }}</b><br>
+          ID scheda ANPR: <b>{{ soggetto.generalita.idSchedaSoggettoANPR }}</b>
+          <br>
+          <br>
+          <b>Residenza</b><br>
+
+          {% if soggetto.residenza.0.indirizzo != null %}
+          Indirizzo: <b>{{ soggetto.residenza.0.indirizzo.toponimo.specie }} {{ soggetto.residenza.0.indirizzo.toponimo.denominazioneToponimo }}</b><br>
+          Civico:  <b>{{ soggetto.residenza.0.indirizzo.numeroCivico.numero }}{% if soggetto.residenza.0.indirizzo.numeroCivico.lettera != null %}/{{ soggetto.residenza.0.indirizzo.numeroCivico.lettera }}
+          {%endif%}</b><br>
+          {% if soggetto.residenza.0.indirizzo.numeroCivico.civicoInterno.interno1 != null %}
+          Interno: <b>{{ soggetto.residenza.0.indirizzo.numeroCivico.civicoInterno.interno1 }}</b><br>
           {% endif %}
-        </p>
-        {% endwith %}
-        {% endif %}
+          CAP: <b>{{ soggetto.residenza.0.indirizzo.cap }}</b><br>
+          Comune: <b>{{ soggetto.residenza.0.indirizzo.comune.nomeComune }}</b><br>
+          Provincia: <b>{{ soggetto.residenza.0.indirizzo.comune.siglaProvinciaIstat }}</b><br>
+
+
+          {% else %}
+          Indirizzo: <b>{{ soggetto.residenza.0.localitaEstera.indirizzoEstero.toponimo.denominazione }}</b><br>
+          Località: <b>{{ soggetto.residenza.0.localitaEstera.indirizzoEstero.localita.descrizioneLocalita }}</b><br>
+          Consolato: <b>{{ soggetto.residenza.0.localitaEstera.consolato.descrizioneConsolato }}</b><br>
+          Stato: <b>{{ soggetto.residenza.0.localitaEstera.indirizzoEstero.localita.descrizioneStato }}</b><br>
+          Anno espatrio: <b>{{ soggetto.generalita.annoEspatrio }}</b><br>
+
+          {% endif %}
+          <br>
+          Soggetto in vita: <b>
+            {% if "N" in soggetto.infoSoggettoEnte.0.valore %}
+            No</b>
+            {% else%}
+            Si</b>
+            {% endif %}
+
+            <br>
+            Soggetto AIRE: <b>
+              {% if "N" in soggetto.generalita.soggettoAIRE %}
+              No</b>
+              {% else%}
+              Si</b>
+              {% endif %}
+            </p>
+            {% endwith %}
+            {% endif %}
+          </div>
+        </article>
       </div>
-    </div>
-  </div>
-</div>
-{% endif %}
+
+      <br>
+      <div class="row">
+        <div class="col-6 mb-4">
+          <button id="printButton" class="btn btn-secondary">
+            <svg class="icon icon-sm icon-white" aria-hidden="true">
+              <use href="{% static 'svg/sprites.svg' %}#it-print"></use>
+            </svg> Stampa ricerca
+          </button>
+        </div>
+      </div>
+
+      {% if user.is_superuser %}
+      <div class="col-10 shadow-lg white-bg">
+        <div class="accordion p-3 accordion-background-active" id="accordionExampleHa">
+          <div class="accordion-item">
+            <h2 class="accordion-header" id="heading">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"    data-bs-target="#collapse" aria-expanded="false" aria-controls="collapse">Dettaglio interrogazione
+              </button>
+            </h2>
+            <div id="collapse" class="accordion-collapse collapse" data-bs-parent="#accordionExampleHa" role="region" aria-labelledby="heading">
+              <div class="accordion-body">
+                <div class="link-list-wrapper">
+                  <pre id="json-display"></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% endif %}
 
 {% else %}
 <div class="col-6">
