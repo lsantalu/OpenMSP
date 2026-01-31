@@ -68,9 +68,9 @@ from .inps import impostazioni_inps_isee
 from .inps import impostazioni_inps_durc
 
 from .mit import mit_dettaglio_cude
-from .mit import mit_lista_veicoli_cude
-from .mit import mit_verifica_targa_cude
+from .mit import mit_lista_veicoli
 from .mit import mit_whitelist
+from .mit import mit_verifica_targa
 from .mit import impostazioni_mit
 
 from .anis import anis_iscrizioni_singola
@@ -151,8 +151,8 @@ urlpatterns = [
 
     path("mit_whitelist/", mit_whitelist, name="mit_whitelist"),
     path("mit_dettaglio_cude/", mit_dettaglio_cude, name="mit_dettaglio_cude"),
-    path("mit_lista_veicoli_cude/", mit_lista_veicoli_cude, name="mit_lista_veicoli_cude"),
-    path("mit_verifica_targa_cude/", mit_verifica_targa_cude, name="mit_verifica_targa_cude"),
+    path("mit_lista_veicoli/", mit_lista_veicoli, name="mit_lista_veicoli"),
+    path("mit_verifica_targa/", mit_verifica_targa, name="mit_verifica_targa"),
 
     path("cassa_forense/", cassa_forense, name="cassa_forense"),
     path("registro_imprese/", registro_imprese, name="registro_imprese"),

@@ -29,6 +29,8 @@ import subprocess
 
 def mit_get_request(user_ID, cf, id_caso):
     parametri_mit = MitParametri.objects.get(id=id_caso)
+    userid= user_ID
+
     caso = ''
     if id_caso == 1: ##CUDE
         caso = "CUDE"
@@ -51,56 +53,111 @@ def mit_get_request(user_ID, cf, id_caso):
     target = parametri_mit.target
     clientid = parametri_mit.clientid
     private_key = parametri_mit.private_key
+    location = 'PortaleOpenMSP'
+    loa = 'LoA2'
+    richiesta = f'{{"targa":"DZ277TW","dataOraVerifica":"2026-01-31T15:38:00Z","intervalloDiTolleranza":0}}'
 
     ##issued = datetime.datetime.utcnow()
     issued = int(datetime.datetime.now(datetime.timezone.utc).timestamp()) - 60
-    expire_in = issued + 180
-    jti = uuid.uuid4()
+    expire_in = issued + 300
+    dnonce = random.randint(1000000000000, 9999999999999)
+
+
     headers_rsa = {
         "kid": kid,
         "alg": alg,
         "typ": typ
     }
 
+    jti = uuid.uuid4()
+    audit_payload = {
+        "userID": userid,
+        "userLocation": location,
+        "LoA": loa,
+        "iss" : clientid,
+        "aud" : audience,
+        "purposeId": purposeid,
+        "dnonce" : dnonce,
+        "jti":str(jti),
+        "iat": issued,
+        "nbf" : issued,
+        "exp": expire_in
+    }
+    
+    audit = jwt.encode(audit_payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
+    audit_hash = hashlib.sha256(audit.encode('UTF-8')).hexdigest()
+
+    jti = uuid.uuid4()
     payload = {
-        "iss": issuer,
-        "sub": subject,
+        "iss": clientid,
+        "sub": clientid,
         "aud": aud,
         "purposeId": purposeid,
         "jti": str(jti),
         "iat": issued,
-        "exp": expire_in
-    }
-    
-    asserzione = jwt.encode(payload, private_key, algorithm="RS256", headers=headers_rsa)
+        "exp": expire_in,
+        "digest": {
+            "alg": "SHA256",
+            "value": audit_hash
+            }
+        }
 
-    curl_command = (
-        f"curl --location --silent --request POST {baseurlauth}/token.oauth2 "
-        f"--header 'Content-Type: application/x-www-form-urlencoded' "
-        f"--data-urlencode 'client_id={clientid}' "
-        f"--data-urlencode 'client_assertion={asserzione}' "
-        "--data-urlencode 'client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer' "
-        "--data-urlencode 'grant_type=client_credentials'"
-    )
 
-    if not sys.platform.startswith('linux'):
-        curl_command=curl_command.replace("'", '"')
+    client_assertion = jwt.encode(payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
 
-    result = subprocess.run(curl_command, shell=True, capture_output=True, text=True)
-    data = json.loads(result.stdout)
-    voucher =  data['access_token']
+    params = urllib.parse.urlencode({
+        'client_id': clientid,
+        'client_assertion': client_assertion,
+        'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+        'grant_type': 'client_credentials'
+        })
 
-    url = target + '/status'
-    curl_command = (
-        f'curl --silent --request GET '
-        f"--url '{audience}' "
-        f"--header 'Authorization: Bearer {voucher}'"
-        )
-    if not sys.platform.startswith('linux'):
-        curl_command=curl_command.replace("'", '"')    
-            
-    result = subprocess.run(curl_command, shell=True, capture_output=True, text=True) 
-    return json.loads(result.stdout)
+    headers = {"Content-type": "application/x-www-form-urlencoded"}
+    conn = http.client.HTTPSConnection(re.sub(r'^https?://', '', baseurlauth))
+    conn.request("POST", "/token.oauth2", params, headers)
+    response = conn.getresponse()
+    voucher = json.loads(response.read())["access_token"]
+
+    # prepara il body per la richiesta e relativo digest
+    body = richiesta
+    type = 'application/json'
+    encoding = 'UTF-8'
+    body_digest = hashlib.sha256(body.encode('UTF-8'))
+    digest = 'SHA-256=' + base64.b64encode(body_digest.digest()).decode('UTF-8')
+
+    # crea signature
+    jti = uuid.uuid4()
+    payload = {
+        "iss" : clientid,
+        "aud" : audience,
+        "purposeId": purposeid,
+        "sub": clientid,
+        "jti": str(jti),
+        "iat": issued,
+        "nbf" : issued,
+        "exp": expire_in,
+        "signed_headers": [
+            {"digest": digest},
+            {"content-type": type},
+            {"content-encoding": encoding}
+            ]
+        }
+    signature = jwt.encode(payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
+    # effettua chiamata
+    api_url = target
+    headers =  {"Accept":"application/json",
+                "Content-Type":type,
+                "Content-Encoding":encoding,
+                "Digest":digest,
+                "Authorization":"Bearer " + voucher,
+                "Agid-JWT-TrackingEvidence":audit,
+                "Agid-JWT-Signature":signature
+                }
+
+    response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
+
+    return response.json()
+
 
 
 
@@ -115,16 +172,21 @@ def mit_whitelist(request):
     if request.user.id:
         utente_sessione = UtentiParametri.objects.get(id=request.user.id)
         utente_abilitato = utente_sessione.mit_whitelist
+
         if request.method == 'POST':
             data = []
             cf = request.POST.get('input_CF')
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,7), 1))
+                # id_caso = 2 per "Lista veicoli" come definito in mit_get_request
+                response = mit_get_request(request.user.username, cf, 3)
+                data.append(response)
                 data = converti_data(data)
+                # Gestione errori eventuale o formattazione se necessaria
             else:
                 data.append("Codice fiscale non corretto")
+
             salva_log(request.user,"Verifica MIT - Whitelist", "Verificato utente " + cf)
 
             return render(request, 'mit_whitelist.html', {'data': data, 'utente_abilitato': utente_abilitato })
@@ -133,7 +195,7 @@ def mit_whitelist(request):
     return render(request, 'mit_whitelist.html', { 'utente_abilitato': utente_abilitato })
 
 
-def mit_lista_veicoli_cude(request):
+def mit_lista_veicoli(request):
     utente_abilitato = False
     if request.user.id:
         utente_sessione = UtentiParametri.objects.get(id=request.user.id)
@@ -154,16 +216,35 @@ def mit_lista_veicoli_cude(request):
                 data.append("Codice fiscale non corretto")
             
             salva_log(request.user, "Verifica MIT - Lista Veicoli", "Verificato utente " + cf)
-            return render(request, 'mit_lista_veicoli_cude.html', {'data': data, 'utente_abilitato': utente_abilitato })
+            return render(request, 'mit_lista_veicoli.html', {'data': data, 'utente_abilitato': utente_abilitato })
 
-    return render(request, 'mit_lista_veicoli_cude.html', { 'utente_abilitato': utente_abilitato })
+    return render(request, 'mit_lista_veicoli.html', { 'utente_abilitato': utente_abilitato })
 
 
-def mit_verifica_targa_cude(request):
+def mit_verifica_targa(request):
     if request.user.id:
         utente_sessione = UtentiParametri.objects.get(id=request.user.id)
         utente_abilitato = utente_sessione.mit_targa
-    return render(request, 'mit_verifica_targa_cude.html', { 'utente_abilitato': utente_abilitato })
+
+        if request.method == 'POST':
+            data = []
+            cf = request.POST.get('input_CF')
+            data.append(cf)
+            correttezza_cf = verifica_cf(cf)
+            if correttezza_cf == 1 or correttezza_cf == 2:
+                # id_caso = 2 per "Lista veicoli" come definito in mit_get_request
+                response = mit_get_request(request.user.username, cf, 4)
+                data.append(response)
+                data = converti_data(data)
+                # Gestione errori eventuale o formattazione se necessaria
+            else:
+                data.append("Codice fiscale non corretto")
+            
+            salva_log(request.user, "Verifica MIT - Verifica Targa", "Verificato utente " + cf)
+            return render(request, 'mit_verifica_targa.html', {'data': data, 'utente_abilitato': utente_abilitato })
+
+
+    return render(request, 'mit_verifica_targa.html', { 'utente_abilitato': utente_abilitato })
 
 
 def impostazioni_mit(request):
