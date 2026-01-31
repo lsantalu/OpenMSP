@@ -698,7 +698,7 @@ OpenMSP - Multi Services Portal
                       {% endif %}
                       {% if servizio.id == service_desc.11.1 and servizio.attivo %}
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.mit_veicoli %} disabled" aria-disabled="true{% endif %}" href="{% url   'mit_lista_veicoli_cude' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.mit_veicoli %} class="text-muted"{% endif %}>MIT - Lista Veicoli  Cude</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.mit_veicoli %} disabled" aria-disabled="true{% endif %}" href="{% url   'mit_lista_veicoli' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.mit_veicoli %} class="text-muted"{% endif %}>MIT - Lista Veicoli  Cude</span></a>
                       </li>
                       {% endif %}                      
                       {% if servizio.id == service_desc.12.1 and servizio.attivo %}
@@ -708,7 +708,7 @@ OpenMSP - Multi Services Portal
                       {% endif %}
                       {% if servizio.id == service_desc.13.1 and servizio.attivo %}
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.mit_targa %} disabled" aria-disabled="true{% endif %}" href="{% url 'mit_verifica_targa_cude' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.mit_targa %} class="text-muted"{% endif %}>MIT - Verifica Targa Cude</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.mit_targa %} disabled" aria-disabled="true{% endif %}" href="{% url 'mit_verifica_targa' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.mit_targa %} class="text-muted"{% endif %}>MIT - Verifica Targa Cude</span></a>
                       </li>
                       <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
                       {% endif %}
