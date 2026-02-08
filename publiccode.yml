@@ -5,7 +5,6 @@ url: https://github.com/lsantalu/OpenMSP
 landingURL: https://www.openced.it
 softwareVersion: 1.0.0
 releaseDate: 2026-01-01
-logo: https://openced.it/OpenCED_logo.png
 platforms:
   - web
 categories:

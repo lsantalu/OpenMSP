@@ -3,8 +3,10 @@ from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from django.views.generic.base import TemplateView
+from django.conf import settings
 
 from .views import profilo_utente
+from .views import login_2fa
 from .views import logout
 from .views import pdnd_gateway_service
 from .views import CustomPasswordResetView
@@ -99,12 +101,13 @@ from .impostazioni import impostazioni_clone_user
 
 from .views import register
 from .views import debug_openmsp
-
+from .views import login_2fa
 
 urlpatterns = [
     path("console_openmsp/", admin.site.urls),
     path('register/', register, name='register'),
     path('clone_user/', impostazioni_clone_user, name='clone_user'),
+
     path("accounts/", include("django.contrib.auth.urls")),
     path('accounts/password_change/', auth_views.PasswordChangeView.as_view(), name='password_change'),
     path('accounts/password_change/done/', auth_views.PasswordChangeDoneView.as_view(), name='password_change_done'),
@@ -212,3 +215,13 @@ urlpatterns = [
     path('impostazioni_upload_stemma/', impostazioni_upload_stemma, name='impostazioni_upload_stemma'),
     path('debug_openmsp/', debug_openmsp, name='debug_openmsp'),
 ]
+
+if settings.AUTH_2FA:
+    from two_factor.urls import urlpatterns as tf_urls
+    urlpatterns += [
+        path('', include((tf_urls[0], 'two_factor'), namespace='two_factor')),
+    ]
+else:
+    urlpatterns += [
+         path('accounts/2fa/', login_2fa.as_view(), name='login_2fa'),
+    ]

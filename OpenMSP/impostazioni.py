@@ -23,6 +23,7 @@ from impostazioni.models import ServiziParametri
 from impostazioni.models import GruppiParametri
 from impostazioni.models import DatiEnte
 from impostazioni.scheduler import send_db_backup
+from django_otp.plugins.otp_totp.models import TOTPDevice
 
 
 def impostazioni_parametri(request):
@@ -366,6 +367,11 @@ def impostazioni_utenti(request):
             utente_attivo = get_object_or_404(User, id=int(utente_selezionato))
             utente_attivo.is_active = not utente_attivo.is_active
             utente_attivo.save()
+        elif 'reset_2fa' in request.POST:
+            utente_selezionato = request.POST.get('scegliUtente')
+            utente_target = get_object_or_404(User, id=int(utente_selezionato))
+            TOTPDevice.objects.filter(user=utente_target).delete()
+            messages.success(request, f"2FA resettata per l'utente {utente_target.username}.")
         else:
             utente_selezionato = request.POST.get('utente_selezionato')
             array_permessi = request.POST.get('array_permessi')

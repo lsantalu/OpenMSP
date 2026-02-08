@@ -1,5 +1,6 @@
 from django.utils import timezone
 from django.contrib.auth.models import User
+from django.conf import settings
 
 from impostazioni.models import DatiEnte
 from impostazioni.models import UtentiParametri
@@ -61,8 +62,15 @@ def custom_context(request):
         ('app_io_composer', 'App IO Composer', service_desc[19][3], service_desc[19][4]),
         ('app_io_storico_messaggi', 'App IO Storico Messaggi', service_desc[19][3], service_desc[19][4]),
     ]
+    
+    user_has_2fa = False
+    if request.user.is_authenticated:
+        from two_factor.utils import default_device
+        user_has_2fa = default_device(request.user) is not None
 
     return {
+            'AUTH_2FA': settings.AUTH_2FA,
+            'user_has_2fa': user_has_2fa,
             'utenti': utenti,
             'user_perms': user_perms,
             'service_active': service_active,

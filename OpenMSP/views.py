@@ -69,6 +69,12 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 
+from django.contrib.auth.views import LoginView
+from two_factor.views import LoginView as TwoFactorLoginView
+
+class login_2fa(TwoFactorLoginView):
+    template_name = 'registration/login_2fa.html'
+
 
 def Api_C001(codice_fiscale, api_key):
     return anpr_get_request(api_key, anpr_get_request(api_key, codice_fiscale,7), 1)

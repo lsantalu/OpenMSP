@@ -42,6 +42,9 @@ Impostazioni Utenti - OpenMSP - Multi Services Portal
     {% if user.id == utente_selezionato %} disabled {% endif %}>
     {% if utente_selezionato and utente_selezionato.is_active %}Disattiva Utente{% else %}Attiva Utente{% endif %}
   </button>
+  <button class="m-1 btn btn-info" type="submit" name="reset_2fa" id="reset2faBtn" {% if not AUTH_2FA %} disabled {% endif %}>
+    Reset 2FA
+  </button>
   <a href="{% url 'clone_user' %}" class="m-1 btn btn-danger">Clona utente</a>
   <a href="{% url 'register' %}" class="m-1 btn btn-success">Crea nuovo utente</a>
 </div>
