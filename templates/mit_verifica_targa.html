@@ -19,8 +19,8 @@ MIT - Verifica Targa Cude - OpenMSP - Multi Services Portal
     <form class="needs-validation" id="mit_verifica_targa" method="post">
       {% csrf_token %}
       <div class="form-group">
-        <label for="input_CF">Inserisci il Codice Fiscale</label>
-        <input type="text" class="form-control" id="input_CF" name="input_CF" maxlength="16" oninput="this.value = this.value.toUpperCase();" required />
+        <label for="input_targa">Inserisci targa del veicolo</label>
+        <input type="text" class="form-control" id="input_targa" name="input_targa" maxlength="7" oninput="this.value = this.value.toUpperCase();" required />
       </div>
       <div class="col-3">
         <button class="btn btn-primary" type="submit">
@@ -41,7 +41,7 @@ MIT - Verifica Targa Cude - OpenMSP - Multi Services Portal
     <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
       <h5 class="it-card-title it-card-title-icon">Patenti di {{ data.0 }}</h5>
       
-      {% if 'Codice fiscale non corretto' in data.1 %}
+      {% if 'Targa non corretta' in data.1 %}
       <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
       {% else %}
       <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
@@ -49,7 +49,7 @@ MIT - Verifica Targa Cude - OpenMSP - Multi Services Portal
       </div>
 
       <div class="it-card-body">
-        {% if 'Codice fiscale non corretto' in data.1 %}
+        {% if 'Targa non corretta' in data.1 %}
         <p class="it-card-text">
           <b> {{data.1}} </b>
         </p>
@@ -134,7 +134,7 @@ MIT - Verifica Targa Cude - OpenMSP - Multi Services Portal
 
   <script>
     document.addEventListener('DOMContentLoaded', function () {
-      const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Il campo "Codice Fiscale" è da controllare.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
+      const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Il campo "Targa" è da controllare.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
       const errorWrapper = document.querySelector('#errorMsgContainer')
       const validate = new bootstrap.FormValidate('#mit_verifica_targa', {
         errorFieldCssClass: 'is-invalid',
@@ -143,25 +143,25 @@ MIT - Verifica Targa Cude - OpenMSP - Multi Services Portal
         focusInvalidField: false
       })
       validate
-      .addField('#input_CF', [
+      .addField('#input_targa', [
       {
         rule: 'required',
         errorMessage: 'Questo campo è richiesto'
       },
       {
         rule: 'minLength',
-        value: 16,
-        errorMessage: 'Il C.F. deve avere 16 caratteri'
+        value: 7,
+        errorMessage: 'La targa deve avere il formato AA111AA'
       },
       {
         rule: 'maxLength',
-        value: 16,
-        errorMessage: 'Il C.F. deve avere 16 caratteri'
+        value: 7,
+        errorMessage: 'La targa deve avere il formato AA111AA'
       },
       {
         rule: 'customRegexp',
-        value: '^[a-zA-Z]{6}[0-9]{2}[a-zA-Z][0-9]{2}[a-zA-Z][0-9]{3}[a-zA-Z]$',
-        errorMessage: 'Il C.F. è scritto correttamente'
+        value: '^[A-Z]{2}[0-9]{3}[A-Z]{2}$',
+        errorMessage: 'La targa non è scritta correttamente'
       }
       ])
       .onSuccess(() => {

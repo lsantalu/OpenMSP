@@ -113,8 +113,8 @@ App IO - OpenMSP - Multi Services Portal
 
 
       <!-- Modale Dettagli -->
-      <div class="modal fade" id="detagliModal{{ messaggio.id }}" tabindex="-1" aria-labelledby="detagliModalLabel{{ messaggio.id }}" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+      <div class="modal fade" id="detagliModal{{ messaggio.id }}" tabindex="-1" aria-labelledby="detagliModalLabel{{ messaggio.id }}" aria-hidden="true" data-bs-backdrop="false" style="pointer-events: none; background-color: rgba(0, 0, 0, 0.8);">
+        <div class="modal-dialog modal-dialog-centered" style="pointer-events: auto;">
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title" id="detagliModalLabel{{ messaggio.id }}">Dettagli del messaggio:<br> {{ messaggio.titolo }}</h5>
@@ -407,6 +407,34 @@ App IO - OpenMSP - Multi Services Portal
 
 
 
+    </script>
+
+    <script>
+      // Gestione chiusura modale Dettagli al click esterno (globale per overlay custom)
+      document.addEventListener('click', function(event) {
+        // Trova tutti i modali aperti che potrebbero interessarci
+        const openModals = document.querySelectorAll('.modal.show');
+
+        openModals.forEach(modal => {
+          // Verifica se è uno dei modali dettagli com ID che inizia con "detagliModal"
+          if (modal.id.startsWith('detagliModal')) {
+            const modalContent = modal.querySelector('.modal-content');
+            // Se il click è fuori dal contenuto
+            if (modalContent && !modalContent.contains(event.target)) {
+              // Verifica che non sia il bottone che apre QUESTO modale
+              const targetId = '#' + modal.id;
+              const isToggle = event.target.closest(`[data-bs-toggle="modal"][data-bs-target="${targetId}"]`);
+
+              if (!isToggle) {
+                const modalInstance = bootstrap.Modal.getInstance(modal);
+                if (modalInstance) {
+                  modalInstance.hide();
+                }
+              }
+            }
+          }
+        });
+      });
     </script>
 
 

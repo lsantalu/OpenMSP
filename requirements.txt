@@ -25,3 +25,6 @@ python-decouple
 whitenoise
 pytz
 django-auth-ldap
+django-otp
+django-two-factor-auth
+phonenumbers

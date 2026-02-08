@@ -159,8 +159,6 @@ def mit_get_request(user_ID, cf, id_caso):
     return response.json()
 
 
-
-
 def mit_dettaglio_cude(request):
     if request.user.id:
         utente_sessione = UtentiParametri.objects.get(id=request.user.id)
@@ -228,19 +226,14 @@ def mit_verifica_targa(request):
 
         if request.method == 'POST':
             data = []
-            cf = request.POST.get('input_CF')
-            data.append(cf)
-            correttezza_cf = verifica_cf(cf)
-            if correttezza_cf == 1 or correttezza_cf == 2:
-                # id_caso = 2 per "Lista veicoli" come definito in mit_get_request
-                response = mit_get_request(request.user.username, cf, 4)
-                data.append(response)
-                data = converti_data(data)
-                # Gestione errori eventuale o formattazione se necessaria
-            else:
-                data.append("Codice fiscale non corretto")
+            targa = request.POST.get('input_targa')
+            data.append(targa)
+            response = mit_get_request(request.user.username, targa, 4)
+            data.append(response)
+            data = converti_data(data)
+            # Gestione errori eventuale o formattazione se necessaria
             
-            salva_log(request.user, "Verifica MIT - Verifica Targa", "Verificato utente " + cf)
+            salva_log(request.user, "Verifica MIT - Verifica Targa", "Verificato targa " + targa)
             return render(request, 'mit_verifica_targa.html', {'data': data, 'utente_abilitato': utente_abilitato })
 
 

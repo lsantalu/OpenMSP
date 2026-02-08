@@ -37,11 +37,17 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_otp',
+    'django_otp.plugins.otp_static',
+    'django_otp.plugins.otp_totp',
+    'two_factor',
+    'two_factor.plugins.phonenumber',
     'bootstrap_italia_template',
     'sass_processor',
     "django_extensions",
     'rest_framework',
     "impostazioni",
+
     ]
 
 MIDDLEWARE = [
@@ -53,6 +59,8 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django_otp.middleware.OTPMiddleware',
+    'OpenMSP.middleware.Force2FAMiddleware',
 ]
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
@@ -61,7 +69,6 @@ ROOT_URLCONF = 'OpenMSP.urls'
 
 LOGIN_REDIRECT_URL = "home"
 LOGOUT_REDIRECT_URL = "home"
-
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
@@ -92,6 +99,15 @@ AUTH_LDAP_CONNECTION_OPTIONS = {
     for key, value in _raw_ldap_options.items()
 }
 
+AUTH_2FA = config("AUTH_2FA", cast=bool)
+TWO_FACTOR_ISSUER = config("TWO_FACTOR_ISSUER", default="OpenMSP")
+
+# Two-factor settings
+LOGIN_URL = 'two_factor:login' if AUTH_2FA else 'login'
+# LOGIN_REDIRECT_URL is already defined as 'home'
+
+# If using django-two-factor-auth, we need to ensure the standard login is replaced or handled
+# The default LoginView of two_factor handles the 2FA flow
 
 
 TEMPLATES = [

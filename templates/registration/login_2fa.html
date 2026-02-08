@@ -1,0 +1,39 @@
+<!-- templates/registration/login.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Change form - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<div class="col-8 shadow-lg white-bg p-4">
+
+  <h2>Attivazione autenticazione a due fattori</h2>
+
+  <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
+    <form method="post" action="">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <p>Inserisci il codice OTP che hai ricevuto tramite email.</p>
+      <div class="row">
+        <div class="form-group col-6">
+          <label for="id_email">Codice OTP</label>
+          <input type="text" name="otp" class="form-control" id="id_otp" required>
+        </div>
+      </div>
+      <div class="row ">
+        <div class="form-group col-12">
+          <button type="submit" class="btn btn-primary">
+            <svg class="icon icon-sm icon-white" aria-hidden="true">
+              <use href="{% static 'svg/sprites.svg' %}#it-exchange-circle"></use>
+            </svg>Verifica OTP
+          </button>
+        </div>
+      </div>
+    </form>
+
+  </div>
+</div>
+{% endblock %}

@@ -22,6 +22,14 @@ Profilo utente - OpenMSP - Multi Services Portal
     <div class="form-group mb-2">
       <a href="{% url 'home' %}" class="btn btn-danger">Annulla</a>
       <a href="{% url 'password_change' %}" class="btn btn-secondary">Cambio password</a>
+      
+      {% if AUTH_2FA %}
+        {% if user_has_2fa %}
+          <a href="{% url 'two_factor:profile' %}" class="btn btn-info">Gestisci 2FA</a>
+        {% else %}
+          <a href="{% url 'two_factor:setup' %}" class="btn btn-success">Attiva 2FA</a>
+        {% endif %}
+      {% endif %}
     </div>
   </div>
 </div>
