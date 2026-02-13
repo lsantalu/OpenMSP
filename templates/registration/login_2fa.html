@@ -1,39 +1,114 @@
-<!-- templates/registration/login.html -->
 {% extends 'base.html' %}
-
+{% load i18n %}
+{% load two_factor_tags %}
 {% load static %}
 
 {% block page_title %}
-Change form - OpenMSP - Multi Services Portal
+Login - OpenMSP - Multi Services Portal
 {% endblock %}
 
 {% block centered_container %}
 <div class="col-8 shadow-lg white-bg p-4">
 
-  <h2>Attivazione autenticazione a due fattori</h2>
+  <h2>
+    {% if wizard.steps.current == 'auth' %}
+      {% trans "Login" %}
+    {% elif wizard.steps.current == 'token' %}
+      {% trans "Verifica 2FA" %}
+    {% elif wizard.steps.current == 'backup' %}
+      {% trans "Usa Codice di Backup" %}
+    {% endif %}
+  </h2>
 
   <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
-    <form method="post" action="">
+    <form action="" method="post">
       {% csrf_token %}
-      {{ form.non_field_errors }}
-      <p>Inserisci il codice OTP che hai ricevuto tramite email.</p>
-      <div class="row">
-        <div class="form-group col-6">
-          <label for="id_email">Codice OTP</label>
-          <input type="text" name="otp" class="form-control" id="id_otp" required>
-        </div>
-      </div>
-      <div class="row ">
-        <div class="form-group col-12">
-          <button type="submit" class="btn btn-primary">
-            <svg class="icon icon-sm icon-white" aria-hidden="true">
-              <use href="{% static 'svg/sprites.svg' %}#it-exchange-circle"></use>
-            </svg>Verifica OTP
-          </button>
-        </div>
-      </div>
-    </form>
+      {{ wizard.management_form }}
+      
+      {% if wizard.steps.current == 'auth' %}
+        <p>{% trans "Inserisci le tue credenziali per accedere." %}</p>
+      {% elif wizard.steps.current == 'token' %}
+        <p>{{ device|as_verbose_action }}</p>
+      {% elif wizard.steps.current == 'backup' %}
+        <p>{% blocktrans trimmed %}Usa uno dei codici di backup generati in precedenza per accedere al tuo account.{% endblocktrans %}</p>
+      {% endif %}
 
+      <div class="row">
+        <div class="col-12">
+          {# Render the form using Bootstrap Italia styles if possible, or simple list #}
+          {% for field in wizard.form %}
+            <div class="form-group mb-3">
+              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+              <input type="{{ field.field.widget.input_type|default:'text' }}" 
+                     name="{{ wizard.steps.current }}-{{ field.name }}" 
+                     class="form-control" 
+                     id="{{ field.id_for_label }}" 
+                     {% if 'otp' in field.name or 'token' in field.name %}
+                       inputmode="numeric" 
+                       pattern="[0-9]{6}" 
+                       maxlength="6" 
+                       title="Inserisci i 6 numeri del token"
+                     {% endif %}
+                     {% if field.field.required %}required{% endif %}
+                     {% if field.value %}value="{{ field.value }}"{% endif %}>
+              {% if field.errors %}
+                <div class="alert alert-danger p-2 mt-1">
+                  {{ field.errors }}
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+          
+          {% if wizard.form.non_field_errors %}
+            <div class="alert alert-danger">
+              {{ wizard.form.non_field_errors }}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="row mt-4">
+        <div class="form-group col-12 d-flex justify-content-between align-items-center">
+          <div>
+            {% if wizard.steps.prev %}
+              <button name="wizard_goto_step" type="submit" value="{{ wizard.steps.prev }}" class="btn btn-outline-primary">
+                <svg class="icon icon-sm"><use href="{% static 'svg/sprites.svg' %}#it-chevron-left"></use></svg>{% trans "Indietro" %}
+              </button>
+            {% endif %}
+            <button type="submit" class="btn btn-primary">
+              <svg class="icon icon-sm icon-white" aria-hidden="true">
+                <use href="{% static 'svg/sprites.svg' %}#it-check"></use>
+              </svg>
+              {% if wizard.steps.current == 'auth' %}{% trans "Accedi" %}{% else %}{% trans "Verifica" %}{% endif %}
+            </button>
+          </div>
+          
+          {% if cancel_url %}
+            <a href="{{ cancel_url }}" class="btn btn-link">{% trans "Annulla" %}</a>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if other_devices %}
+        <hr>
+        <p>{% trans "Oppure, usa un altro metodo di autenticazione:" %}</p>
+        <div class="d-flex flex-wrap gap-2">
+          {% for other in other_devices %}
+            <button name="challenge_device" value="{{ other.persistent_id }}" class="btn btn-sm btn-outline-secondary" type="submit">
+              {{ other|as_action }}
+            </button>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% if backup_tokens %}
+        <hr>
+        <p>{% trans "Come ultima risorsa, puoi usare un codice di backup:" %}</p>
+        <button name="wizard_goto_step" type="submit" value="backup" class="btn btn-sm btn-secondary">
+          {% trans "Usa Codice di Backup" %}
+        </button>
+      {% endif %}
+    </form>
   </div>
 </div>
 {% endblock %}

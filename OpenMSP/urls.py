@@ -2,7 +2,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
-from django.views.generic.base import TemplateView
+from django.views.generic.base import TemplateView, RedirectView
 from django.conf import settings
 
 from .views import profilo_utente
@@ -108,7 +108,7 @@ urlpatterns = [
     path('register/', register, name='register'),
     path('clone_user/', impostazioni_clone_user, name='clone_user'),
 
-    path("accounts/", include("django.contrib.auth.urls")),
+    path('accounts/login/', RedirectView.as_view(pattern_name='two_factor:login', permanent=False), name='login') if settings.AUTH_2FA else path('accounts/login/', auth_views.LoginView.as_view(), name='login'),
     path('accounts/password_change/', auth_views.PasswordChangeView.as_view(), name='password_change'),
     path('accounts/password_change/done/', auth_views.PasswordChangeDoneView.as_view(), name='password_change_done'),
     ##path('password_reset/', auth_views.PasswordResetView.as_view(), name='password_reset'),
@@ -122,6 +122,7 @@ urlpatterns = [
     path("", TemplateView.as_view(template_name="home.html"), name="home"),
     path('logout/', logout, name='logout'),
     path("profilo_utente/", profilo_utente, name="profilo_utente"),
+
 
     path("ipa_singola/", ipa_singola, name="ipa_singola"),
     path("ipa_massiva/", ipa_massiva, name="ipa_massiva"),
@@ -218,8 +219,11 @@ urlpatterns = [
 
 if settings.AUTH_2FA:
     from two_factor.urls import urlpatterns as tf_urls
+    # Sovrascriviamo la URL di login di two_factor con la nostra vista personalizzata
+    # che usa il template Bootstrap Italia
     urlpatterns += [
-        path('', include((tf_urls[0], 'two_factor'), namespace='two_factor')),
+        path('account/login/', login_2fa.as_view(), name='two_factor:login'),
+        path('', include((tf_urls[0], 'two_factor'), namespace='two_factor_base')),
     ]
 else:
     urlpatterns += [
