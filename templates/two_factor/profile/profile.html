@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block page_title %}
+{% trans "Gestione Autenticazione a due fattori" %} - OpenMSP
+{% endblock %}
+
+{% block centered_container %}
+<div class="col-10 shadow-lg white-bg p-4">
+  <div class="row mb-4">
+    <div class="col-12">
+      <h2>{% trans "Autenticazione a due fattori" %}</h2>
+      <p class="lead">{% trans "Aggiungi un ulteriore livello di sicurezza al tuo account." %}</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-12">
+      {% if default_device %}
+        <div class="alert alert-success d-flex align-items-center" role="alert">
+          <svg class="icon icon-sm icon-success me-2"><use href="{% static 'svg/sprites.svg' %}#it-check-circle"></use></svg>
+          <div>
+            {% if default_device.plugin_name == 'otp_totp' %}
+              {% trans "L'autenticazione a due fattori è attiva tramite app generatrice di token." %}
+            {% elif default_device.plugin_name == 'phonenumber' %}
+              {% blocktrans with number=default_device.phone_number %}L'autenticazione a due fattori è attiva tramite SMS al numero {{ number }}.{% endblocktrans %}
+            {% else %}
+              {% trans "L'autenticazione a due fattori è attiva." %}
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card shadow-sm border-light mb-4">
+          <div class="card-body">
+            <h5 class="card-title">{% trans "Metodi di Backup" %}</h5>
+            <p class="card-text">{% trans "Se perdi il tuo dispositivo principale, puoi usare questi metodi per accedere." %}</p>
+            
+            <div class="list-group list-group-flush">
+              <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                <div>
+                  <strong>{% trans "Codici di Backup" %}</strong><br>
+                  <small class="text-muted">
+                    {% blocktrans count counter=backup_tokens %}
+                      Hai ancora {{ counter }} codice di backup rimasto.
+                    {% plural %}
+                      Hai ancora {{ counter }} codici di backup rimasti.
+                    {% endblocktrans %}
+                  </small>
+                </div>
+                <a href="{% url 'two_factor:backup_tokens' %}" class="btn btn-outline-primary btn-sm">
+                  {% trans "Mostra i codici" %}
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 border-top pt-4 d-flex justify-content-end align-items-center">
+          <a href="{% url 'profilo_utente' %}" class="btn btn-outline-secondary">
+            <svg class="icon icon-sm me-1"><use href="{% static 'svg/sprites.svg' %}#it-chevron-left"></use></svg>
+            {% trans "Torna al profilo" %}
+          </a>
+        </div>
+      {% else %}
+        <div class="alert alert-warning d-flex align-items-center" role="alert">
+          <svg class="icon icon-sm icon-warning me-2"><use href="{% static 'svg/sprites.svg' %}#it-info-circle"></use></svg>
+          <div>
+            {% trans "L'autenticazione a due fattori non è ancora attiva." %}
+          </div>
+        </div>
+        <div class="mt-4 d-flex justify-content-between align-items-center">
+          <a href="{% url 'two_factor:setup' %}" class="btn btn-success">
+            <svg class="icon icon-sm icon-white me-1"><use href="{% static 'svg/sprites.svg' %}#it-plus-circle"></use></svg>
+            {% trans "Attiva ora" %}
+          </a>
+          <a href="{% url 'profilo_utente' %}" class="btn btn-outline-secondary">
+            <svg class="icon icon-sm me-1"><use href="{% static 'svg/sprites.svg' %}#it-chevron-left"></use></svg>
+            {% trans "Torna al profilo" %}
+          </a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  
+
+</div>
+{% endblock %}

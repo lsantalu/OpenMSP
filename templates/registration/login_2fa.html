@@ -12,9 +12,9 @@ Login - OpenMSP - Multi Services Portal
 
   <h2>
     {% if wizard.steps.current == 'auth' %}
-      {% trans "Login" %}
+      {% trans "Accedi a OpenMSP" %}
     {% elif wizard.steps.current == 'token' %}
-      {% trans "Verifica 2FA" %}
+      {% trans "Verifica a 2 fattori" %}
     {% elif wizard.steps.current == 'backup' %}
       {% trans "Usa Codice di Backup" %}
     {% endif %}
@@ -28,7 +28,7 @@ Login - OpenMSP - Multi Services Portal
       {% if wizard.steps.current == 'auth' %}
         <p>{% trans "Inserisci le tue credenziali per accedere." %}</p>
       {% elif wizard.steps.current == 'token' %}
-        <p>{{ device|as_verbose_action }}</p>
+        <p>{% trans "Inserisci il token generato dal tuo dispositivo." %}</p>
       {% elif wizard.steps.current == 'backup' %}
         <p>{% blocktrans trimmed %}Usa uno dei codici di backup generati in precedenza per accedere al tuo account.{% endblocktrans %}</p>
       {% endif %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block page_title %}
+{% trans "Codici di Backup" %} - OpenMSP
+{% endblock %}
+
+{% block centered_container %}
+<div class="col-8 shadow-lg white-bg p-4">
+  <h2>{% trans "Codici di Backup" %}</h2>
+  <p class="text-muted">
+    {% blocktrans trimmed %}
+      I codici di backup possono essere utilizzati per accedere al tuo account se perdi il tuo dispositivo principale.
+      Ogni codice può essere utilizzato una sola volta. Conservali in un posto sicuro.
+    {% endblocktrans %}
+  </p>
+
+  <div class="alert alert-info d-flex align-items-center mb-4">
+    <svg class="icon icon-sm icon-primary me-2"><use href="{% static 'svg/sprites.svg' %}#it-info-circle"></use></svg>
+    <div>
+      {% blocktrans count counter=backup_tokens|length %}
+        Hai {{ counter }} codice di backup rimasto.
+      {% plural %}
+        Hai {{ counter }} codici di backup rimasti.
+      {% endblocktrans %}
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="bg-light p-4 border rounded shadow-sm mb-4">
+        <ul class="list-unstyled text-center mb-0" style="font-family: monospace; font-size: 1.2rem; letter-spacing: 2px;">
+          {% for token in backup_tokens %}
+            <li class="mb-2">{{ token }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mt-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+      <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-warning">
+          <svg class="icon icon-sm icon-white me-1"><use href="{% static 'svg/sprites.svg' %}#it-refresh"></use></svg>
+          {% trans "Genera nuovi codici" %}
+        </button>
+      </form>
+      
+      <a href="{% url 'two_factor:profile' %}" class="btn btn-outline-secondary">
+        <svg class="icon icon-sm me-1"><use href="{% static 'svg/sprites.svg' %}#it-chevron-left"></use></svg>
+        {% trans "Indietro" %}
+      </a>
+    </div>
+  </div>
+  
+  <div class="mt-4 text-center">
+    <button class="btn btn-sm btn-outline-info" onclick="window.print();">
+      <svg class="icon icon-xs me-1"><use href="{% static 'svg/sprites.svg' %}#it-print"></use></svg>
+      {% trans "Stampa i codici" %}
+    </button>
+  </div>
+</div>
+{% endblock %}
