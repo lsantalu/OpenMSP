@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block page_title %}
+{% trans "Disabilita Autenticazione a due fattori" %} - OpenMSP
+{% endblock %}
+
+{% block centered_container %}
+<div class="col-8 shadow-lg white-bg p-4">
+  <div class="alert alert-danger d-flex align-items-center mb-4" role="alert">
+    <svg class="icon icon-sm icon-danger me-2"><use href="{% static 'svg/sprites.svg' %}#it-warning-circle"></use></svg>
+    <div>
+      <h4 class="alert-heading">{% trans "Sei sicuro?" %}</h4>
+      <p>{% blocktrans trimmed %}Stai per disabilitare l'autenticazione a due fattori. Il tuo account sarà meno sicuro.{% endblocktrans %}</p>
+    </div>
+  </div>
+
+  <form method="post" class="mt-4">
+    {% csrf_token %}
+    <p>{% trans "Per confermare la disattivazione, premi il pulsante qui sotto." %}</p>
+    
+    <div class="d-flex justify-content-between mt-5">
+      <a href="{% url 'two_factor:profile' %}" class="btn btn-outline-secondary">
+        <svg class="icon icon-sm me-1"><use href="{% static 'svg/sprites.svg' %}#it-chevron-left"></use></svg>
+        {% trans "Annulla" %}
+      </a>
+      <button type="submit" class="btn btn-danger">
+        <svg class="icon icon-sm icon-white me-1"><use href="{% static 'svg/sprites.svg' %}#it-error"></use></svg>
+        {% trans "Sì, disabilita il 2FA" %}
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

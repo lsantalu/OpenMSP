@@ -223,6 +223,7 @@ if settings.AUTH_2FA:
     # che usa il template Bootstrap Italia
     urlpatterns += [
         path('account/login/', login_2fa.as_view(), name='two_factor:login'),
+        path('account/two_factor/disable/', RedirectView.as_view(pattern_name='profilo_utente', permanent=False), name='two_factor:disable'),
         path('', include((tf_urls[0], 'two_factor'), namespace='two_factor_base')),
     ]
 else:

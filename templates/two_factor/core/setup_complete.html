@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block page_title %}
+{% trans "Configurazione Completata" %} - OpenMSP
+{% endblock %}
+
+{% block centered_container %}
+<div class="col-8 shadow-lg white-bg p-4 text-center">
+  <div class="mb-4">
+    <svg class="icon icon-xl icon-success"><use href="{% static 'svg/sprites.svg' %}#it-check-circle"></use></svg>
+  </div>
+  
+  <h2 class="mb-3">{% trans "Autenticazione a due fattori attiva" %}</h2>
+  
+  <p class="lead mb-4">
+    {% blocktrans trimmed %}Complimenti, l'autenticazione a due fattori è stata attivata con successo sul tuo account.{% endblocktrans %}
+  </p>
+
+  {% if phone_methods %}
+    <div class="alert alert-info text-start mb-4">
+      <svg class="icon icon-sm icon-primary me-2"><use href="{% static 'svg/sprites.svg' %}#it-info-circle"></use></svg>
+      <div>
+        {% blocktrans trimmed %}
+          Per una maggiore sicurezza, puoi aggiungere un numero di telefono come metodo di recupero alternativo.
+        {% endblocktrans %}
+      </div>
+    </div>
+    
+    <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
+      <a href="{% url 'two_factor:phone_create' %}" class="btn btn-success">
+        <svg class="icon icon-sm icon-white me-1"><use href="{% static 'svg/sprites.svg' %}#it-plus-circle"></use></svg>
+        {% trans "Aggiungi numero di telefono" %}
+      </a>
+    </div>
+  {% endif %}
+
+  <hr class="my-4">
+
+  <div class="d-flex justify-content-center">
+    <a href="{% url 'home' %}" class="btn btn-primary">
+      <svg class="icon icon-sm icon-white me-1"><use href="{% static 'svg/sprites.svg' %}#it-chevron-left"></use></svg>
+      {% trans "Torna alla home" %}
+    </a>
+  </div>
+</div>
+{% endblock %}

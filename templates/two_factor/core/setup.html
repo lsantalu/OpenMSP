@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block page_title %}
+{% trans "Configurazione Autenticazione a due fattori" %} - OpenMSP
+{% endblock %}
+
+{% block centered_container %}
+<div class="col-10 shadow-lg white-bg p-4">
+  <h2>{% trans "Configura Autenticazione a due fattori" %}</h2>
+  <p>{% blocktrans %}Passaggio {{ wizard.steps.step1 }} di {{ wizard.steps.count }}{% endblocktrans %}</p>
+
+  <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-sm bg-light">
+    <form action="" method="post">
+      {% csrf_token %}
+      {{ wizard.management_form }}
+
+      {% if wizard.steps.current == 'welcome' %}
+        <p>{% blocktrans trimmed %}Stai per attivare l'autenticazione a due fattori sul tuo account. 
+        Questo renderà il tuo accesso molto più sicuro portando a due i fattori di verifica necessari.{% endblocktrans %}</p>
+      {% elif wizard.steps.current == 'method' %}
+        <p>{% trans "Scegli il metodo che preferisci utilizzare per ricevere i token di verifica." %}</p>
+      {% elif wizard.steps.current == 'generator' %}
+        <p>{% blocktrans trimmed %}Per utilizzare un'app generatrice di token (come Google Authenticator, Authy o Microsoft Authenticator), 
+        scansiona il codice QR qui sotto con la tua app.{% endblocktrans %}</p>
+        
+        <div class="text-center my-4 p-3 bg-white d-inline-block border rounded">
+          <img src="{{ QR_URL }}" alt="QR Code" class="img-fluid">
+        </div>
+        
+        <p>{% blocktrans trimmed %}In alternativa, puoi inserire manualmente questa chiave segreta nella tua app:{% endblocktrans %}
+          <br><code class="bg-light p-1 border rounded">{{ secret_key }}</code>
+        </p>
+      {% elif wizard.steps.current == 'sms' %}
+        <p>{% trans "Inserisci il numero di telefono su cui desideri ricevere i token tramite SMS." %}</p>
+      {% elif wizard.steps.current == 'validation' %}
+        {% if wizard.steps.prev == 'generator' %}
+          <p>{% trans "Ora inserisci il codice di 6 cifre generato dalla tua app per confermare la configurazione." %}</p>
+        {% else %}
+          <p>{% trans "Inserisci il codice di verifica che ti abbiamo inviato." %}</p>
+        {% endif %}
+      {% endif %}
+
+      <div class="mt-4">
+        {% include "two_factor/_wizard_forms.html" %}
+      </div>
+
+      <div class="row mt-5">
+        <div class="col-12 d-flex justify-content-between">
+          <div>
+            {% if wizard.steps.prev %}
+              <button name="wizard_goto_step" type="submit" value="{{ wizard.steps.first }}" class="btn btn-outline-secondary me-2">
+                {% trans "Inizio" %}
+              </button>
+              <button name="wizard_goto_step" type="submit" value="{{ wizard.steps.prev }}" class="btn btn-outline-primary">
+                <svg class="icon icon-sm"><use href="{% static 'svg/sprites.svg' %}#it-chevron-left"></use></svg>
+                {% trans "Indietro" %}
+              </button>
+            {% endif %}
+          </div>
+          <div>
+            <button type="submit" class="btn btn-primary">
+              {% if wizard.steps.current == 'validation' %}
+                <svg class="icon icon-sm icon-white me-1"><use href="{% static 'svg/sprites.svg' %}#it-check"></use></svg>
+                {% trans "Completa attivazione" %}
+              {% else %}
+                {% trans "Avanti" %}
+                <svg class="icon icon-sm icon-white ms-1"><use href="{% static 'svg/sprites.svg' %}#it-chevron-right"></use></svg>
+              {% endif %}
+            </button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="mt-4">
+    <a href="{% url 'two_factor:profile' %}" class="btn btn-link">
+      {% trans "Annulla e torna alla gestione" %}
+    </a>
+  </div>
+</div>
+{% endblock %}
