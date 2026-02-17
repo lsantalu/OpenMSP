@@ -93,7 +93,7 @@ Modulo completo per la gestione delle notifiche verso l'App dei servizi pubblici
 * Librerie crittografiche (per la firma dei voucher PDND)
 * Accesso sviluppatore su [Self Care PagoPA](https://selfcare.pagopa.it/)
 
-## 🚀 Installazione
+## 🚀 Installazione (locale)
 
 1.  **Clona il repository:**
     ```bash
@@ -112,12 +112,12 @@ Modulo completo per la gestione delle notifiche verso l'App dei servizi pubblici
     pip install -r requirements.txt
     ```
 
-4.  **Rinomina il file .env_example in .env e configuralo con i tuoi parametri:**
+4.  **Copia il file `.env_example` in `.env` e configuralo:**
     ```bash
     cp .env_example .env
     ```
 
-5.  **Rinomina il file db_example.sqlite3 in db.sqlite3:**
+5.  **Copia il database di esempio:**
     ```bash
     cp db_example.sqlite3 db.sqlite3
     ```
@@ -131,25 +131,48 @@ Modulo completo per la gestione delle notifiche verso l'App dei servizi pubblici
     ```bash
     python manage.py runserver
     ```
-    
+
 L'accesso al sito avviene su http://localhost:8000
 
 * Utente: **admin**
 * Password: **Admin123+**
-    
 
-## ⚙️ Configurazione
+## 🐳 Esecuzione con Container
 
-Crea un file `.env` nella root del progetto inserendo le chiavi ottenute dal portale sviluppatori:
+Il progetto include configurazione Docker in `docker/Dockerfile`, `docker/docker-compose.yml` e `docker/entrypoint.sh`.
+
+Avvio:
+
+```bash
+docker compose -f docker/docker-compose.yml up -d --build
+```
+
+Dettagli principali:
+* `container_name`: `openmsp_container`
+* Porta esposta: `8000:8000`
+* Volume persistente: `sqlite_data:/app/db_data`
+* Il file `.env` viene reso persistente nel volume come `/app/db_data/.env`
+* Il database viene reso persistente nel volume come `/app/db_data/db.sqlite3`
+
+Comandi utili:
+
+```bash
+docker compose -f docker/docker-compose.yml logs -f
+docker compose -f docker/docker-compose.yml down
+```
+
+## ⚙️ Configurazione `.env` (v1.1)
+
+Crea o aggiorna il file `.env` nella root del progetto con i parametri seguenti:
 
 ```env
-# DJANGO SETTINGS
-DEBUG=True
+DJANGO_SECRET_KEY = 'my_password_django_complex6m^*)p!ryk)=xcpn9*rxpznm'
+DEBUG = False
+ALLOWED_HOSTS = '["your.domain.com"]'
+
 DJANGO_BOOTSTRAP_ITALIA_USE_CDN = True
 DJANGO_BOOTSTRAP_ITALIA_CDN = 'https://cdn.jsdelivr.net/npm/bootstrap-italia@2.17.0/dist'
-DJANGO_SECRET_KEY = 'my_password_django_complex6m^*)p!ryk)=xcpn9*rxpznm'
 
-# PARAMETRI MAIL 
 EMAIL_HOST = 'mail.host.com'
 EMAIL_PORT = 465
 EMAIL_USE_SSL = True
@@ -160,7 +183,57 @@ DEFAULT_FROM_EMAIL = 'noreply@host.com'
 EMAIL_BACKUP_ADDRESS = 'info@host.com'
 EMAIL_BACKUP_PASSWORD = 'my_backup_password'
 EMAIL_BACKUP_ON = True
+
+AUTH_2FA = True
+TWO_FACTOR_ISSUER = 'OpenMSP'
+
+AUTH_LDAP_SERVER_URI = 'ldap://example.com:389'
+AUTH_LDAP_BIND_DN = 'cn=my_binding_username,ou=my_ou,dc=example.com'
+AUTH_LDAP_BIND_PASSWORD = 'my_secret'
+AUTH_LDAP_USER_SEARCH_BASEDN = 'ou=my_ou,dc=example.com'
+
+### per OpenLDAP
+AUTH_LDAP_USER_SEARCH_FILTER = '(uid=%(user)s)'
+AUTH_LDAP_USER_ATTR_MAP = {"first_name": "givenName","last_name": "sn","email": "mail",}
+### per Active Directory
+AUTH_LDAP_USER_SEARCH_FILTER = '(sAMAccountName=%(user)s)'
+AUTH_LDAP_USER_ATTR_MAP = {"first_name": "givenName","last_name": "sn","email": "userPrincipalName"}
+
+AUTH_LDAP_NO_NEW_USERS = True
+AUTH_LDAP_CONNECTION_OPTIONS = {"OPT_PROTOCOL_VERSION": 3, "OPT_REFERRALS": 0}
 ```
+
+Nota: usa **una sola** coppia `AUTH_LDAP_USER_SEARCH_FILTER` e `AUTH_LDAP_USER_ATTR_MAP` in base al tuo provider LDAP (OpenLDAP o Active Directory).
+
+## 🔁 Script di aggiornamento 1.0 -> 1.1
+
+Per aggiornare struttura DB e file `.env` usa lo script:
+
+`update/update_1_0_to_1_1.sh`
+
+Uso (non interattivo):
+
+```bash
+./update/update_1_0_to_1_1.sh [path/to/db.sqlite3] [path/to/.env]
+```
+
+Uso (interattivo):
+
+```bash
+chmod +x update/update_1_0_to_1_1.sh
+./update/update_1_0_to_1_1.sh
+```
+
+Lo script:
+* crea backup automatici di DB e `.env`
+* migra la tabella `utenti_parametri` verso la struttura 1.1
+* crea le tabelle per OTP/2FA mancanti
+* se disponibile un DB di riferimento 1.1 diverso dal target, sincronizza i parametri applicativi (incluse tabelle `app_io_catalogo_argomenti`, `gruppi_parametri`, `servizi_parametri` con preservazione `attivo`)
+* se disponibile un `.env` di riferimento 1.1 diverso dal target, aggiunge al target le variabili mancanti
+
+Dettagli operativi:
+* i file di riferimento 1.1 vengono cercati nella root progetto (`db.sqlite3` e `.env`)
+* se target e riferimento coincidono (stesso file reale), le sincronizzazioni avanzate vengono saltate in sicurezza
 
 ## 📄 Licenze di Terze Parti
 
