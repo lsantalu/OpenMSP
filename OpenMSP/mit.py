@@ -83,7 +83,7 @@ def mit_get_request(user_ID, cf, id_caso):
         "nbf" : issued,
         "exp": expire_in
     }
-    
+
     audit = jwt.encode(audit_payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
     audit_hash = hashlib.sha256(audit.encode('UTF-8')).hexdigest()
 
@@ -212,7 +212,7 @@ def mit_lista_veicoli(request):
                 # Gestione errori eventuale o formattazione se necessaria
             else:
                 data.append("Codice fiscale non corretto")
-            
+
             salva_log(request.user, "Verifica MIT - Lista Veicoli", "Verificato utente " + cf)
             return render(request, 'mit_lista_veicoli.html', {'data': data, 'utente_abilitato': utente_abilitato })
 
@@ -232,7 +232,7 @@ def mit_verifica_targa(request):
             data.append(response)
             data = converti_data(data)
             # Gestione errori eventuale o formattazione se necessaria
-            
+
             salva_log(request.user, "Verifica MIT - Verifica Targa", "Verificato targa " + targa)
             return render(request, 'mit_verifica_targa.html', {'data': data, 'utente_abilitato': utente_abilitato })
 
@@ -273,4 +273,3 @@ def impostazioni_mit(request):
         salva_log(request.user,"Impostazioni MIT", "modifica parametri")
 
     return render(request, 'impostazioni_mit.html', { 'servizi_mit': servizi_mit, 'parametri_mit': parametri_mit })
-

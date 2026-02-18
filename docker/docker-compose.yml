@@ -4,12 +4,13 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     image: openmsp:latest
-    container_name: openmsp_container
+    container_name: ${CONTAINER_NAME:-openmsp_container}
     restart: always
     ports:
-      - "8000:8000"
+      - "${HOST_PORT:-8000}:8000"
     volumes:
       - sqlite_data:/app/db_data
 
 volumes:
   sqlite_data:
+    name: ${SQLITE_VOLUME_NAME:-openmsp_sqlite_data}
