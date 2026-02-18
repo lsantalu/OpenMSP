@@ -11,9 +11,9 @@ WORKDIR /app
 # Installa dipendenze di sistema E l'utility dos2unix
 RUN apt-get update && apt-get install -y \
     build-essential \
-    python3.12-dev \
+    python3-dev \
     libldap2-dev \
-    libsasl2-dev \ 
+    libsasl2-dev \
     libpq-dev \
     libssl-dev \
     libffi-dev \

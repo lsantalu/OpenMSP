@@ -161,6 +161,18 @@ docker compose -f docker/docker-compose.yml logs -f
 docker compose -f docker/docker-compose.yml down
 ```
 
+Esempio di 2 istanze separate (porte, container e volume persistente distinti):
+
+```bash
+# Istanza 1
+CONTAINER_NAME=openmsp_1 HOST_PORT=8001 SQLITE_VOLUME_NAME=openmsp_1_sqlite_data \
+docker compose -p openmsp1 -f docker/docker-compose.yml up -d --build
+
+# Istanza 2
+CONTAINER_NAME=openmsp_2 HOST_PORT=8002 SQLITE_VOLUME_NAME=openmsp_2_sqlite_data \
+docker compose -p openmsp2 -f docker/docker-compose.yml up -d --build
+```
+
 ## ⚙️ Configurazione `.env` (v1.1)
 
 Crea o aggiorna il file `.env` nella root del progetto con i parametri seguenti:
