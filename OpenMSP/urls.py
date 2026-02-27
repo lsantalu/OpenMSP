@@ -92,7 +92,7 @@ from .anis import anist_titoli_export_excel
 from .anis import anist_titoli_export_csv
 from .anis import impostazioni_anis
 
-from .impostazioni import impostazioni_servizi, impostazioni_servizi_toggle
+from .impostazioni import impostazioni_servizi, impostazioni_servizi_toggle, impostazioni_logs
 from .impostazioni import impostazioni_utenti
 from .impostazioni import impostazioni_parametri
 from .impostazioni import impostazioni_utenti_2
@@ -214,6 +214,7 @@ urlpatterns = [
     path("impostazioni_app_io_2/", impostazioni_app_io_2, name="impostazioni_app_io_2"),
     path("impostazioni_parametri/", impostazioni_parametri, name="impostazioni_parametri"),
     path('impostazioni_upload_stemma/', impostazioni_upload_stemma, name='impostazioni_upload_stemma'),
+    path('impostazioni_logs/', impostazioni_logs, name='impostazioni_logs'),
     path('debug_openmsp/', debug_openmsp, name='debug_openmsp'),
 ]
 

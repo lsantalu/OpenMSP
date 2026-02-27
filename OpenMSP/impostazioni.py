@@ -22,6 +22,7 @@ from impostazioni.models import UtentiParametri
 from impostazioni.models import ServiziParametri
 from impostazioni.models import GruppiParametri
 from impostazioni.models import DatiEnte
+from impostazioni.models import Logs
 from impostazioni.scheduler import send_db_backup
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from django_otp import devices_for_user
@@ -223,7 +224,7 @@ def impostazioni_servizi_toggle(request):
 
 def impostazioni_utenti_2(request):
     utenti_impostazioni = UtentiParametri.objects.all()
-    utenti = User.objects.all()
+    utenti = User.objects.all().order_by('username')
     num_utenti_permessi = UtentiParametri.objects.count()
     num_utenti=User.objects.count()
     num_utenti_ultimo=User.objects.last().id
@@ -302,7 +303,7 @@ def impostazioni_utenti_2(request):
 
 def impostazioni_clone_user(request):
 
-    utenti = User.objects.all()
+    utenti = User.objects.all().order_by('username')
 
     if request.method == 'POST':
         form = CloneUserForm(request.POST)
@@ -344,7 +345,7 @@ def impostazioni_clone_user(request):
 
 def impostazioni_utenti(request):
     utenti_impostazioni = UtentiParametri.objects.all()
-    utenti = User.objects.all()
+    utenti = User.objects.all().order_by('username')
     num_utenti_permessi = UtentiParametri.objects.count()
     num_utenti=User.objects.count()
     num_utenti_ultimo=User.objects.last().id
@@ -466,3 +467,47 @@ def servizi_attivi_utente(utente_id):
     servizi_utente = UtentiParametri.objects.get(id=utente_id)
     servizi_attivi_utente = servizi_utente.somma_servizi_attivi()
     return servizi_attivi_utente
+
+
+from django.core.paginator import Paginator
+
+def impostazioni_logs(request):
+    if not request.user.is_superuser:
+        return redirect('home')
+
+    logs_list = Logs.objects.all().order_by('-timestamp')
+    utenti = User.objects.all().order_by('username')
+    # Estraggo i servizi distinti per il filtro
+    servizi_distinti = Logs.objects.values_list('servizio', flat=True).distinct().order_by('servizio')
+
+    # Filtri
+    scelta_utente = request.GET.get('sceltaUtente')
+    scelta_servizio = request.GET.get('sceltaServizio')
+    data_da = request.GET.get('data_da')
+    data_a = request.GET.get('data_a')
+
+    if scelta_utente:
+        logs_list = logs_list.filter(utente_id=scelta_utente)
+    if scelta_servizio:
+        logs_list = logs_list.filter(servizio=scelta_servizio)
+    if data_da:
+        logs_list = logs_list.filter(timestamp__date__gte=data_da)
+    if data_a:
+        logs_list = logs_list.filter(timestamp__date__lte=data_a)
+
+    # Elenco completo per l'esportazione (senza paginazione)
+    logs_full = logs_list
+
+    # Paginazione
+    paginator = Paginator(logs_list, 20)  # Mostra 20 log per pagina
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj,
+        'logs': logs_full,  # Servirà per l'esportazione JS
+        'utenti': utenti,
+        'servizi_distinti': servizi_distinti,
+    }
+
+    return render(request, 'impostazioni_logs.html', context)

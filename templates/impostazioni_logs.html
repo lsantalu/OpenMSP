@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Logs - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Registri di sistema (Logs)</h3>
+<br />
+
+<div class="col-12 white-bg p-4 shadow">
+
+  <form method="get" action="" class="form-inline mb-5">
+    <div class="row">
+      <div class="col-3">
+        <div class="select-wrapper">
+          <label for="sceltaUtente">Utente</label>
+          <select id="sceltaUtente" name="sceltaUtente">
+            <option selected="" value="">Tutti gli utenti</option>
+            {% for utente in utenti %}
+            <option value="{{ utente.id }}" {% if request.GET.sceltaUtente == utente.id|stringformat:"s" %}selected{% endif %}>{{ utente.username }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="col-3">
+        <div class="select-wrapper">
+          <label for="sceltaServizio">Servizio</label>
+          <select id="sceltaServizio" name="sceltaServizio">
+            <option selected="" value="">Tutti i servizi</option>
+            {% for serv in servizi_distinti %}
+            <option value="{{ serv }}" {% if request.GET.sceltaServizio == serv %}selected{% endif %}>{{ serv }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group col-2 m-0">
+        <label class="active" for="data_da">Data da</label>
+        <input type="date" class="form-control" id="data_da" name="data_da" value="{{ request.GET.data_da }}">
+      </div>
+      <div class="form-group col-2 m-0">
+        <label class="active" for="data_a">Data a</label>
+        <input type="date" class="form-control" id="data_a" name="data_a" value="{{ request.GET.data_a }}">
+      </div>
+
+      <div class="col-2 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary me-2">Cerca</button>
+        <a href="{% url 'impostazioni_logs' %}" class="btn btn-outline-danger">Azzera</a>
+      </div>
+    </div>
+  </form>
+
+  <table class="table table-striped table-hover table-sm align-middle table-bordered" id="dataTable">
+    <thead class="table-light text-center">
+      <tr>
+        <th scope="col">ID</th>
+        <th scope="col">Utente</th>
+        <th scope="col">Servizio</th>
+        <th scope="col">Richiesta / Azione</th>
+        <th scope="col">Data e Ora</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in page_obj %}
+      <tr>
+        <td class="text-center">{{ log.id }}</td>
+        <td>{{ log.utente_id.username }}</td>
+        <td>{{ log.servizio }}</td>
+        <td>{{ log.richiesta }}</td>
+        <td class="text-center">{{ log.timestamp|date:"d/m/Y H:i:s" }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" class="text-center">Nessun log trovato.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+  <!-- Paginazione -->
+  <div class="it-pagination">
+    <ul class="pagination">
+      {% if page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" aria-label="Precedente">
+          <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-left"></use></svg>
+        </a>
+      </li>
+      {% else %}
+      <li class="page-item disabled">
+        <a class="page-link" href="#" aria-label="Precedente">
+          <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-left"></use></svg>
+        </a>
+      </li>
+      {% endif %}
+
+      {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <li class="page-item"><a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a></li>
+        {% endif %}
+      {% endfor %}
+
+      {% if page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" aria-label="Successivo">
+          <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-right"></use></svg>
+        </a>
+      </li>
+      {% else %}
+      <li class="page-item disabled">
+        <a class="page-link" href="#" aria-label="Successivo">
+          <svg class="icon icon-primary"><use href="{% static 'svg/sprites.svg' %}#it-chevron-right"></use></svg>
+        </a>
+      </li>
+      {% endif %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="mt-4">
+    <button type="button" id="exportCsvBtn" class="btn btn-outline-secondary me-2">
+      <svg class="icon icon-sm" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+      </svg><span>Esporta CSV pagina</span>
+    </button>
+    <button type="button" id="exportCsvBtnFull" class="btn btn-secondary">
+      <svg class="icon icon-sm icon-light" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+      </svg><span>Esporta CSV elenco completo</span>
+    </button>
+  </div>
+</div>
+
+<script>
+  // Esporta CSV della pagina corrente
+  document.getElementById('exportCsvBtn').addEventListener('click', function () {
+    const table = document.getElementById('dataTable');
+    const rows = table.querySelectorAll('tr');
+    let csv = [];
+    for (let i = 0; i < rows.length; i++) {
+      let row = [], cols = rows[i].querySelectorAll('td, th');
+      for (let j = 0; j < cols.length; j++) {
+        let cellText = cols[j].textContent.trim().replace(/\n/g, ' ').replace(/;/g, ',');
+        row.push(cellText);
+      }
+      csv.push(row.join(';'));
+    }
+    const csvData = csv.join('\n');
+    scaricaFile(csvData, 'Logs_Pagina.csv');
+  });
+
+  // Esporta CSV completo (utilizzando i dati passati dalla vista)
+  const all_logs = [
+    {% for log in logs %}
+    {
+      "id": "{{ log.id }}",
+      "utente": "{{ log.utente_id.username }}",
+      "servizio": "{{ log.servizio }}",
+      "richiesta": "{{ log.richiesta|escapejs }}",
+      "timestamp": "{{ log.timestamp|date:'d/m/Y H:i:s' }}"
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ];
+
+  document.getElementById('exportCsvBtnFull').addEventListener('click', function() {
+    const header = ['ID', 'Utente', 'Servizio', 'Richiesta', 'Timestamp'];
+    let csvContent = header.join(';') + '\n';
+    all_logs.forEach(function(l) {
+      const row = [l.id, l.utente, l.servizio, l.richiesta.replace(/;/g, ','), l.timestamp];
+      csvContent += row.join(';') + '\n';
+    });
+    scaricaFile(csvContent, 'Logs_Completo.csv');
+  });
+
+  function scaricaFile(content, filename) {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    if (navigator.msSaveBlob) { // IE 10+
+      navigator.msSaveBlob(blob, filename);
+    } else {
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
+</script>
+
+{% endblock %}
