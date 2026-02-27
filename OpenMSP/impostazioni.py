@@ -235,7 +235,7 @@ def impostazioni_utenti_2(request):
 
         for i in range (1, num_utenti_ultimo+1):
             if i not in existing_ids_utenti_permessi and i in existing_ids_utenti:
-                UtentiParametri.objects.create(id=i, utente_id=User.objects.get(id=i), ipa_singolo=False, ipa_massivo=False, inad_singolo=False, inad_massivo=False, inipec_singolo=False, inipec_massivo=False, anpr_C001=False, anpr_C015=False, anpr_C017=False, anpr_C018=False, anpr_C020=False, anpr_C021=False, anpr_C030=False, mit_cude=False, mit_veicoli=False, mit_whitelist=False, mit_targa=False, anis_IFS02_singolo=False, anis_IFS02_massivo=False, anis_IFS03_singolo=False, anis_IFS03_massivo=False, cassa_forense=False, registro_imprese=False, inps_isee=False, inps_durc_singolo=False, inps_durc_massivo=False,app_io_verifica_singolo=False, app_io_verifica_massivo=False, app_io_singolo=False, app_io_massivo=False, anist_frequenze_singolo=False, anist_frequenze_massivo=False, anist_titoli_singolo=False, anist_titoli_massivo =False, app_io_composer=False, app_io_storico_messaggi=False)
+                UtentiParametri.objects.create(id=i, utente_id=User.objects.get(id=i), ipa_singolo=False, ipa_massivo=False, inad_singolo=False, inad_massivo=False, inipec_singolo=False, inipec_massivo=False, anpr_C001=False, anpr_C007=False, anpr_C015=False, anpr_C017=False, anpr_C018=False, anpr_C020=False, anpr_C021=False, anpr_C030=False, mit_cude=False, mit_veicoli=False, mit_whitelist=False, mit_targa=False, anis_IFS02_singolo=False, anis_IFS02_massivo=False, anis_IFS03_singolo=False, anis_IFS03_massivo=False, cassa_forense=False, registro_imprese=False, inps_isee=False, inps_durc_singolo=False, inps_durc_massivo=False,app_io_verifica_singolo=False, app_io_verifica_massivo=False, app_io_singolo=False, app_io_massivo=False, anist_frequenze_singolo=False, anist_frequenze_massivo=False, anist_titoli_singolo=False, anist_titoli_massivo =False, app_io_composer=False, app_io_storico_messaggi=False)
 
     if request.method == 'POST':
         if 'trova_utente' in request.POST:
@@ -247,7 +247,12 @@ def impostazioni_utenti_2(request):
             utente_attivo.save()
         else:
             utente_selezionato = request.POST.get('utente_selezionato')
-            array_permessi = request.POST.get('array_permessi')
+            array_permessi_raw = request.POST.get('array_permessi')
+            try:
+                array_permessi = json.loads(array_permessi_raw) if array_permessi_raw else []
+            except (json.JSONDecodeError, TypeError):
+                array_permessi = []
+
             ipa_singolo = (True if 'ipa_singolo' in array_permessi else False)
             ipa_massivo = (True if 'ipa_massivo' in array_permessi else False)
             inad_singolo = (True if 'inad_singolo' in array_permessi else False)
@@ -255,6 +260,7 @@ def impostazioni_utenti_2(request):
             inipec_singolo = (True if 'inipec_singolo' in array_permessi else False)
             inipec_massivo = (True if 'inipec_massivo' in array_permessi else False)
             anpr_C001 = (True if 'anpr_C001' in array_permessi else False)
+            anpr_C007 = (True if 'anpr_C007' in array_permessi else False)
             anpr_C015 = (True if 'anpr_C015' in array_permessi else False)
             anpr_C017 = (True if 'anpr_C017' in array_permessi else False)
             anpr_C018 = (True if 'anpr_C018' in array_permessi else False)
@@ -280,12 +286,12 @@ def impostazioni_utenti_2(request):
             app_io_massivo = (True if 'app_io_massivo' in array_permessi else False)
             anist_frequenze_singolo = (True if 'anist_frequenze_singolo' in array_permessi else False)
             anist_frequenze_massivo = (True if 'anist_frequenze_massivo' in array_permessi else False)
-            anist_titoli_singolo = (True if 'anist_titoli3_singolo' in array_permessi else False)
+            anist_titoli_singolo = (True if 'anist_titoli_singolo' in array_permessi else False)
             anist_titoli_massivo = (True if 'anist_titoli_massivo' in array_permessi else False)
             app_io_composer = (True if 'app_io_composer' in array_permessi else False)
             app_io_storico_messaggi = (True if 'app_io_storico_messaggi' in array_permessi else False)
 
-            dati = UtentiParametri(int(utente_selezionato), int(utente_selezionato), ipa_singolo=ipa_singolo, ipa_massivo=ipa_massivo,  inad_singolo=inad_singolo, inad_massivo=inad_massivo, inipec_singolo=inipec_singolo, inipec_massivo=inipec_massivo, anpr_C001=anpr_C001, anpr_C015=anpr_C015, anpr_C017=anpr_C017, anpr_C018=anpr_C018, anpr_C020=anpr_C020, anpr_C021=anpr_C021, anpr_C030=anpr_C030, mit_cude = mit_cude, mit_veicoli = mit_veicoli, mit_whitelist=mit_whitelist, mit_targa = mit_targa, anis_IFS02_singolo=anis_IFS02_singolo, anis_IFS02_massivo=anis_IFS02_massivo, anis_IFS03_singolo=anis_IFS03_singolo, anis_IFS03_massivo=anis_IFS03_massivo, cassa_forense=cassa_forense, registro_imprese=registro_imprese, inps_isee=inps_isee, inps_durc_singolo=inps_durc_singolo, inps_durc_massivo=inps_durc_massivo, app_io_verifica_singolo=app_io_verifica_singolo, app_io_verifica_massivo=app_io_verifica_massivo, app_io_singolo=app_io_singolo, app_io_massivo=app_io_massivo, anist_frequenze_singolo=anist_frequenze_singolo, anist_frequenze_massivo=anist_frequenze_massivo, anist_titoli_singolo=anist_titoli_singolo, anist_titoli_massivo=anist_titoli_massivo, app_io_composer=app_io_composer, app_io_storico_messaggi=app_io_storico_messaggi)
+            dati = UtentiParametri(int(utente_selezionato), int(utente_selezionato), ipa_singolo=ipa_singolo, ipa_massivo=ipa_massivo,  inad_singolo=inad_singolo, inad_massivo=inad_massivo, inipec_singolo=inipec_singolo, inipec_massivo=inipec_massivo, anpr_C001=anpr_C001, anpr_C007=anpr_C007, anpr_C015=anpr_C015, anpr_C017=anpr_C017, anpr_C018=anpr_C018, anpr_C020=anpr_C020, anpr_C021=anpr_C021, anpr_C030=anpr_C030, mit_cude = mit_cude, mit_veicoli = mit_veicoli, mit_whitelist=mit_whitelist, mit_targa = mit_targa, anis_IFS02_singolo=anis_IFS02_singolo, anis_IFS02_massivo=anis_IFS02_massivo, anis_IFS03_singolo=anis_IFS03_singolo, anis_IFS03_massivo=anis_IFS03_massivo, cassa_forense=cassa_forense, registro_imprese=registro_imprese, inps_isee=inps_isee, inps_durc_singolo=inps_durc_singolo, inps_durc_massivo=inps_durc_massivo, app_io_verifica_singolo=app_io_verifica_singolo, app_io_verifica_massivo=app_io_verifica_massivo, app_io_singolo=app_io_singolo, app_io_massivo=app_io_massivo, anist_frequenze_singolo=anist_frequenze_singolo, anist_frequenze_massivo=anist_frequenze_massivo, anist_titoli_singolo=anist_titoli_singolo, anist_titoli_massivo=anist_titoli_massivo, app_io_composer=app_io_composer, app_io_storico_messaggi=app_io_storico_messaggi)
             dati.save()
             salva_log(request.user,"Impostazioni Utenti", "modifica parametri")
 
@@ -359,7 +365,7 @@ def impostazioni_utenti(request):
 
         for i in range (1, num_utenti_ultimo+1):
             if i not in existing_ids_utenti_permessi and i in existing_ids_utenti:
-                UtentiParametri.objects.create(id=i, utente_id=User.objects.get(id=i), ipa_singolo=False, ipa_massivo=False, inad_singolo=False, inad_massivo=False, inipec_singolo=False, inipec_massivo=False, anpr_C001=False, anpr_C015=False, anpr_C017=False, anpr_C018=False, anpr_C020=False, anpr_C021=False, anpr_C030=False,  mit_cude=False, mit_veicoli=False, mit_whitelist=False, mit_targa=False, anis_IFS02_singolo=False, anis_IFS02_massivo=False, anis_IFS03_singolo=False, anis_IFS03_massivo=False, cassa_forense=False, registro_imprese=False, inps_isee=False, inps_durc_singolo=False, inps_durc_massivo=False,app_io_verifica_singolo=False, app_io_verifica_massivo=False, app_io_singolo=False, app_io_massivo=False, anist_frequenze_singolo=False, anist_frequenze_massivo=False, anist_titoli_singolo=False, anist_titoli_massivo =False, app_io_composer=False, app_io_storico_messaggi=False)
+                UtentiParametri.objects.create(id=i, utente_id=User.objects.get(id=i), ipa_singolo=False, ipa_massivo=False, inad_singolo=False, inad_massivo=False, inipec_singolo=False, inipec_massivo=False, anpr_C001=False, anpr_C007=False, anpr_C015=False, anpr_C017=False, anpr_C018=False, anpr_C020=False, anpr_C021=False, anpr_C030=False,  mit_cude=False, mit_veicoli=False, mit_whitelist=False, mit_targa=False, anis_IFS02_singolo=False, anis_IFS02_massivo=False, anis_IFS03_singolo=False, anis_IFS03_massivo=False, cassa_forense=False, registro_imprese=False, inps_isee=False, inps_durc_singolo=False, inps_durc_massivo=False,app_io_verifica_singolo=False, app_io_verifica_massivo=False, app_io_singolo=False, app_io_massivo=False, anist_frequenze_singolo=False, anist_frequenze_massivo=False, anist_titoli_singolo=False, anist_titoli_massivo =False, app_io_composer=False, app_io_storico_messaggi=False)
 
     if request.method == 'POST':
         if 'trova_utente' in request.POST:
@@ -377,7 +383,12 @@ def impostazioni_utenti(request):
             messages.success(request, f"2FA resettata per l'utente {utente_target.username}.")
         else:
             utente_selezionato = request.POST.get('utente_selezionato')
-            array_permessi = request.POST.get('array_permessi')
+            array_permessi_raw = request.POST.get('array_permessi')
+            try:
+                array_permessi = json.loads(array_permessi_raw) if array_permessi_raw else []
+            except (json.JSONDecodeError, TypeError):
+                array_permessi = []
+
             ipa_singolo = (True if 'ipa_singolo' in array_permessi else False)
             ipa_massivo = (True if 'ipa_massivo' in array_permessi else False)
             inad_singolo = (True if 'inad_singolo' in array_permessi else False)
@@ -385,6 +396,7 @@ def impostazioni_utenti(request):
             inipec_singolo = (True if 'inipec_singolo' in array_permessi else False)
             inipec_massivo = (True if 'inipec_massivo' in array_permessi else False)
             anpr_C001 = (True if 'anpr_C001' in array_permessi else False)
+            anpr_C007 = (True if 'anpr_C007' in array_permessi else False)
             anpr_C015 = (True if 'anpr_C015' in array_permessi else False)
             anpr_C017 = (True if 'anpr_C017' in array_permessi else False)
             anpr_C018 = (True if 'anpr_C018' in array_permessi else False)
@@ -414,7 +426,7 @@ def impostazioni_utenti(request):
             anist_titoli_massivo = (True if 'anist_titoli_massivo' in array_permessi else False)
             app_io_composer = (True if 'app_io_composer' in array_permessi else False)
             app_io_storico_messaggi = (True if 'app_io_storico_messaggi' in array_permessi else False)
-            dati = UtentiParametri(int(utente_selezionato), int(utente_selezionato), ipa_singolo=ipa_singolo, ipa_massivo=ipa_massivo,  inad_singolo=inad_singolo, inad_massivo=inad_massivo, inipec_singolo=inipec_singolo, inipec_massivo=inipec_massivo, anpr_C001=anpr_C001, anpr_C015=anpr_C015, anpr_C017=anpr_C017, anpr_C018=anpr_C018, anpr_C020=anpr_C020, anpr_C021=anpr_C021, anpr_C030=anpr_C030, mit_cude = mit_cude, mit_veicoli = mit_veicoli, mit_whitelist=mit_whitelist, mit_targa = mit_targa, anis_IFS02_singolo=anis_IFS02_singolo, anis_IFS02_massivo=anis_IFS02_massivo, anis_IFS03_singolo=anis_IFS03_singolo, anis_IFS03_massivo=anis_IFS03_massivo, cassa_forense=cassa_forense, registro_imprese=registro_imprese, inps_isee=inps_isee, inps_durc_singolo=inps_durc_singolo, inps_durc_massivo=inps_durc_massivo, app_io_verifica_singolo=app_io_verifica_singolo, app_io_verifica_massivo=app_io_verifica_massivo, app_io_singolo=app_io_singolo, app_io_massivo=app_io_massivo, anist_frequenze_singolo=anist_frequenze_singolo, anist_frequenze_massivo=anist_frequenze_massivo, anist_titoli_singolo=anist_titoli_singolo, anist_titoli_massivo=anist_titoli_massivo, app_io_composer=app_io_composer, app_io_storico_messaggi=app_io_storico_messaggi)
+            dati = UtentiParametri(int(utente_selezionato), int(utente_selezionato), ipa_singolo=ipa_singolo, ipa_massivo=ipa_massivo,  inad_singolo=inad_singolo, inad_massivo=inad_massivo, inipec_singolo=inipec_singolo, inipec_massivo=inipec_massivo, anpr_C001=anpr_C001, anpr_C007=anpr_C007, anpr_C015=anpr_C015, anpr_C017=anpr_C017, anpr_C018=anpr_C018, anpr_C020=anpr_C020, anpr_C021=anpr_C021, anpr_C030=anpr_C030, mit_cude = mit_cude, mit_veicoli = mit_veicoli, mit_whitelist=mit_whitelist, mit_targa = mit_targa, anis_IFS02_singolo=anis_IFS02_singolo, anis_IFS02_massivo=anis_IFS02_massivo, anis_IFS03_singolo=anis_IFS03_singolo, anis_IFS03_massivo=anis_IFS03_massivo, cassa_forense=cassa_forense, registro_imprese=registro_imprese, inps_isee=inps_isee, inps_durc_singolo=inps_durc_singolo, inps_durc_massivo=inps_durc_massivo, app_io_verifica_singolo=app_io_verifica_singolo, app_io_verifica_massivo=app_io_verifica_massivo, app_io_singolo=app_io_singolo, app_io_massivo=app_io_massivo, anist_frequenze_singolo=anist_frequenze_singolo, anist_frequenze_massivo=anist_frequenze_massivo, anist_titoli_singolo=anist_titoli_singolo, anist_titoli_massivo=anist_titoli_massivo, app_io_composer=app_io_composer, app_io_storico_messaggi=app_io_storico_messaggi)
             dati.save()
             salva_log(request.user,"Impostazioni Utenti", "modifica parametri")
 

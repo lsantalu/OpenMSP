@@ -373,7 +373,7 @@ OpenMSP - Multi Services Portal
                       </li>
                       <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
                       {% endif %}
-                      {% if servizio.id == service_desc.9.1 and servizio.attivo %}
+                      {% if servizio.id == service_desc.10.1 and servizio.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.inipec_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'inipec_singola' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inipec_singolo %} class="text-muted"{% endif %}>INI-PEC Ricerca singola</span></a>
                       </li>
@@ -428,25 +428,30 @@ OpenMSP - Multi Services Portal
                       {% endif %}
                       {% if servizio.id == service_desc.3.1 and servizio.attivo %}
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.anpr_C015 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_generalita' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C015 %} class="text-muted"{% endif %}>Generalità</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.anpr_C007 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_esistenza_in_vita' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C007 %} class="text-muted"{% endif %}>Esistenza in vita</span></a>
                       </li>
                       {% endif %}
                       {% if servizio.id == service_desc.4.1 and servizio.attivo %}
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.anpr_C017 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_matrimonio' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C017 %} class="text-muted"{% endif %}>Matrimonio</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.anpr_C015 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_generalita' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C015 %} class="text-muted"{% endif %}>Generalità</span></a>
                       </li>
                       {% endif %}
                       {% if servizio.id == service_desc.5.1 and servizio.attivo %}
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.anpr_C018 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_cittadinanza' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C018 %} class="text-muted"{% endif %}>Cittadinanza</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.anpr_C017 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_matrimonio' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C017 %} class="text-muted"{% endif %}>Matrimonio</span></a>
                       </li>
                       {% endif %}
                       {% if servizio.id == service_desc.6.1 and servizio.attivo %}
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.anpr_C020 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_residenza' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C020 %} class="text-muted"{% endif %}>Residenza</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.anpr_C018 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_cittadinanza' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C018 %} class="text-muted"{% endif %}>Cittadinanza</span></a>
                       </li>
                       {% endif %}
                       {% if servizio.id == service_desc.7.1 and servizio.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anpr_C020 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_residenza' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C020 %} class="text-muted"{% endif %}>Residenza</span></a>
+                      </li>
+                      {% endif %}
+                      {% if servizio.id == service_desc.8.1 and servizio.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.anpr_C021 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_stato_famiglia' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C021 %} class="text-muted"{% endif %}>Stato famiglia</span></a>
                       </li>
@@ -463,7 +468,7 @@ OpenMSP - Multi Services Portal
         {% endif %}
 
 
-        {% if service_active.17.attivo or service_active.18.attivo %}
+        {% if service_active.18.attivo or service_active.19.attivo %}
         <li class="nav-item dropdown megamenu">
           <button type="button" class="nav-link dropdown-toggle px-lg-2 px-xl-3" data-bs-toggle="dropdown" aria-expanded="false" id="dropdown-INPS" aria-haspopup="true" data-focus-mouse="false">
             <span>INPS</span>
@@ -490,17 +495,17 @@ OpenMSP - Multi Services Portal
                   <div class="link-list-wrapper">
                     <ul class="link-list">
                       {% for servizio in service_active %}
-                      {% if servizio.id == service_desc.17.1 and servizio.attivo %}
+                      {% if servizio.id == service_desc.18.1 and servizio.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.inps_isee %} disabled" aria-disabled="true{% endif %}" href="{% url 'inps_isee' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inps_isee %} class="text-muted"{% endif %}>Attestazioni ISEE Residenti</span></a>
                       </li>
                       {% endif %}
-                      {% if servizio.id == service_desc.18.1 and servizio.attivo %}
+                      {% if servizio.id == service_desc.19.1 and servizio.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.inps_durc_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'inps_durc_singolo' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inps_durc_singolo %} class="text-muted"{% endif %}>Dichiarazioni DURC Ricerca singola</span></a>
                       </li>
                       {% endif %}
-                      {% if servizio.id == service_desc.18.1 and servizio.attivo %}
+                      {% if servizio.id == service_desc.19.1 and servizio.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.inps_durc_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'inps_durc_massivo' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inps_durc_massivo %} class="text-muted"{% endif %}>Dichiarazioni DURC Ricerca massiva</span></a>
                       </li>
@@ -517,7 +522,7 @@ OpenMSP - Multi Services Portal
 
 
         {% for servizio in service_active %}
-        {% if servizio.id == service_desc.19.1 and servizio.attivo %}
+        {% if servizio.id == service_desc.20.1 and servizio.attivo %}
         <li class="nav-item dropdown megamenu">
           <button type="button" class="nav-link dropdown-toggle px-lg-2 px-xl-3" data-bs-toggle="dropdown" aria-expanded="false" id="dropdown-AppIO" aria-haspopup="true" data-focus-mouse="false">
             <span>App IO</span>
@@ -574,7 +579,7 @@ OpenMSP - Multi Services Portal
         {% endif %}
         {% endfor %}
 
-        {% if service_active.14.attivo or service_active.15.attivo or service_active.20.attivo or service_active.21.attivo %}
+        {% if service_active.15.attivo or service_active.16.attivo or service_active.21.attivo or service_active.22.attivo %}
 
         <li class="nav-item dropdown megamenu">
           <button type="button" class="nav-link dropdown-toggle px-lg-2 px-xl-3" data-bs-toggle="dropdown" aria-expanded="false" id="dropdown-Istruzione" aria-haspopup="true" data-focus-mouse="false">
@@ -603,7 +608,7 @@ OpenMSP - Multi Services Portal
                     <ul class="link-list">
                       {% for servizio in service_active %}
 
-                      {% if servizio.id == service_desc.14.1 and servizio.attivo %}
+                      {% if servizio.id == service_desc.15.1 and servizio.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.anis_IFS02_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'anis_iscrizioni_singola' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anis_IFS02_singolo %} class="text-muted"{% endif %}>ANIS - Iscrizioni singola</span></a>
                       </li>
@@ -611,7 +616,7 @@ OpenMSP - Multi Services Portal
                         <a class="list-item dropdown-item{% if not user_perms.anis_IFS02_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'anis_iscrizioni_massiva' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anis_IFS02_massivo %} class="text-muted"{% endif %}>ANIS - Iscrizioni massiva</span></a>
                       </li>
                       {% endif %}
-                      {% if servizio.id == service_desc.15.1 and servizio.attivo %}
+                      {% if servizio.id == service_desc.16.1 and servizio.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.anis_IFS03_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'anis_titoli_singola' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anis_IFS03_singolo %} class="text-muted"{% endif %}>ANIS - Titoli singola</span></a>
                       </li>
@@ -619,7 +624,7 @@ OpenMSP - Multi Services Portal
                         <a class="list-item dropdown-item{% if not user_perms.anis_IFS03_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'anis_titoli_massiva' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anis_IFS03_massivo %} class="text-muted"{% endif %}>ANIS - Titoli massiva</span></a>
                       </li>
                       {% endif %}
-                      {% if servizio.id == service_desc.20.1 and servizio.attivo %}
+                      {% if servizio.id == service_desc.21.1 and servizio.attivo %}
                       <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
 
                       <li>
@@ -629,7 +634,7 @@ OpenMSP - Multi Services Portal
                         <a class="list-item dropdown-item{% if not user_perms.anist_frequenze_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'anist_frequenze_massiva' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anist_frequenze_massivo %} class="text-muted"{% endif %}>ANIST - Frequenze massiva</span></a>
                       </li>
                       {% endif %}
-                      {% if servizio.id == service_desc.21.1 and servizio.attivo %}
+                      {% if servizio.id == service_desc.22.1 and servizio.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.anist_titoli_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'anist_titoli_singola' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anist_titoli_singolo %} class="text-muted"{% endif %}>ANIST - Titoli singola</span></a>
                       </li>
@@ -678,9 +683,9 @@ OpenMSP - Multi Services Portal
                     <ul class="link-list">
                       {% for servizio in service_active %}
 
-                      {% if service_active.9.attivo or service_active.10.attivo or service_active.11.attivo or service_active.12.attivo or service_active.13.attivo or service_active.16.attivo %}
+                      {% if service_active.10.attivo or service_active.11.attivo or service_active.12.attivo or service_active.13.attivo or service_active.14.attivo or service_active.17.attivo %}
 
-                      {% if servizio.id == service_desc.9.1 and servizio.attivo %}
+                      {% if servizio.id == service_desc.10.1 and servizio.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.registro_imprese %} disabled" aria-disabled="true{% endif %}" href="{% url 'registro_imprese' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.registro_imprese %} class="text-muted"{% endif %}>Registro Imprese</span></a>
                       </li>
@@ -691,22 +696,22 @@ OpenMSP - Multi Services Portal
 
 
 
-                      {% if servizio.id == service_desc.10.1 and servizio.attivo %}
+                      {% if servizio.id == service_desc.11.1 and servizio.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.mit_cude %} disabled" aria-disabled="true{% endif %}" href="{% url  'mit_dettaglio_cude' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.mit_cude %} class="text-muted"{% endif %}>MIT - Dettaglio Cude</span></a>
                       </li>
                       {% endif %}
-                      {% if servizio.id == service_desc.11.1 and servizio.attivo %}
+                      {% if servizio.id == service_desc.12.1 and servizio.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.mit_veicoli %} disabled" aria-disabled="true{% endif %}" href="{% url   'mit_lista_veicoli' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.mit_veicoli %} class="text-muted"{% endif %}>MIT - Lista Veicoli  Cude</span></a>
                       </li>
                       {% endif %}                      
-                      {% if servizio.id == service_desc.12.1 and servizio.attivo %}
+                      {% if servizio.id == service_desc.13.1 and servizio.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.mit_whitelist %} disabled" aria-disabled="true{% endif %}" href="{% url 'mit_whitelist' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.mit_whitelist %} class="text-muted"{% endif %}>MIT - Recupera Whitelist</span></a>
                       </li>
                       {% endif %}
-                      {% if servizio.id == service_desc.13.1 and servizio.attivo %}
+                      {% if servizio.id == service_desc.14.1 and servizio.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.mit_targa %} disabled" aria-disabled="true{% endif %}" href="{% url 'mit_verifica_targa' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.mit_targa %} class="text-muted"{% endif %}>MIT - Verifica Targa Cude</span></a>
                       </li>
@@ -714,7 +719,7 @@ OpenMSP - Multi Services Portal
                       {% endif %}
                       {% endif %}
 
-                      {% if servizio.id == service_desc.16.1 and servizio.attivo %}
+                      {% if servizio.id == service_desc.17.1 and servizio.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.cassa_forense %} disabled" aria-disabled="true{% endif %}" href="{% url 'cassa_forense' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.cassa_forense %} class="text-muted"{% endif %}>Consiglio Nazionale Forense</span></a>
                       </li>

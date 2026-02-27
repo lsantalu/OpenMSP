@@ -369,6 +369,7 @@ class Migration(migrations.Migration):
                 ('inipec_singolo', models.BooleanField(default=False)),
                 ('inipec_massivo', models.BooleanField(default=False)),
                 ('anpr_C001', models.BooleanField(default=False)),
+                ('anpr_C007', models.BooleanField(default=False)),
                 ('anpr_C015', models.BooleanField(default=False)),
                 ('anpr_C017', models.BooleanField(default=False)),
                 ('anpr_C018', models.BooleanField(default=False)),
