@@ -32,14 +32,16 @@ def anpr_get_request(user_ID, id_anpr, id_caso):
     if id_caso == 1:
         caso = "C001"
     elif id_caso == 2:
-        caso = "C015"
+        caso = "C007"
     elif id_caso == 3:
-        caso = "C017"
+        caso = "C015"
     elif id_caso == 4:
-        caso = "C018"
+        caso = "C017"
     elif id_caso == 5:
-        caso = "C020"
+        caso = "C018"
     elif id_caso == 6:
+        caso = "C020"
+    elif id_caso == 7:
         caso = "C021"
     else: ##Recupero idANPR
         caso = "C030"
@@ -60,7 +62,7 @@ def anpr_get_request(user_ID, id_anpr, id_caso):
     userid = user_ID
     location = 'PortaleOpenMSP'
     loa = 'LoA2'
-    if id_caso == 7: ##Recupero idANPR
+    if id_caso == 8: ##Recupero idANPR
         richiesta = f'{{"idOperazioneClient":"1","criteriRicerca":{{"codiceFiscale":"{id_anpr}"}},' \
             f'"datiRichiesta":{{"dataRiferimentoRichiesta":"{datetime.datetime.utcnow().strftime("%Y-%m-%d")}",' \
             f'"motivoRichiesta":"Verifica_anagrafica","casoUso":"{caso}"}}}}'
@@ -165,7 +167,7 @@ def anpr_get_request(user_ID, id_anpr, id_caso):
                 }
 
     response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
-    if id_caso == 7:
+    if id_caso == 8:
         aux = response.json()
         if 'listaSoggetti' in aux:
             return aux['listaSoggetti']['datiSoggetto'][0]['identificativi']['idANPR']
@@ -173,6 +175,27 @@ def anpr_get_request(user_ID, id_anpr, id_caso):
             return 'ZZZZZZZZZ'
     else:
         return response.json()
+
+
+def anpr_esistenza_in_vita(request):
+    if request.user.id:
+        utente_sessione = UtentiParametri.objects.get(id=request.user.id)
+        utente_abilitato = utente_sessione.anpr_C007
+        if request.method == 'POST':
+            data = []
+            cf = request.POST.get('input_CF')
+            data.append(cf)
+            correttezza_cf = verifica_cf(cf)
+            if correttezza_cf == 1 or correttezza_cf == 2:
+                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf, 8), 2))
+                data = converti_data(data)
+            else:
+                data.append("Codice fiscale non corretto")
+            salva_log(request.user,"Verifica ANPR - C007 - Esistenza in vita", "Verificato utente " + cf )
+            return render(request, 'anpr_esistenza_in_vita.html', {'data': data, 'utente_abilitato': utente_abilitato })
+    else:
+        utente_abilitato = False
+    return render(request, 'anpr_esistenza_in_vita.html', { 'utente_abilitato': utente_abilitato })
 
 
 def anpr_cittadinanza(request):
@@ -185,7 +208,7 @@ def anpr_cittadinanza(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,7), 4))
+                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf, 8), 5))
                 data = converti_data(data)
             else:
                 data.append("Codice fiscale non corretto")
@@ -206,7 +229,7 @@ def anpr_generalita(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,7), 2))
+                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf, 8), 3))
                 data = converti_data(data)
             else:
                 data.append("Codice fiscale non corretto")
@@ -242,7 +265,7 @@ def anpr_matrimonio(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,7), 3))
+                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf, 8), 4))
                 data = converti_data(data)
             else:
                 data.append("Codice fiscale non corretto")
@@ -264,7 +287,7 @@ def anpr_notifica(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,7), 1))
+                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf, 8), 1))
                 data = converti_data(data)
             else:
                 data.append("Codice fiscale non corretto")
@@ -286,7 +309,7 @@ def anpr_residenza(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,7), 5))
+                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf, 8), 6))
                 data = converti_data(data)
             else:
                 data.append("Codice fiscale non corretto")
@@ -340,7 +363,7 @@ def anpr_stato_famiglia(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf, 7), 6))
+                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf, 8), 7))
                 data = converti_data(data)
             else:
                 data.append("Codice fiscale non corretto")
@@ -352,8 +375,8 @@ def anpr_stato_famiglia(request):
 
 
 def impostazioni_anpr(request):
-    servizi_anpr = AnprServizi.objects.all()
-    parametri_anpr = AnprParametri.objects.all()
+    servizi_anpr = AnprServizi.objects.all().order_by('id')
+    parametri_anpr = AnprParametri.objects.all().order_by('id')
 
     service_active = ServiziParametri.objects.all()
     i_serv=0

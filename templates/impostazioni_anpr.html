@@ -18,7 +18,7 @@ Impostazioni ANPR - OpenMSP - Multi Services Portal
     <ul class="nav nav-tabs nav-tabs-cards neutral-2-bg p-4 shadow" id="sceltaAnpr" role="tablist">
       {% for servizio_anpr in servizi_anpr %}
       <li class="nav-item">
-        <a class="nav-link {% if servizio_anpr.id == 1 %}active {% endif %}" id="tab{{ servizio_anpr.id }}-tab" data-bs-toggle="tab" href="#tab{{ servizio_anpr.id }}" role="tab" aria-controls="tab{{ servizio_anpr.id }}" aria-selected="false">{{ servizio_anpr.servizio }}</a>
+        <a class="nav-link {% if forloop.first %}active {% endif %}" id="tab{{ servizio_anpr.id }}-tab" data-bs-toggle="tab" href="#tab{{ servizio_anpr.id }}" role="tab" aria-controls="tab{{ servizio_anpr.id }}" aria-selected="false">{{ servizio_anpr.servizio }}</a>
       </li>
       {% endfor %}
     </ul>
@@ -27,8 +27,8 @@ Impostazioni ANPR - OpenMSP - Multi Services Portal
       <br />
       {% for servizio_anpr in servizi_anpr %}
       {% for parametro_anpr in parametri_anpr %}
-      {% if parametro_anpr.id == forloop.parentloop.counter %}
-      <div class="tab-pane p-4 fade {% if servizio_anpr.id == 1 %}show active {% endif %}" id="tab{{ servizio_anpr.id }}" role="tabpanel" aria-labelledby="tab{{ servizio_anpr.id }}-tab">
+      {% if parametro_anpr.servizio_id == servizio_anpr.id %}
+      <div class="tab-pane p-4 fade {% if forloop.parentloop.first %}show active {% endif %}" id="tab{{ servizio_anpr.id }}" role="tabpanel" aria-labelledby="tab{{ servizio_anpr.id }}-tab">
         <div class="row">
           <div class="form-group col-6">
             <label for="kid{{ servizio_anpr.id }}">kid (keyid):</label>

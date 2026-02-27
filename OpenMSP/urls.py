@@ -56,6 +56,7 @@ from .registro_imprese import impostazioni_registro_imprese
 from .registro_imprese import registro_imprese
 
 from .anpr import anpr_notifica
+from .anpr import anpr_esistenza_in_vita
 from .anpr import anpr_generalita
 from .anpr import anpr_matrimonio
 from .anpr import anpr_cittadinanza
@@ -143,6 +144,7 @@ urlpatterns = [
     path("verifica_cf_aziende_export_excel/", verifica_cf_aziende_export_excel, name="verifica_cf_aziende_export_excel"),
 
     path("anpr_notifica/", anpr_notifica, name="anpr_notifica"),
+    path("anpr_esistenza_in_vita/", anpr_esistenza_in_vita, name="anpr_esistenza_in_vita"),
     path("anpr_generalita/", anpr_generalita, name="anpr_generalita"),
     path("anpr_matrimonio/", anpr_matrimonio, name="anpr_matrimonio"),
     path("anpr_cittadinanza/", anpr_cittadinanza, name="anpr_cittadinanza"),
