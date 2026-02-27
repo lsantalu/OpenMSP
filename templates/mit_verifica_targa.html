@@ -37,51 +37,57 @@ MIT - Verifica Targa Cude - OpenMSP - Multi Services Portal
   <br>
 
   {% if data %}
-  <div class="col-6 mb-4">
+  <div class="col-8 mb-4">
     <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
-      <h5 class="it-card-title it-card-title-icon">Patenti di {{ data.0 }}</h5>
+      <h5 class="it-card-title it-card-title-icon">Esito Verifica per Targa: {{ data.0 }}</h5>
       
-      {% if 'Targa non corretta' in data.1 %}
+      {% if data.1.esito.codice != "OK" and data.1.esito.codice != "00" %}
       <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+        <span class="text-white">Errore: {{ data.1.esito.codice }}</span>
+      </div>
       {% else %}
       <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
-      {% endif %}
+        <span class="text-white">Verifica Completata</span>
       </div>
+      {% endif %}
 
       <div class="it-card-body">
-        {% if 'Targa non corretta' in data.1 %}
         <p class="it-card-text">
-          <b> {{data.1}} </b>
+          Esito: <b>{{ data.1.esito.descrizione }}</b><br>
+          Codice: <b>{{ data.1.esito.codice }}</b>
         </p>
-        {% else %}
-        {% with soggetto=data.1.listaSoggetti.datiSoggetto.0 %}
-        <p class="it-card-text">
-          Cognome: <b>{{ soggetto.generalita.cognome }}</b><br>
-          Nome: <b>{{ soggetto.generalita.nome }}</b><br>
-          Sesso: <b>{{ soggetto.generalita.sesso }}</b><br>
-          Data Nascita: <b>{{ soggetto.generalita.dataNascita }}</b><br>
-          {% if soggetto.generalita.luogoNascita.comune != null %}
-          Luogo nascita: <b>{{ soggetto.generalita.luogoNascita.comune.nomeComune }} ({{ soggetto.generalita.luogoNascita.comune.siglaProvinciaIstat }})</b><br>
-          {% endif %}
-          {% if soggetto.generalita.luogoNascita.localita != null %}
-          Luogo nascita: <b>{{ soggetto.generalita.luogoNascita.localita.descrizioneLocalita }} ({{ soggetto.generalita.luogoNascita.localita.descrizioneStato }})</b><br>
-          {% endif %}
-          idANPR: <b>{{ soggetto.identificativi.idANPR }}</b><br>
-          ID scheda ANPR: <b>{{ soggetto.generalita.idSchedaSoggettoANPR }}</b><br>
-          {% if soggetto.infoSoggettoEnte.0.valoreData %}
-          Data decesso: <b>{{ soggetto.infoSoggettoEnte.0.valoreData }}</b><br>
-          {% endif %}
-        </p>
-        {% endwith %}
+
+        {% if data.1.risultato %}
+        <hr>
+        <h6>Dettaglio Risultato:</h6>
+        <div class="alert alert-info">
+          <pre>{{ data.1.risultato|json_script:"risultato-data" }}</pre>
+          <div id="risultato-display"></div>
+        </div>
         {% endif %}
       </div>
     </article>
   </div>
 
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const dataNode = document.getElementById('risultato-data');
+      if (dataNode) {
+        const res = JSON.parse(dataNode.textContent);
+        const display = document.getElementById('risultato-display');
+        display.innerHTML = '<ul class="list-unstyled">';
+        for (const [key, value] of Object.entries(res)) {
+          display.innerHTML += `<li>${key}: <strong>${value}</strong></li>`;
+        }
+        display.innerHTML += '</ul>';
+      }
+    });
+  </script>
+
   <br>
   <div class="row">
     <div class="col-6 mb-4">
-      <button id="printButton" class="btn btn-secondary">
+      <button id="printButton" class="btn btn-secondary" onclick="window.print()">
         <svg class="icon icon-sm icon-white" aria-hidden="true">
           <use href="{% static 'svg/sprites.svg' %}#it-print"></use>
         </svg> Stampa ricerca
@@ -94,19 +100,29 @@ MIT - Verifica Targa Cude - OpenMSP - Multi Services Portal
     <div class="accordion p-3 accordion-background-active" id="accordionExampleHa">
       <div class="accordion-item">
         <h2 class="accordion-header" id="heading">
-          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"    data-bs-target="#collapse" aria-expanded="false" aria-controls="collapse">Dettaglio interrogazione
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse" aria-expanded="false" aria-controls="collapse">Dettaglio JSON Interrogazione (Debug)
           </button>
         </h2>
         <div id="collapse" class="accordion-collapse collapse" data-bs-parent="#accordionExampleHa" role="region" aria-labelledby="heading">
           <div class="accordion-body">
             <div class="link-list-wrapper">
-              <pre id="json-display"></pre>
+              <pre id="json-display">{{ data.1|json_script:"full-json" }}</pre>
+              <div id="full-json-pretty"></div>
             </div>
           </div>
         </div>
       </div>
     </div>
   </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const fullJsonNode = document.getElementById('full-json');
+      if (fullJsonNode) {
+        const fullJson = JSON.parse(fullJsonNode.textContent);
+        document.getElementById('full-json-pretty').textContent = JSON.stringify(fullJson, null, 2);
+      }
+    });
+  </script>
   {% endif %}
 
 </div>

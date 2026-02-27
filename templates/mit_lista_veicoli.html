@@ -18,9 +18,13 @@ MIT - Lista Veicoli Cude - OpenMSP - Multi Services Portal
   <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
     <form class="needs-validation" id="mit_lista_veicoli" method="post">
       {% csrf_token %}
-      <div class="form-group">
-        <label for="input_CF">Inserisci il Codice Fiscale</label>
-        <input type="text" class="form-control" id="input_CF" name="input_CF" maxlength="16" oninput="this.value = this.value.toUpperCase();" required />
+      <div class="form-group mb-3">
+        <label for="dataFineValiditaDal">Data fine validita dal (opzionale)</label>
+        <input type="datetime-local" class="form-control" id="dataFineValiditaDal" name="dataFineValiditaDal" />
+      </div>
+      <div class="form-group mb-3">
+        <label for="dataFineValiditaAl">Data fine validita al (opzionale)</label>
+        <input type="datetime-local" class="form-control" id="dataFineValiditaAl" name="dataFineValiditaAl" />
       </div>
       <div class="col-3">
         <button class="btn btn-primary" type="submit">
@@ -37,118 +41,37 @@ MIT - Lista Veicoli Cude - OpenMSP - Multi Services Portal
 </div>
 <br>
 
-  {% if data %}
-<div class="col-6 mb-4">
-  <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
-    <h5 class="it-card-title it-card-title-icon">Generalità di {{ data.0 }}</h5>
-    {% if 'Codice fiscale non corretto' in data.1 or 'listaErrori' in data.1 %}
-    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
-      {% else %}
-      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
-        {% endif %}
-      </div>
-      <div class="it-card-body">
-        {% if 'Codice fiscale non corretto' in data.1 %}
-        <p class="it-card-text">
-          <b> {{data.1}} </b>
-        </p>
-        {%elif 'listaErrori' in data.1 %}
-        <p class="it-card-text">
-          <b> La richiesta effettuata non produce alcun risultato </b>
-        </p>
-        {% else %}
-        {% with soggetto=data.1.listaSoggetti.datiSoggetto.0 %}
-        <p class="it-card-text">
-          Cognome: <b>{{ soggetto.generalita.cognome }}</b><br>
-          Nome: <b>{{ soggetto.generalita.nome }}</b><br>
-          Sesso: <b>{{ soggetto.generalita.sesso }}</b><br>
-          Data Nascita: <b>{{ soggetto.generalita.dataNascita }}</b><br>
-          {% if soggetto.generalita.luogoNascita.comune != null %}
-          Luogo nascita: <b>{{ soggetto.generalita.luogoNascita.comune.nomeComune }} ({{ soggetto.generalita.luogoNascita.comune.siglaProvinciaIstat }})</b><br>
-          {% endif %}
-          {% if soggetto.generalita.luogoNascita.localita != null %}
-          Luogo nascita: <b>{{ soggetto.generalita.luogoNascita.localita.descrizioneLocalita }} ({{ soggetto.generalita.luogoNascita.localita.descrizioneStato }})</b><br>
-          {% endif %}
-          idANPR: <b>{{ soggetto.identificativi.idANPR }}</b><br>
-          ID scheda ANPR: <b>{{ soggetto.generalita.idSchedaSoggettoANPR }}</b>
-          <br>
-          <br>
-          <b>Residenza</b><br>
-
-          {% if soggetto.residenza.0.indirizzo != null %}
-          Indirizzo: <b>{{ soggetto.residenza.0.indirizzo.toponimo.specie }} {{ soggetto.residenza.0.indirizzo.toponimo.denominazioneToponimo }}</b><br>
-          Civico:  <b>{{ soggetto.residenza.0.indirizzo.numeroCivico.numero }}{% if soggetto.residenza.0.indirizzo.numeroCivico.lettera != null %}/{{ soggetto.residenza.0.indirizzo.numeroCivico.lettera }}
-          {%endif%}</b><br>
-          {% if soggetto.residenza.0.indirizzo.numeroCivico.civicoInterno.interno1 != null %}
-          Interno: <b>{{ soggetto.residenza.0.indirizzo.numeroCivico.civicoInterno.interno1 }}</b><br>
-          {% endif %}
-          CAP: <b>{{ soggetto.residenza.0.indirizzo.cap }}</b><br>
-          Comune: <b>{{ soggetto.residenza.0.indirizzo.comune.nomeComune }}</b><br>
-          Provincia: <b>{{ soggetto.residenza.0.indirizzo.comune.siglaProvinciaIstat }}</b><br>
-
-
-          {% else %}
-          Indirizzo: <b>{{ soggetto.residenza.0.localitaEstera.indirizzoEstero.toponimo.denominazione }}</b><br>
-          Località: <b>{{ soggetto.residenza.0.localitaEstera.indirizzoEstero.localita.descrizioneLocalita }}</b><br>
-          Consolato: <b>{{ soggetto.residenza.0.localitaEstera.consolato.descrizioneConsolato }}</b><br>
-          Stato: <b>{{ soggetto.residenza.0.localitaEstera.indirizzoEstero.localita.descrizioneStato }}</b><br>
-          Anno espatrio: <b>{{ soggetto.generalita.annoEspatrio }}</b><br>
-
-          {% endif %}
-          <br>
-          Soggetto in vita: <b>
-            {% if "N" in soggetto.infoSoggettoEnte.0.valore %}
-            No</b>
-            {% else%}
-            Si</b>
-            {% endif %}
-
-            <br>
-            Soggetto AIRE: <b>
-              {% if "N" in soggetto.generalita.soggettoAIRE %}
-              No</b>
-              {% else%}
-              Si</b>
-              {% endif %}
-            </p>
-            {% endwith %}
-            {% endif %}
-          </div>
-        </article>
-      </div>
-
-      <br>
-      <div class="row">
-        <div class="col-6 mb-4">
-          <button id="printButton" class="btn btn-secondary">
-            <svg class="icon icon-sm icon-white" aria-hidden="true">
-              <use href="{% static 'svg/sprites.svg' %}#it-print"></use>
-            </svg> Stampa ricerca
-          </button>
-        </div>
-      </div>
-
-      {% if user.is_superuser %}
-      <div class="col-10 shadow-lg white-bg">
-        <div class="accordion p-3 accordion-background-active" id="accordionExampleHa">
-          <div class="accordion-item">
-            <h2 class="accordion-header" id="heading">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"    data-bs-target="#collapse" aria-expanded="false" aria-controls="collapse">Dettaglio interrogazione
-              </button>
-            </h2>
-            <div id="collapse" class="accordion-collapse collapse" data-bs-parent="#accordionExampleHa" role="region" aria-labelledby="heading">
-              <div class="accordion-body">
-                <div class="link-list-wrapper">
-                  <pre id="json-display"></pre>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+{% if response_data %}
+<div class="col-10 mb-4">
+  <article class="it-card it-card-height-full rounded shadow-lg border">
+    <div class="it-card-body">
+      <h5 class="it-card-title">Esito richiesta Lista Veicoli</h5>
+      {% if http_status %}
+      <p class="it-card-text">HTTP status: <b>{{ http_status }}</b></p>
       {% endif %}
-
+      {% if query_params %}
+      <p class="it-card-text">
+        Filtri applicati:
+        <b>
+          {% for k, v in query_params.items %}
+          {{ k }}={{ v }}{% if not forloop.last %}, {% endif %}
+          {% endfor %}
+        </b>
+      </p>
       {% endif %}
+      {% if response_data.esito %}
+      <p class="it-card-text">
+        Codice esito: <b>{{ response_data.esito.codice|default:"-" }}</b><br>
+        Descrizione esito: <b>{{ response_data.esito.descrizione|default:"-" }}</b>
+      </p>
+      {% endif %}
+      <h6>Risultato</h6>
+      <pre id="json-display" class="bg-light p-3 rounded border"></pre>
+      {{ response_data|json_script:"lista-veicoli-json" }}
+    </div>
+  </article>
+</div>
+{% endif %}
 
 {% else %}
 <div class="col-6">
@@ -172,43 +95,12 @@ MIT - Lista Veicoli Cude - OpenMSP - Multi Services Portal
 
   <script>
     document.addEventListener('DOMContentLoaded', function () {
-      const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Il campo "Codice Fiscale" è da controllare.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
-      const errorWrapper = document.querySelector('#errorMsgContainer')
-      const validate = new bootstrap.FormValidate('#mit_lista_veicoli', {
-        errorFieldCssClass: 'is-invalid',
-        errorLabelCssClass: 'form-feedback',
-        errorLabelStyle: '',
-        focusInvalidField: false
-      })
-      validate
-      .addField('#input_CF', [
-      {
-        rule: 'required',
-        errorMessage: 'Questo campo è richiesto'
-      },
-      {
-        rule: 'minLength',
-        value: 16,
-        errorMessage: 'Il C.F. deve avere 16 caratteri'
-      },
-      {
-        rule: 'maxLength',
-        value: 16,
-        errorMessage: 'Il C.F. deve avere 16 caratteri'
-      },
-      {
-        rule: 'customRegexp',
-        value: '^[a-zA-Z]{6}[0-9]{2}[a-zA-Z][0-9]{2}[a-zA-Z][0-9]{3}[a-zA-Z]$',
-        errorMessage: 'Il C.F. è scritto correttamente'
+      const jsonNode = document.getElementById('lista-veicoli-json')
+      const output = document.getElementById('json-display')
+      if (jsonNode && output) {
+        const parsed = JSON.parse(jsonNode.textContent)
+        output.textContent = JSON.stringify(parsed.risultato ?? parsed, null, 2)
       }
-      ])
-      .onSuccess(() => {
-        document.forms['mit_lista_veicoli'].submit()
-      })
-      .onFail((fields) => {
-        errorWrapper.innerHTML = ''
-        errorWrapper.innerHTML = errorMessage
-      })
     })
   </script>
   {% endblock %}

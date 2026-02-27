@@ -55,7 +55,15 @@ def mit_get_request(user_ID, cf, id_caso):
     private_key = parametri_mit.private_key
     location = 'PortaleOpenMSP'
     loa = 'LoA2'
-    richiesta = f'{{"targa":"DZ277TW","dataOraVerifica":"2026-01-31T15:38:00Z","intervalloDiTolleranza":0}}'
+    if id_caso == 4: ##Targhe
+        richiesta_data = {
+            "targa": cf,
+            "dataOraVerifica": datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "intervalloDiTolleranza": 0
+        }
+        richiesta = json.dumps(richiesta_data)
+    else:
+        richiesta = f'{{"codiceFiscale":"{cf}"}}'
 
     ##issued = datetime.datetime.utcnow()
     issued = int(datetime.datetime.now(datetime.timezone.utc).timestamp()) - 60
@@ -113,10 +121,27 @@ def mit_get_request(user_ID, cf, id_caso):
         })
 
     headers = {"Content-type": "application/x-www-form-urlencoded"}
-    conn = http.client.HTTPSConnection(re.sub(r'^https?://', '', baseurlauth))
-    conn.request("POST", "/token.oauth2", params, headers)
-    response = conn.getresponse()
-    voucher = json.loads(response.read())["access_token"]
+    try:
+        conn = http.client.HTTPSConnection(re.sub(r'^https?://', '', baseurlauth))
+        conn.request("POST", "/token.oauth2", params, headers)
+        response = conn.getresponse()
+        resp_data = response.read()
+        if response.status == 200:
+            voucher = json.loads(resp_data)["access_token"]
+        else:
+            return {
+                "esito": {
+                    "codice": str(response.status),
+                    "descrizione": f"Errore richiesta Token: {resp_data.decode('UTF-8')[:200]}"
+                }
+            }
+    except Exception as e:
+        return {
+            "esito": {
+                "codice": "TOKEN_ERR",
+                "descrizione": f"Eccezione durante richiesta Token: {str(e)}"
+            }
+        }
 
     # prepara il body per la richiesta e relativo digest
     body = richiesta
@@ -154,9 +179,30 @@ def mit_get_request(user_ID, cf, id_caso):
                 "Agid-JWT-Signature":signature
                 }
 
-    response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
-
-    return response.json()
+    try:
+        response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
+        if response.status_code != 200:
+            return {
+                "esito": {
+                    "codice": str(response.status_code),
+                    "descrizione": f"Errore API MIT: {response.text[:200]}"
+                }
+            }
+        return response.json()
+    except json.JSONDecodeError:
+        return {
+            "esito": {
+                "codice": "JSON_ERR",
+                "descrizione": f"Risposta non valida dal server (non JSON): {response.text[:200]}"
+            }
+        }
+    except Exception as e:
+        return {
+            "esito": {
+                "codice": "network_error",
+                "descrizione": str(e)
+            }
+        }
 
 
 def mit_dettaglio_cude(request):
