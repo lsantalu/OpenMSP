@@ -743,29 +743,49 @@ OpenMSP - Multi Services Portal
         </li>
 
         {% if user.is_superuser %}
-        <li class="nav-item dropdown" aria-labelledby="dropdown-Impostazioni-voci">
-          <button type="button" class="nav-link btn btn-dropdown dropdown-toggle  px-lg-2 px-xl-3" href="#" id="dropdown-Impostazioni" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        <li class="nav-item dropdown megamenu" aria-labelledby="dropdown-Impostazioni-voci">
+          <button type="button" class="nav-link btn btn-dropdown dropdown-toggle px-lg-2 px-xl-3" href="#" id="dropdown-Impostazioni" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" data-focus-mouse="false">
             <span>Impostazioni</span>
-            <svg class="icon icon-xs">
+            <svg class="icon icon-xs ms-1">
               <use xlink:href="{% static 'svg/sprites.svg' %}#it-expand"></use>
             </svg>
           </button>
-          <div class="dropdown-menu shadow-lg" role="region" aria-labelledby="amministratore-base">
-            <div class="link-list-wrapper">
-              <ul class="link-list">
-                <li>
-                  <a class="list-item dropdown-item" href="{% url 'impostazioni_utenti' %}"><span>Gestione Utenti</span></a>
-                </li>
-                <li>
-                  <a class="list-item dropdown-item" href="{% url 'impostazioni_servizi' %}"><span>Attivazione e-service</span></a>
-                </li>
-                <li>
-                  <a class="list-item dropdown-item" href="{% url 'impostazioni_parametri' %}"><span>Impostazioni OpenMSP</span></a>
-                </li>
-                <li>
-                  <a class="list-item dropdown-item" href="{% url 'impostazioni_logs' %}"><span>Log di sistema</span></a>
-                </li>
-              </ul>
+          <div class="dropdown-menu shadow-lg" role="region" aria-labelledby="dropdown-Impostazioni">
+            <div class="megamenu pb-5 pt-3 py-lg-0">
+              <div class="row">
+                <div class="col-xs-12 col-lg-4 px-0">
+                  <div class="col-12 it-vertical it-description pb-lg-3">
+                    <div class="description-content px-4 pt-3">
+                      <div class="ratio ratio-16x9 rounded pb-3">
+                        <figure class="figure">
+                          <img src="{% static "images/impostazioni.png" %}" class="figure-img img-fluid rounded" alt="Impostazioni">
+                        </figure>
+                      </div>
+                      <p>
+                        Gestione utenti, servizi e configurazioni di sistema
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-lg-8">
+                  <div class="link-list-wrapper">
+                    <ul class="link-list">
+                      <li>
+                        <a class="list-item dropdown-item" href="{% url 'impostazioni_utenti' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span>Gestione Utenti</span></a>
+                      </li>
+                      <li>
+                        <a class="list-item dropdown-item" href="{% url 'impostazioni_servizi' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span>Attivazione e-service</span></a>
+                      </li>
+                      <li>
+                        <a class="list-item dropdown-item" href="{% url 'impostazioni_parametri' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span>Impostazioni OpenMSP</span></a>
+                      </li>
+                      <li>
+                        <a class="list-item dropdown-item" href="{% url 'impostazioni_logs' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span>Log di sistema</span></a>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </li>
