@@ -87,8 +87,8 @@ Modulo completo per la gestione delle notifiche verso l'App dei servizi pubblici
 
 ## 🛠️ Requisiti
 
-* Python 3.8+
-* Django 3.2+
+* Python 3.12+
+* Django 5.2+
 * design-django-theme (Bootstrap Italia)
 * Librerie crittografiche (per la firma dei voucher PDND)
 * Accesso sviluppatore su [Self Care PagoPA](https://selfcare.pagopa.it/)
@@ -217,35 +217,37 @@ AUTH_LDAP_CONNECTION_OPTIONS = {"OPT_PROTOCOL_VERSION": 3, "OPT_REFERRALS": 0}
 
 Nota: usa **una sola** coppia `AUTH_LDAP_USER_SEARCH_FILTER` e `AUTH_LDAP_USER_ATTR_MAP` in base al tuo provider LDAP (OpenLDAP o Active Directory).
 
-## 🔁 Script di aggiornamento 1.0 -> 1.1
+## 🔁 Script di aggiornamento (Step-by-Step)
 
-Per aggiornare struttura DB e file `.env` usa lo script:
+Per aggiornare la struttura del database e il file `.env` tra le diverse versioni, utilizza gli script presenti nella directory `update/`. Gli script sono progettati per essere eseguiti in modo incrementale.
 
-`update/update_1_0_to_1_1.sh`
+### Logica di Aggiornamento Incrementale
+Se desideri aggiornare alla versione più recente (es. 1.2), puoi eseguire direttamente l'ultimo script disponibile. Se il database è fermo a più versioni precedenti, lo script rileverà automaticamente la situazione e invocherà i passaggi intermedi necessari.
+
+Esempio: eseguendo `update_to_1.2.sh` su un database 1.0.0, verrà automaticamente chiamato prima `update_to_1.1.sh`.
+
+### Script Disponibili
+*   `update/update_to_1.1.sh`: Aggiornamento alla versione 1.1.0.
+*   `update/update_to_1.2.sh`: Aggiornamento alla versione 1.2.0 (include logica incrementale).
+
+### Uso (Esempio per v1.2)
 
 Uso (non interattivo):
-
 ```bash
-./update/update_1_0_to_1_1.sh [path/to/db.sqlite3] [path/to/.env]
+./update/update_to_1.2.sh [path/to/db.sqlite3] [path/to/.env]
 ```
 
 Uso (interattivo):
-
 ```bash
-chmod +x update/update_1_0_to_1_1.sh
-./update/update_1_0_to_1_1.sh
+chmod +x update/update_to_1.2.sh
+./update/update_to_1.2.sh
 ```
 
-Lo script:
-* crea backup automatici di DB e `.env`
-* migra la tabella `utenti_parametri` verso la struttura 1.1
-* crea le tabelle per OTP/2FA mancanti
-* se disponibile un DB di riferimento 1.1 diverso dal target, sincronizza i parametri applicativi (incluse tabelle `app_io_catalogo_argomenti`, `gruppi_parametri`, `servizi_parametri` con preservazione `attivo`)
-* se disponibile un `.env` di riferimento 1.1 diverso dal target, aggiunge al target le variabili mancanti
-
-Dettagli operativi:
-* i file di riferimento 1.1 vengono cercati nella root progetto (`db.sqlite3` e `.env`)
-* se target e riferimento coincidono (stesso file reale), le sincronizzazioni avanzate vengono saltate in sicurezza
+### Funzionalità degli Script
+*   **Verifica Versione**: Ogni script verifica la versione attuale del DB prima di procedere.
+*   **Backup Automatico**: Viene creato un backup `.bak` del database e del file `.env` prima di ogni modifica.
+*   **Migrazioni Django**: Gli script eseguono automaticamente `makemigrations` e `migrate` al termine della procedura.
+*   **Sincronizzazione Parametri**: Sincronizza i parametri applicativi e le variabili `.env` se vengono forniti file di riferimento corretti.
 
 ## 📄 Licenze di Terze Parti
 
