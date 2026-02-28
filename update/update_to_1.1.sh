@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # Upgrade schema OpenMSP DB from 1.0 to 1.1.
+# Script: update/update_to_1.1.sh
 # Defaults are resolved from current directory first, then project root.
 # Usage:
 #   ./update/update_1_0_to_1_1.sh [path/to/db.sqlite3] [path/to/.env]
@@ -31,7 +32,9 @@ prompt_with_default() {
   local label="$2"
   local default_value="$3"
   local input_value=""
-  read -r -p "$label [$default_value]: " input_value
+  if [[ -t 0 ]]; then
+    read -r -p "$label [$default_value]: " input_value
+  fi
   if [[ -z "$input_value" ]]; then
     printf -v "$var_name" "%s" "$default_value"
   else
@@ -69,25 +72,6 @@ if [[ ! -f "$ENV_TARGET_PATH" ]]; then
   exit 1
 fi
 
-TARGET_DB_REAL="$(readlink -f "$DB_PATH" 2>/dev/null || echo "$DB_PATH")"
-REF_DB_REAL="$(readlink -f "$REF_DB_PATH" 2>/dev/null || echo "$REF_DB_PATH")"
-USE_DB_REFERENCE=0
-if [[ -f "$REF_DB_PATH" && "$TARGET_DB_REAL" != "$REF_DB_REAL" ]]; then
-  USE_DB_REFERENCE=1
-fi
-
-TARGET_ENV_REAL="$(readlink -f "$ENV_TARGET_PATH" 2>/dev/null || echo "$ENV_TARGET_PATH")"
-REF_ENV_REAL="$(readlink -f "$ENV_REF_V11_PATH" 2>/dev/null || echo "$ENV_REF_V11_PATH")"
-USE_ENV_REFERENCE=0
-if [[ -f "$ENV_REF_V11_PATH" && "$TARGET_ENV_REAL" != "$REF_ENV_REAL" ]]; then
-  USE_ENV_REFERENCE=1
-fi
-
-RUN_TS="$(date +%Y%m%d_%H%M%S)"
-BACKUP_PATH="${DB_PATH}.bak.${RUN_TS}"
-cp -a "$DB_PATH" "$BACKUP_PATH"
-echo "Backup DB creato: $BACKUP_PATH"
-
 table_exists_in_db() {
   local db_path="$1"
   local table_name="$2"
@@ -111,6 +95,41 @@ column_exists() {
   local column_name="$2"
   column_exists_in_db "$DB_PATH" "$table_name" "$column_name"
 }
+
+# Verifica versione database
+if [[ "$(table_exists dati_ente)" == "1" ]]; then
+  DB_VERSION=$(sqlite3 "$DB_PATH" "SELECT versione FROM dati_ente LIMIT 1;" | xargs echo -n)
+  echo "INFO: Versione database rilevata: '$DB_VERSION'"
+  if [[ "$DB_VERSION" == "1.1.0" ]]; then
+    echo "Il database è già alla versione 1.1.0. Nessun aggiornamento necessario."
+    exit 0
+  elif [[ "$DB_VERSION" != "1.0.0" ]]; then
+    echo "Errore: la versione del database ($DB_VERSION) non è compatibile con questo script di aggiornamento (richiesta 1.0.0)."
+    exit 1
+  fi
+else
+  echo "Attenzione: tabella 'dati_ente' non trovata. Impossibile verificare la versione."
+fi
+
+TARGET_DB_REAL="$(readlink -f "$DB_PATH" 2>/dev/null || echo "$DB_PATH")"
+REF_DB_REAL="$(readlink -f "$REF_DB_PATH" 2>/dev/null || echo "$REF_DB_PATH")"
+USE_DB_REFERENCE=0
+if [[ -f "$REF_DB_PATH" && "$TARGET_DB_REAL" != "$REF_DB_REAL" ]]; then
+  USE_DB_REFERENCE=1
+fi
+
+TARGET_ENV_REAL="$(readlink -f "$ENV_TARGET_PATH" 2>/dev/null || echo "$ENV_TARGET_PATH")"
+REF_ENV_REAL="$(readlink -f "$ENV_REF_V11_PATH" 2>/dev/null || echo "$ENV_REF_V11_PATH")"
+USE_ENV_REFERENCE=0
+if [[ -f "$ENV_REF_V11_PATH" && "$TARGET_ENV_REAL" != "$REF_ENV_REAL" ]]; then
+  USE_ENV_REFERENCE=1
+fi
+
+RUN_TS="$(date +%Y%m%d_%H%M%S)"
+BACKUP_PATH="${DB_PATH}.bak.${RUN_TS}"
+cp -a "$DB_PATH" "$BACKUP_PATH"
+echo "Backup DB creato: $BACKUP_PATH"
+
 
 has_utenti_parametri="$(table_exists utenti_parametri)"
 has_mit_patenti=0
@@ -328,6 +347,11 @@ else
   echo "Tabella utenti_parametri non trovata: nessuna migrazione colonne da applicare."
 fi
 
+if [[ "$(table_exists dati_ente)" == "1" ]]; then
+  sqlite3 "$DB_PATH" "UPDATE dati_ente SET versione = '1.1.0' WHERE versione = '1.0.0';"
+  echo "Versione in dati_ente aggiornata a 1.1.0 (se era 1.0.0)."
+fi
+
 if [[ "$USE_DB_REFERENCE" == "1" ]]; then
   PARAM_TABLES=(
     anis_parametri
@@ -528,6 +552,12 @@ echo "Backup .env creato: $ENV_BACKUP_PATH"
 echo "Aggiornamento .env completato (valori aggiornati: $env_replaced_count, variabili aggiunte: $env_added_count)."
 if [[ "$USE_ENV_REFERENCE" != "1" ]]; then
   echo "Riferimento .env 1.1 non disponibile o coincide con il target: nessuna sincronizzazione valori effettuata."
+fi
+
+if [[ -f "$PROJECT_ROOT/manage.py" ]]; then
+  echo "Esecuzione migrazioni Django..."
+  python "$PROJECT_ROOT/manage.py" makemigrations
+  python "$PROJECT_ROOT/manage.py" migrate
 fi
 
 echo "Upgrade struttura DB completato."
