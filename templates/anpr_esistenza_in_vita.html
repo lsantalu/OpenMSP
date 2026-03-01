@@ -57,6 +57,7 @@ C007 - ANPR Esistenza in vita - OpenMSP - Multi Services Portal
         </p>
         {% else %}
         {% with soggetto=data.1.listaSoggetti.datiSoggetto.0 %}
+        {% if soggetto.generalita %}
         <p class="it-card-text">
           Cognome: <b>{{ soggetto.generalita.cognome }}</b><br>
           Nome: <b>{{ soggetto.generalita.nome }}</b><br>
@@ -81,6 +82,34 @@ C007 - ANPR Esistenza in vita - OpenMSP - Multi Services Portal
             <br>Data decesso: <b>{{ soggetto.infoSoggettoEnte.0.valoreData }}</b>
             {% endif %}
           </p>
+          {% else %}
+          {# Nuova struttura PDND (infoSoggettoEnte) #}
+          <p class="it-card-text">
+            {% for info in soggetto.infoSoggettoEnte %}
+              {% if info.chiave == 'cognome' %}
+                Cognome: <b>{{ info.valoreTesto }}</b><br>
+              {% elif info.chiave == 'nome' %}
+                Nome: <b>{{ info.valoreTesto }}</b><br>
+              {% elif info.chiave == 'sesso' %}
+                Sesso: <b>{{ info.valoreTesto }}</b><br>
+              {% elif info.chiave == 'dataNascita' %}
+                Data Nascita: <b>{{ info.valoreData }}</b><br>
+              {% elif info.chiave == 'comuneNascita' %}
+                Luogo nascita: <b>{{ info.valoreTesto }}</b><br>
+              {% elif info.chiave == 'soggettoAIRE' %}
+                Soggetto AIRE: <b>{% if info.valore == 'S' %}Sì{% else %}No{% endif %}</b><br>
+              {% elif info.chiave == 'idANPR' %}
+                idANPR: <b>{{ info.valoreTesto }}</b><br>
+              {% elif info.chiave == 'idSchedaSoggettoANPR' %}
+                ID scheda ANPR: <b>{{ info.valoreTesto }}</b><br>
+              {% elif info.chiave == 'dataDecesso' %}
+                Data decesso: <b>{{ info.valoreData }}</b><br>
+              {% elif info.chiave == 'esistenzaInVita' or info.chiave == 'Verifica esistenza in vita' %}
+                Esistenza in vita: <b>{% if info.valore == 'S' %}Sì{% else %}No{% endif %}</b><br>
+              {% endif %}
+            {% endfor %}
+          </p>
+          {% endif %}
           {% endwith %}
           {% endif %}
         </div>

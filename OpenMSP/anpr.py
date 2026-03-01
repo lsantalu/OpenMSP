@@ -176,7 +176,6 @@ def anpr_get_request(user_ID, id_anpr, id_caso):
     else:
         return response.json()
 
-
 def anpr_esistenza_in_vita(request):
     if request.user.id:
         utente_sessione = UtentiParametri.objects.get(id=request.user.id)
@@ -208,7 +207,7 @@ def anpr_cittadinanza(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf, 8), 5))
+                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,8), 5))
                 data = converti_data(data)
             else:
                 data.append("Codice fiscale non corretto")
@@ -229,7 +228,7 @@ def anpr_generalita(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf, 8), 3))
+                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,8), 3))
                 data = converti_data(data)
             else:
                 data.append("Codice fiscale non corretto")
@@ -265,7 +264,7 @@ def anpr_matrimonio(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf, 8), 4))
+                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,8), 4))
                 data = converti_data(data)
             else:
                 data.append("Codice fiscale non corretto")
@@ -287,7 +286,7 @@ def anpr_notifica(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf, 8), 1))
+                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,8), 1))
                 data = converti_data(data)
             else:
                 data.append("Codice fiscale non corretto")
@@ -309,7 +308,7 @@ def anpr_residenza(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf, 8), 6))
+                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,8), 6))
                 data = converti_data(data)
             else:
                 data.append("Codice fiscale non corretto")
@@ -375,8 +374,8 @@ def anpr_stato_famiglia(request):
 
 
 def impostazioni_anpr(request):
-    servizi_anpr = AnprServizi.objects.all().order_by('id')
-    parametri_anpr = AnprParametri.objects.all().order_by('id')
+    servizi_anpr = AnprServizi.objects.all()
+    parametri_anpr = AnprParametri.objects.all()
 
     service_active = ServiziParametri.objects.all()
     i_serv=0
@@ -408,4 +407,3 @@ def impostazioni_anpr(request):
         salva_log(request.user,"Impostazioni ANPR", "modifica parametri")
 
     return render(request, 'impostazioni_anpr.html', { 'servizi_anpr': servizi_anpr, 'parametri_anpr': parametri_anpr })
-

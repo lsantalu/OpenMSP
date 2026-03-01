@@ -11,8 +11,8 @@
 inviare messaggi tramite la App IO<br> 
 </p>
 
-![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
-![Django](https://img.shields.io/badge/Django-3.2%2B-green)
+![Python](https://img.shields.io/badge/Python-3.13%2B-blue)
+![Django](https://img.shields.io/badge/Django-5.2%2B-green)
 ![License](https://img.shields.io/badge/License-BSD_3--Clause-blue)
 ![Author](https://img.shields.io/badge/Author-OpenCED_di_Santalucia_Luca-orange)
 
@@ -47,6 +47,7 @@ Interrogazione dettagliata della banca dati nazionale:
 * **Stato di Famiglia:** Schede anagrafiche di tutti i componenti del nucleo familiare.
 * **Matrimonio:** Stato matrimoniale, estremi atto ed eventuale annullamento/divorzio.
 * **Cittadinanza:** Verifica della cittadinanza del soggetto.
+* **Esistenza in vita:** Verifica dell'esistenza in vita del soggetto.
 
 ### 3. CCIAA (Registro Imprese)
 Restituzione di tutti i dati indicati nella visura camerale per soggetti iscritti:
