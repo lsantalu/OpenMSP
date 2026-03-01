@@ -1,10 +1,10 @@
-asgiref
+# asgiref  # Dipendenza transitiva di Django, non importata direttamente nel progetto
 Django
-sqlparse
-typing_extensions
+# sqlparse  # Dipendenza transitiva di Django, non importata direttamente nel progetto
+# typing_extensions  # Non importata direttamente nel progetto
 libsass
 django-extensions
-pyOpenSSL
+# pyOpenSSL  # Non utilizzato, il progetto usa cryptography per JWT
 python-jose
 PyJWT
 requests
@@ -19,7 +19,7 @@ openpyxl
 pyzipper
 html2text
 django-sass-processor
-django-compressor
+# django-compressor  # Non configurato in settings.py, il progetto usa sass-processor e whitenoise
 gunicorn
 python-decouple
 whitenoise
@@ -27,4 +27,4 @@ pytz
 django-auth-ldap
 django-otp
 django-two-factor-auth
-phonenumbers
+# phonenumbers

@@ -41,7 +41,6 @@ INSTALLED_APPS = [
     'django_otp.plugins.otp_static',
     'django_otp.plugins.otp_totp',
     'two_factor',
-    'two_factor.plugins.phonenumber',
     'bootstrap_italia_template',
     'sass_processor',
     "django_extensions",
@@ -208,4 +207,3 @@ SASS_PRECISION = 8
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
