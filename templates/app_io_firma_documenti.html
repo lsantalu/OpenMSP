@@ -1,0 +1,197 @@
+<!-- templates/base.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+App IO - Firma documenti - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>App IO - Firma documenti</h3>
+<br />
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+
+<div class="col-10 shadow-lg white-bg p-4">
+    {% if data %}
+  <div class="mb-4">
+    <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
+      {% if 'successo' in data|lower %}
+      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
+        {% else %}
+        <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+          {% endif %}
+        </div>
+        <div class="it-card-body">
+          <p class="it-card-subtitle">
+            {{ data|safe }}</p>
+          </div>
+        </article>
+      </div>
+      <br>
+      <a href="{% url 'app_io_firma_documenti' %}" class="btn btn-primary">
+        <svg class="icon icon-sm icon-white" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-files"></use>
+        </svg>Nuova richiesta firma
+      </a>
+      {% else %}
+      <form class="needs-validation" id="app_io_firma_documenti" method="post" action="{% url 'app_io_firma_documenti' %}">
+        {% csrf_token %}
+        <div class="form-group col-6">
+          <label for="input_CF">Inserisci il Codice Fiscale</label>
+          <input type="text" class="form-control" id="input_CF" name="input_CF" maxlength="16" oninput="this.value = this.value.toUpperCase();" required />
+        </div>
+        <div class="form-group col-8">
+          <label for="subject">Inserisci il titolo del documento</label>
+          <input type="text" class="form-control" id="subject" name="subject" minlength="10" maxlength="120" required />
+        </div>
+        <div class="row">
+          <div class="form-group shadow-lg mb-3 col-6" id="editor">
+            <label for="MessageArea">Descrizione / corpo del messaggio</label>
+            <textarea class="form-control" id="MessageArea" name="MessageArea" minlength="80" maxlength="10000" rows="10" style="overflow-y: hidden; resize: none;"></textarea>
+          </div>
+          <div class="form-group shadow-lg mb-3 col-6" id="preview">
+            <div id="preview-content"></div>
+          </div>
+        </div>
+
+        <div class="form-group col-8 mt-3">
+          <label for="url_documento">URL del documento da firmare</label>
+          <input type="url" class="form-control" id="url_documento" name="url_documento" placeholder="https://..." required />
+          <small class="form-text text-muted">Inserire l'URL completo del documento che il cittadino dovrà firmare</small>
+        </div>
+
+        <div class="form-group col-8 mt-3">
+          <label for="nome_documento">Nome del documento</label>
+          <input type="text" class="form-control" id="nome_documento" name="nome_documento" placeholder="es. Modulo domanda..." required />
+        </div>
+
+        <div class="row mt-3">
+          <div class="form-group col-4 pl-0 ml-5">
+            <div class="toggles">
+              <label for="toggleScadenza">Promemoria scadenza
+                <input type="checkbox" id="toggleScadenza" name="toggleScadenza" value="true">
+                <span class="lever"></span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group col-4">
+            <label class="active" for="dataScadenza">Data</label>
+            <input class="form-control" type="date" id="dataScadenza" name="dataScadenza">
+          </div>
+        </div>
+
+        <div class="p-4 mb-5 text-end">
+          <a href="{% url 'home' %}" class="btn btn-danger">Annulla</a>
+          <button id="inviaButton" name="inviaButton" class="btn btn-primary" type="submit">
+            Invia richiesta firma<svg class="icon icon-sm icon-white" aria-hidden="true">
+              <use href="{% static 'svg/sprites.svg' %}#it-files"></use>
+            </svg>
+          </button>
+        </div>
+      </form>
+      <div class="row">
+        <div class="col-4">
+          <div aria-live="polite" id="errorMsgContainer"></div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="col-6">
+      <h4>Utente non abilitato</h4>
+      <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+      <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+      <div class="p-3 text-end">
+        <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+      </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <h4>Utente non loggato</h4>
+    <p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+    <a href="{% url 'login' %}" class="btn btn-primary">
+      <svg class="icon icon-sm icon-white" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+      </svg>Accedi
+    </a>
+    {% endif %}
+
+    <script>
+
+      const textarea = document.getElementById('MessageArea');
+
+      if (textarea) {
+        const autoResize = (event) => {
+          textarea.style.height = 'auto';
+          textarea.style.height = `${textarea.scrollHeight}px`;
+        };
+
+        textarea.addEventListener('input', autoResize);
+        autoResize();
+
+        const previewContent = document.getElementById('preview-content');
+        textarea.addEventListener('input', () => {
+          const markdownText = textarea.value;
+          const htmlContent = marked.parse(markdownText);
+          previewContent.innerHTML = htmlContent;
+        });
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        const toggleScadenza = document.getElementById('toggleScadenza');
+        const dataScadenza = document.getElementById('dataScadenza');
+
+        if (toggleScadenza && dataScadenza) {
+          function toggleDataScadenza() {
+            dataScadenza.disabled = !toggleScadenza.checked;
+            if (!toggleScadenza.checked) {
+              dataScadenza.value = '';
+            }
+          }
+          toggleDataScadenza();
+          toggleScadenza.addEventListener('change', toggleDataScadenza);
+
+          // Verifica data passata
+          dataScadenza.addEventListener('input', function () {
+            const oggi = new Date();
+            const dataInserita = new Date(dataScadenza.value);
+            if (dataInserita < oggi) {
+              const domani = new Date();
+              domani.setDate(domani.getDate() + 1);
+              dataScadenza.value = domani.toISOString().split('T')[0];
+            }
+          });
+        }
+      });
+
+      document.addEventListener('DOMContentLoaded', function () {
+        const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Ci sono campi da controllare<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
+        const errorWrapper = document.querySelector('#errorMsgContainer')
+
+        const input_CF = document.getElementById('input_CF')
+        const subject = document.getElementById('subject')
+        const MessageArea = document.getElementById('MessageArea')
+        const url_documento = document.getElementById('url_documento')
+        const nome_documento = document.getElementById('nome_documento')
+        const inviaButton = document.getElementById('inviaButton')
+
+        function checkFields() {
+          if (input_CF && subject && MessageArea && url_documento && nome_documento && inviaButton) {
+            inviaButton.disabled = input_CF.value.length < 16 || subject.value.length < 10 || MessageArea.value.length < 80 || url_documento.value.trim() === '' || nome_documento.value.trim() === ''
+          }
+        }
+
+        if (input_CF) input_CF.addEventListener('input', checkFields)
+        if (subject) subject.addEventListener('input', checkFields)
+        if (MessageArea) MessageArea.addEventListener('input', checkFields)
+        if (url_documento) url_documento.addEventListener('input', checkFields)
+        if (nome_documento) nome_documento.addEventListener('input', checkFields)
+
+        checkFields()
+      })
+
+    </script>
+
+{% endblock %}

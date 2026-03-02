@@ -16,9 +16,9 @@ dependsOn:
     - name: SQLite3
       versionMin: '3.0'
     - name: Python
-      versionMin: '3.8'
+      versionMin: '3.13'
     - name: Django
-      versionMin: '3.2'
+      versionMin: '5.2'
 organisation:
   uri: https://www.openced.it
 developmentStatus: stable
