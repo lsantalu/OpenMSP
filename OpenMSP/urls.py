@@ -43,6 +43,7 @@ from .app_io import app_io_storico_full_export_excel
 
 from .app_io import impostazioni_app_io
 from .app_io import impostazioni_app_io_2
+from .app_io import app_io_firma_documenti
 
 from .verifica_cf import verifica_cf_massivo
 from .verifica_cf import verifica_cf_export_excel
@@ -195,6 +196,7 @@ urlpatterns = [
     path("app_io_composer_esito/", app_io_composer_esito, name="app_io_composer_esito"),
     path("app_io_composer_export_excel/", app_io_composer_export_excel, name="app_io_composer_export_excel"),
 
+    path("app_io_firma_documenti/", app_io_firma_documenti, name="app_io_firma_documenti"),
     path("app_io_storico_messaggi/", app_io_storico_messaggi, name="app_io_storico_messaggi"),
     path("app_io_storico_pagina_export_excel/", app_io_storico_pagina_export_excel, name="app_io_storico_pagina_export_excel"),
     path("app_io_storico_full_export_excel/", app_io_storico_full_export_excel, name="app_io_storico_full_export_excel"),

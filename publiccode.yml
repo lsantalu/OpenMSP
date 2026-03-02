@@ -3,8 +3,8 @@ name: OpenMSP
 applicationSuite: OpenCED - Multi Services Portal
 url: https://github.com/lsantalu/OpenMSP
 landingURL: https://www.openced.it
-softwareVersion: 1.0.0
-releaseDate: 2026-01-01
+softwareVersion: 1.1.0
+releaseDate: 2026-02-28
 platforms:
   - web
 categories:
@@ -16,9 +16,9 @@ dependsOn:
     - name: SQLite3
       versionMin: '3.0'
     - name: Python
-      versionMin: '3.8'
+      versionMin: '3.13'
     - name: Django
-      versionMin: '3.2'
+      versionMin: '5.2'
 organisation:
   uri: https://www.openced.it
 developmentStatus: stable
