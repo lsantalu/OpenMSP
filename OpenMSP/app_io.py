@@ -1640,6 +1640,3 @@ def app_io_firma_documenti(request):
     return render(request, 'app_io_firma_documenti.html', {'utente_abilitato': utente_abilitato})
 
 
-
-def app_io_firma_documenti(request):
-    return render(request, 'app_io_firma_documenti.html')
