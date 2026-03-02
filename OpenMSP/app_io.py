@@ -1583,4 +1583,63 @@ def impostazioni_app_io_2(request):
 
 
 def app_io_firma_documenti(request):
+    app_io_parametri = AppIoParametri.objects.get(id=1)
+    url = app_io_parametri.api_url + '/messages'
+    if request.user.id:
+        utente_sessione = UtentiParametri.objects.get(id=request.user.id)
+        utente_abilitato = utente_sessione.app_io_singolo
+        if request.method == 'POST':
+            cf = request.POST.get('input_CF', '').strip().upper()
+            titolo = request.POST.get('subject', '')
+            messaggio = request.POST.get('MessageArea', '')
+            url_documento = request.POST.get('url_documento', '').strip()
+            nome_documento = request.POST.get('nome_documento', '').strip()
+            dataScadenza = request.POST.get('dataScadenza', '')
+
+            # Costruisce il messaggio con CTA per la firma
+            messaggio_cta = (
+                f"---\nit:\n"
+                f" cta_1:\n"
+                f"  text: \"{nome_documento}\"\n"
+                f"  action: \"iohandledlink://{url_documento}\"\n"
+                f"---\n\n"
+            )
+            messaggio_completo = messaggio_cta + messaggio
+
+            risposta = app_io_verifica_utente_attivo(cf, app_io_parametri.api_key_master)
+            if risposta == 1:
+                response = app_io_invio_messaggio(
+                    url, cf, app_io_parametri.api_key_master,
+                    titolo, messaggio_completo,
+                    dataScadenza, None,
+                    'web1', nome_documento, url_documento,
+                    None, None, None
+                )
+                if response.status_code == 201:
+                    response_json = response.json()
+                    id_messaggio = response_json.get("id")
+                    data = (
+                        f"Richiesta di firma inviata con successo a <b>{cf}</b><br><br>"
+                        f"ID messaggio = <b>{id_messaggio}</b>"
+                    )
+                else:
+                    data = "Errore di comunicazione"
+            elif risposta == 0:
+                data = "Utente attivo ma servizio non attivo"
+            elif risposta == 7:
+                data = "Utente non attivo"
+            elif risposta == 8:
+                data = "Utente non trovato"
+            else:
+                data = "Errore di comunicazione"
+
+            salva_log(request.user, "App IO Firma documenti", "Richiesta firma a " + cf)
+            return render(request, 'app_io_firma_documenti.html', {'data': data, 'utente_abilitato': utente_abilitato})
+    else:
+        utente_abilitato = False
+    return render(request, 'app_io_firma_documenti.html', {'utente_abilitato': utente_abilitato})
+
+
+
+def app_io_firma_documenti(request):
     return render(request, 'app_io_firma_documenti.html')

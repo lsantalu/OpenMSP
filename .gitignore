@@ -12,3 +12,4 @@ impostazioni/templatetags/__pycache__/*
 OpenMSP/__pycache__/*
 .dockerignore
 TODO
+SpecINPS/*
