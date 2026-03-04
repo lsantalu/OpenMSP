@@ -138,8 +138,8 @@
     </section>
 
 
-    {% if user.is_authenticated %}
-   
+{% if not user.is_authenticated %}
+  
 <p>
     <a href="{% url 'login' %}" class="btn btn-primary">
         <svg class="icon icon-sm icon-white" aria-hidden="true">
