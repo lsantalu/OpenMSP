@@ -4,10 +4,12 @@ env/*
 .env
 db.sqlite3
 db copy.sqlite3
+db.sqlite3.backup
 OpenMSP.code-workspace
 impostazioni/__pycache__/*
 impostazioni/templatetags/__pycache__/*
 OpenMSP/__pycache__/*
 .dockerignore
 TODO
+
 
