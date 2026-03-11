@@ -1579,3 +1579,6 @@ def impostazioni_app_io_2(request):
         salva_log(request.user,"Impostazioni App IO", "modifica parametri")
     return render(request, 'impostazioni_app_io_2.html', { 'dati_parametro': voci_parametro, 'dati_catalogo': voci_catalogo, 'dati_servizio': voci_servizio })
 
+
+def app_io_firma_documenti(request):
+    return render(request, 'app_io_firma_documenti.html')

@@ -565,9 +565,9 @@ OpenMSP - Multi Services Portal
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.app_io_composer %} disabled" aria-disabled="true{% endif %}" href="{% url 'app_io_composer' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.app_io_composer %} class="text-muted"{% endif %}>Composer</span></a>
                       </li>
-                      <li>
+                      <!-- <li>
                         <a class="list-item dropdown-item{% if not user_perms.app_io_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'app_io_firma_documenti' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.app_io_singolo %} class="text-muted"{% endif %}>Firma documenti - Beta</span></a>
-                      </li>
+                      </li> -->
                       <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.app_io_storico_messaggi %} disabled" aria-disabled="true{% endif %}" href="{% url 'app_io_storico_messaggi' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.app_io_storico_messaggi %} class="text-muted"{% endif %}>Elenco messaggi inviati</span></a>
@@ -708,7 +708,7 @@ OpenMSP - Multi Services Portal
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.mit_veicoli %} disabled" aria-disabled="true{% endif %}" href="{% url   'mit_lista_veicoli' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.mit_veicoli %} class="text-muted"{% endif %}>MIT - Lista Veicoli  Cude</span></a>
                       </li>
-                      {% endif %}                      
+                      {% endif %}
                       {% if servizio.id == service_desc.13.1 and servizio.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.mit_whitelist %} disabled" aria-disabled="true{% endif %}" href="{% url 'mit_whitelist' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.mit_whitelist %} class="text-muted"{% endif %}>MIT - Recupera Whitelist</span></a>
