@@ -65,6 +65,8 @@ from .anpr import anpr_residenza
 from .anpr import anpr_stato_famiglia
 from .anpr import impostazioni_anpr
 
+from .tracing import impostazioni_tracing
+
 from .inps import inps_isee
 from .inps import inps_durc_singolo
 from .inps import inps_durc_massivo
@@ -208,6 +210,7 @@ urlpatterns = [
     path("impostazioni_inad/", impostazioni_inad, name="impostazioni_inad"),
     path("impostazioni_ipa/", impostazioni_ipa, name="impostazioni_ipa"),
     path("impostazioni_registro_imprese/", impostazioni_registro_imprese, name="impostazioni_registro_imprese"),
+    path("impostazioni_tracing/", impostazioni_tracing, name="impostazioni_tracing"),
     path("impostazioni_anpr/", impostazioni_anpr, name="impostazioni_anpr"),
     path("impostazioni_inps_isee/", impostazioni_inps_isee, name="impostazioni_inps_isee"),
     path("impostazioni_inps_durc/", impostazioni_inps_durc, name="impostazioni_inps_durc"),

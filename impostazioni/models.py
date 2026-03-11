@@ -369,3 +369,23 @@ class DatiEnte(models.Model):
         managed = False
         db_table = 'dati_ente'
 
+class TracingParametri(models.Model):
+    id = models.IntegerField(blank=True, primary_key=True)
+    kid = models.CharField(max_length=42)
+    alg = models.CharField(max_length=10)
+    typ = models.CharField(max_length=10)
+    iss = models.CharField(max_length=36)
+    sub = models.CharField(max_length=36)
+    aud = models.CharField(max_length=150)
+    purposeid = models.CharField(max_length=36)
+    audience = models.CharField(max_length=150)
+    baseurlauth = models.CharField(max_length=150)
+    target = models.CharField(max_length=150)
+    clientid = models.CharField(max_length=50)
+    private_key = models.CharField(max_length=2500)
+    ver_eservice = models.CharField(max_length=10)
+
+    class Meta:
+        managed = False
+        db_table = 'tracing_parametri'
+
