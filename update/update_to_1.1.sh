@@ -58,8 +58,12 @@ if [[ -z "$ENV_TARGET_PATH" ]]; then
 fi
 
 if ! command -v sqlite3 >/dev/null 2>&1; then
-  echo "Errore: sqlite3 non trovato nel PATH."
-  exit 1
+  echo "INFO: sqlite3 non trovato nel PATH. Installazione in corso..."
+  apt update && apt install -y sqlite3
+  if ! command -v sqlite3 >/dev/null 2>&1; then
+    echo "Errore: installazione di sqlite3 fallita."
+    exit 1
+  fi
 fi
 
 if [[ ! -f "$DB_PATH" ]]; then

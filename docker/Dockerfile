@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     zlib1g-dev \
     dos2unix \
+    sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copia e installa le dipendenze Python
