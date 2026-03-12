@@ -65,7 +65,11 @@ from .anpr import anpr_residenza
 from .anpr import anpr_stato_famiglia
 from .anpr import impostazioni_anpr
 
-from .tracing import impostazioni_tracing
+from .tracing import (
+    impostazioni_tracing, tracing_page, ajax_verifica_status_tracing,
+    ajax_submit_tracing, ajax_get_tracings, ajax_get_tracing_errors,
+    ajax_recover_tracing, ajax_replace_tracing
+)
 
 from .inps import inps_isee
 from .inps import inps_durc_singolo
@@ -211,6 +215,13 @@ urlpatterns = [
     path("impostazioni_ipa/", impostazioni_ipa, name="impostazioni_ipa"),
     path("impostazioni_registro_imprese/", impostazioni_registro_imprese, name="impostazioni_registro_imprese"),
     path("impostazioni_tracing/", impostazioni_tracing, name="impostazioni_tracing"),
+    path("tracing/", tracing_page, name="tracing"),
+    path("ajax_verifica_status_tracing/", ajax_verifica_status_tracing, name="ajax_verifica_status_tracing"),
+    path("ajax_submit_tracing/", ajax_submit_tracing, name="ajax_submit_tracing"),
+    path("ajax_get_tracings/", ajax_get_tracings, name="ajax_get_tracings"),
+    path("ajax_get_tracing_errors/<uuid:tracing_id>/", ajax_get_tracing_errors, name="ajax_get_tracing_errors"),
+    path("ajax_recover_tracing/<uuid:tracing_id>/", ajax_recover_tracing, name="ajax_recover_tracing"),
+    path("ajax_replace_tracing/<uuid:tracing_id>/", ajax_replace_tracing, name="ajax_replace_tracing"),
     path("impostazioni_anpr/", impostazioni_anpr, name="impostazioni_anpr"),
     path("impostazioni_inps_isee/", impostazioni_inps_isee, name="impostazioni_inps_isee"),
     path("impostazioni_inps_durc/", impostazioni_inps_durc, name="impostazioni_inps_durc"),

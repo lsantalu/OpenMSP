@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block centered_container %}
+<div class="container my-4">
+    <div class="row">
+        <div class="col-12">
+            <nav class="breadcrumb-container" aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Tracing Interop</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <!-- Status Servizio -->
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h5 card-title">Status Servizio</h2>
+                    <p class="small text-muted">Verifica la disponibilità del servizio di tracing.</p>
+                    <button type="button" id="btnVerifica" class="btn btn-outline-primary btn-sm w-100">
+                        <span class="it-button-text">Verifica Connection</span>
+                        <div id="btnSpinner" class="progress-spinner progress-spinner-sm d-none"></div>
+                    </button>
+                    <div id="statusResult" class="mt-2 small d-none"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Invio Tracing -->
+        <div class="col-md-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h5 card-title">Invia Nuovi Dati Tracing</h2>
+                    <form id="formSubmit" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="tracingDate" class="active">Data riferimento (YYYY-MM-DD)</label>
+                                <input type="date" class="form-control" id="tracingDate" name="date" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="tracingFile" class="active">File CSV</label>
+                                <input type="file" class="form-control" id="tracingFile" name="file" accept=".csv" required>
+                            </div>
+                        </div>
+                        <button type="submit" id="btnSubmit" class="btn btn-primary btn-sm">
+                            <span class="it-button-text">Invia Tracing</span>
+                            <div id="submitSpinner" class="progress-spinner progress-spinner-sm d-none"></div>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Storico Tracing -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="h5 card-title mb-0">Storico Tracing PDND</h2>
+                        <button id="btnRefresh" class="btn btn-link btn-sm p-0">Aggiorna <svg class="icon icon-xs"><use xlink:href="{% static 'svg/sprites.svg' %}#it-refresh"></use></svg></button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm small">
+                            <thead>
+                                <tr>
+                                    <th>ID Tracing</th>
+                                    <th>Data</th>
+                                    <th>Stato</th>
+                                    <th>Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tracingTableBody">
+                                <tr>
+                                    <td colspan="4" class="text-center italic">Caricamento in corso...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Errori -->
+<div class="modal fade" tabindex="-1" role="dialog" id="modalErrori">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Dettagli Errori Tracing</h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <svg class="icon"><use xlink:href="{% static 'svg/sprites.svg' %}#it-close"></use></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm x-small">
+                        <thead>
+                            <tr>
+                                <th>Riga</th>
+                                <th>Codice</th>
+                                <th>Messaggio</th>
+                            </tr>
+                        </thead>
+                        <tbody id="errorsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadTracings();
+
+    // Verifica Status
+    document.getElementById('btnVerifica').addEventListener('click', function() {
+        const btn = this;
+        const spinner = document.getElementById('btnSpinner');
+        const res = document.getElementById('statusResult');
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+        res.classList.add('d-none');
+
+        fetch("{% url 'ajax_verifica_status_tracing' %}")
+            .then(r => r.json())
+            .then(data => {
+                res.classList.remove('d-none');
+                res.textContent = data.errore ? "Errore: " + data.dettaglio : "Servizio OK";
+                res.className = "mt-2 small " + (data.errore ? "text-danger" : "text-success");
+            })
+            .finally(() => {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+            });
+    });
+
+    // Submit Tracing
+    document.getElementById('formSubmit').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btnSubmit');
+        const spinner = document.getElementById('submitSpinner');
+        const formData = new FormData(this);
+
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+
+        fetch("{% url 'ajax_submit_tracing' %}", {
+            method: 'POST',
+            body: formData,
+            headers: {'X-CSRFToken': '{{ csrf_token }}'}
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.errore) alert("Errore: " + JSON.stringify(data.dettaglio));
+            else {
+                alert("Invio completato! ID: " + data.tracingId);
+                loadTracings();
+            }
+        })
+        .finally(() => {
+            btn.disabled = false;
+            spinner.classList.add('d-none');
+        });
+    });
+
+    document.getElementById('btnRefresh').addEventListener('click', loadTracings);
+
+    function loadTracings() {
+        const tbody = document.getElementById('tracingTableBody');
+        fetch("{% url 'ajax_get_tracings' %}")
+            .then(r => r.json())
+            .then(data => {
+                tbody.innerHTML = '';
+                if (!data.results || data.results.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center">Nessun tracing trovato</td></tr>';
+                    return;
+                }
+                data.results.forEach(t => {
+                    const row = document.createElement('tr');
+                    let stateClass = 'text-primary';
+                    if (t.state === 'COMPLETED') stateClass = 'text-success';
+                    if (t.state === 'ERROR') stateClass = 'text-danger';
+                    if (t.state === 'MISSING') stateClass = 'text-warning';
+
+                    row.innerHTML = `
+                        <td><small>${t.tracingId}</small></td>
+                        <td>${t.date}</td>
+                        <td><span class="badge badge-pill ${stateClass}">${t.state}</span></td>
+                        <td>
+                            ${t.state === 'ERROR' ? `<button class="btn btn-xs btn-danger" onclick="showErrors('${t.tracingId}')">Errori</button>` : ''}
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            });
+    }
+
+    window.showErrors = function(id) {
+        const tbody = document.getElementById('errorsTableBody');
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center italic">Recupero errori...</td></tr>';
+        $('#modalErrori').modal('show');
+
+        fetch("{% url 'ajax_get_tracing_errors' '00000000-0000-0000-0000-000000000000' }".replace('00000000-0000-0000-0000-000000000000', id))
+            .then(r => r.json())
+            .then(data => {
+                tbody.innerHTML = '';
+                if (!data.results || data.results.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center">Nessun errore dettagliato trovato</td></tr>';
+                    return;
+                }
+                data.results.forEach(e => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td>${e.rowNumber}</td><td>${e.errorCode}</td><td>${e.message}</td>`;
+                    tbody.appendChild(row);
+                });
+            });
+    }
+});
+</script>
+{% endblock %}
