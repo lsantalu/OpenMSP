@@ -436,12 +436,13 @@ def anis_iscrizioni_singola(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anis_verifica_utente(request.user.username, cf, 1))
+                res, status, purp_id, tok_id = anis_verifica_utente(request.user.username, cf, 1)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user, "Verifica ANIS - IFS02 - Iscrizioni Singolo", "Verificato utente " + cf, purposeid=purp_id, resp_status=status, token_id=tok_id)
             else:
                 data.append(str(cf) + " Codice fiscale non corretto")
-
-            salva_log(request.user,"Verifica ANIS - IFS02 - Iscrizioni Singolo", "Verificato utente " + cf)
+                salva_log(request.user, "Verifica ANIS - IFS02 - Iscrizioni Singolo", "Verificato utente " + cf)
             return render(request, 'anis_iscrizioni_singola.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -464,12 +465,14 @@ def anis_iscrizioni_massiva(request):
                     if row[0]:  # Se row[0] non è vuoto o None
                         correttezza_cf = verifica_cf(row[0].strip().upper())
                         if correttezza_cf == 1 or correttezza_cf == 2:
-                            data.append(anis_verifica_utente(request.user.username, row[0].strip().upper(), 1))
-                            data = converti_data(data)
+                            res, status, purp_id, tok_id = anis_verifica_utente(request.user.username, row[0].strip().upper(), 1)
+                            data.append(res)
+                            salva_log(request.user,"Verifica ANIS - IFS02 - Iscrizioni Massivo", "Verificato utente " + row[0].strip().upper(), purposeid=purp_id, resp_status=status, token_id=tok_id)
                         else:
                             data.append( str(row[0].strip().upper()) + " Codice fiscale non corretto")
+                            salva_log(request.user,"Verifica ANIS - IFS02 - Iscrizioni Massivo", "Verificato utente " + row[0].strip().upper())
                         contatore += 1
-                salva_log(request.user,"Verifica ANIS - IFS02 - Iscrizioni Massivo", "Verificati n. " + str(contatore) + " CF")
+                data = converti_data(data)
                 request.session["multi_data"] = data  # <--- Salva i dati nella sessione
                 return render(request, 'anis_iscrizioni_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
             elif csv_file.name.endswith('.xlsx') or csv_file.name.endswith('.XLSX') or csv_file.name.endswith('.Xlsx'):
@@ -479,12 +482,14 @@ def anis_iscrizioni_massiva(request):
                     if row[0]:
                         correttezza_cf = verifica_cf(row[0].strip().upper())
                         if correttezza_cf == 1 or correttezza_cf == 2:
-                            data.append(anis_verifica_utente(request.user.username, row[0].strip().upper(), 1))
-                            data = converti_data(data)
+                            res, status, purp_id, tok_id = anis_verifica_utente(request.user.username, row[0].strip().upper(), 1)
+                            data.append(res)
+                            salva_log(request.user,"Verifica ANIS - IFS02 - Iscrizioni Massivo", "Verificato utente " + row[0].strip().upper(), purposeid=purp_id, resp_status=status, token_id=tok_id)
                         else:
                             data.append( str(row[0].strip().upper()) + " Codice fiscale non corretto")
+                            salva_log(request.user,"Verifica ANIS - IFS02 - Iscrizioni Massivo", "Verificato utente " + row[0].strip().upper())
                         contatore += 1
-                salva_log(request.user,"Verifica ANIS - IFS02 - Iscrizioni Massivo", "Verificati n. " + str(contatore) + " CF")
+                data = converti_data(data)
                 request.session["multi_data"] = data  # <--- Salva i dati nella sessione
                 return render(request, 'anis_iscrizioni_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
 
@@ -506,12 +511,14 @@ def anis_titoli_singola(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anis_verifica_utente(request.user.username, cf, 2))
+                res, status, purp_id, tok_id = anis_verifica_utente(request.user.username, cf, 2)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica ANIS - IFS03 - Titoli Singolo", "Verificato utente " + cf, purposeid=purp_id, resp_status=status, token_id=tok_id)
             else:
                 data.append(str(cf) + " Codice fiscale non corretto")
+                salva_log(request.user,"Verifica ANIS - IFS03 - Titoli Singolo", "Verificato utente " + cf)
 
-            salva_log(request.user,"Verifica ANIS - IFS03 - Titoli Singolo", "Verificato utente " + cf)
             return render(request, 'anis_titoli_singola.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -533,10 +540,12 @@ def anis_titoli_massiva(request):
                     if row[0]:  # Se row[0] non è vuoto o None
                         correttezza_cf = verifica_cf(row[0].strip().upper())
                         if correttezza_cf == 1 or correttezza_cf == 2:
-                            data.append(anis_verifica_utente(request.user.username, row[0].strip().upper(), 2))
-                            data = converti_data(data)
+                            res, status, purp_id, tok_id = anis_verifica_utente(request.user.username, row[0].strip().upper(), 2)
+                            data.append(res)
+                            salva_log(request.user,"Verifica ANIS - IFS03 - Titoli Massivo", "Verificato utente " + row[0].strip().upper(), purposeid=purp_id, resp_status=status, token_id=tok_id)
                         else:
                             data.append( str(row[0].strip().upper()) + " Codice fiscale non corretto")
+                            salva_log(request.user,"Verifica ANIS - IFS03 - Titoli Massivo", "Verificato utente " + row[0].strip().upper())
                         contatore += 1
                 salva_log(request.user,"Verifica ANIS - IFS03 - Titoli Massivo", "Verificati n. " + str(contatore) + " CF")
                 # Modifica QUALIFIED in Abilitato
@@ -545,6 +554,7 @@ def anis_titoli_massiva(request):
                         for qual in item['qualifications']:
                             if qual.get('qualification_grade_value') == 'QUALIFIED':
                                 qual['qualification_grade_value'] = 'Abilitato'
+                data = converti_data(data)
                 request.session["multi_data"] = data  # <--- Salva i dati nella sessione
                 return render(request, 'anis_titoli_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
 
@@ -555,10 +565,12 @@ def anis_titoli_massiva(request):
                     if row[0]:
                         correttezza_cf = verifica_cf(row[0].strip().upper())
                         if correttezza_cf == 1 or correttezza_cf == 2:
-                            data.append(anis_verifica_utente(request.user.username, row[0].strip().upper(), 2))
-                            data = converti_data(data)
+                            res, status, purp_id, tok_id = anis_verifica_utente(request.user.username, row[0].strip().upper(), 2)
+                            data.append(res)
+                            salva_log(request.user,"Verifica ANIS - IFS03 - Titoli Massivo", "Verificato utente " + row[0].strip().upper(), purposeid=purp_id, resp_status=status, token_id=tok_id)
                         else:
                             data.append( str(row[0].strip().upper()) + " Codice fiscale non corretto")
+                            salva_log(request.user,"Verifica ANIS - IFS03 - Titoli Massivo", "Verificato utente " + row[0].strip().upper())
                         contatore += 1
                 salva_log(request.user,"Verifica ANIS - IFS03 - Titoli Massivo", "Verificati n. " + str(contatore) + " CF")
                 # Modifica QUALIFIED in Abilitato
@@ -567,6 +579,7 @@ def anis_titoli_massiva(request):
                         for qual in item['qualifications']:
                             if qual.get('qualification_grade_value') == 'QUALIFIED':
                                 qual['qualification_grade_value'] = 'Abilitato'
+                data = converti_data(data)
                 request.session["multi_data"] = data  # <--- Salva i dati nella sessione
                 return render(request, 'anis_titoli_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
 
@@ -589,12 +602,14 @@ def anist_frequenze_singola(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anis_verifica_utente(request.user.username, cf, 3))
+                res, status, purp_id, tok_id = anis_verifica_utente(request.user.username, cf, 3)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica ANIST - Frequenze Singolo", "Verificato utente " + cf, purposeid=purp_id, resp_status=status, token_id=tok_id)
             else:
                 data.append(str(cf) + " Codice fiscale non corretto")
+                salva_log(request.user,"Verifica ANIST - Frequenze Singolo", "Verificato utente " + cf)
 
-            salva_log(request.user,"Verifica ANIST - Frequenze Singolo", "Verificato utente " + cf)
             return render(request, 'anist_frequenze_singola.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -617,12 +632,14 @@ def anist_frequenze_massiva(request):
                     if row[0]:  # Se row[0] non è vuoto o None
                         correttezza_cf = verifica_cf(row[0].strip().upper())
                         if correttezza_cf == 1 or correttezza_cf == 2:
-                            data.append((row[0].strip().upper(), anis_verifica_utente(request.user.username, row[0].strip().upper(), 3)))
-                            data = converti_data(data)
+                            res, status, purp_id, tok_id = anis_verifica_utente(request.user.username, row[0].strip().upper(), 3)
+                            data.append((row[0].strip().upper(), res))
+                            salva_log(request.user,"Verifica ANIST - Frequenze Massivo", "Verificato utente " + row[0].strip().upper(), purposeid=purp_id, resp_status=status, token_id=tok_id)
                         else:
                             data.append( str(row[0].strip().upper()) + " Codice fiscale non corretto")
+                            salva_log(request.user,"Verifica ANIST - Frequenze Massivo", "Verificato utente " + row[0].strip().upper())
                         contatore += 1
-                salva_log(request.user,"Verifica ANIST - Frequenze Massivo", "Verificati n. " + str(contatore) + " CF")
+                data = converti_data(data)
                 request.session["multi_data"] = data  # <--- Salva i dati nella sessione
                 return render(request, 'anist_frequenze_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
             elif csv_file.name.endswith('.xlsx') or csv_file.name.endswith('.XLSX') or csv_file.name.endswith('.Xlsx'):
@@ -632,12 +649,14 @@ def anist_frequenze_massiva(request):
                     if row[0]:
                         correttezza_cf = verifica_cf(row[0].strip().upper())
                         if correttezza_cf == 1 or correttezza_cf == 2:
-                            data.append((row[0].strip().upper(), anis_verifica_utente(request.user.username, row[0].strip().upper(), 3)))
-                            data = converti_data(data)
+                            res, status, purp_id, tok_id = anis_verifica_utente(request.user.username, row[0].strip().upper(), 3)
+                            data.append((row[0].strip().upper(), res))
+                            salva_log(request.user,"Verifica ANIST - Frequenze Massivo", "Verificato utente " + row[0].strip().upper(), purposeid=purp_id, resp_status=status, token_id=tok_id)
                         else:
                             data.append(str(row[0].strip().upper()) + " Codice fiscale non corretto")
+                            salva_log(request.user,"Verifica ANIST - Frequenze Massivo", "Verificato utente " + row[0].strip().upper())
                         contatore += 1
-                salva_log(request.user,"Verifica ANIST - Frequenze Massivo", "Verificati n. " + str(contatore) + " CF")
+                data = converti_data(data)
                 request.session["multi_data"] = data  # <--- Salva i dati nella sessione
                 return render(request, 'anist_frequenze_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
             else:
@@ -658,12 +677,14 @@ def anist_titoli_singola(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anis_verifica_utente(request.user.username, cf, 4))
+                res, status, purp_id, tok_id = anis_verifica_utente(request.user.username, cf, 4)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica ANIST - Titoli Singolo", "Verificato utente " + cf, purposeid=purp_id, resp_status=status, token_id=tok_id)
             else:
                 data.append(str(cf) + " Codice fiscale non corretto")
+                salva_log(request.user,"Verifica ANIST - Titoli Singolo", "Verificato utente " + cf)
 
-            salva_log(request.user,"Verifica ANIST - Titoli Singolo", "Verificato utente " + cf)
             return render(request, 'anist_titoli_singola.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -686,12 +707,14 @@ def anist_titoli_massiva(request):
                     if row[0]:  # Se row[0] non è vuoto o None
                         correttezza_cf = verifica_cf(row[0].strip().upper())
                         if correttezza_cf == 1 or correttezza_cf == 2:
-                            data.append((row[0].strip().upper(), anis_verifica_utente(request.user.username, row[0].strip().upper(), 4)))
-                            data = converti_data(data)
+                            res, status, purp_id, tok_id = anis_verifica_utente(request.user.username, row[0].strip().upper(), 4)
+                            data.append((row[0].strip().upper(), res))
+                            salva_log(request.user,"Verifica ANIST - Titoli Massivo", "Verificato utente " + row[0].strip().upper(), purposeid=purp_id, resp_status=status, token_id=tok_id)
                         else:
                             data.append( str(row[0].strip().upper()) + " Codice fiscale non corretto")
+                            salva_log(request.user,"Verifica ANIST - Titoli Massivo", "Verificato utente " + row[0].strip().upper())
                         contatore += 1
-                salva_log(request.user,"Verifica ANIST - Titoli Massivo", "Verificati n. " + str(contatore) + " CF")
+                data = converti_data(data)
                 request.session["multi_data"] = data  # <--- Salva i dati nella sessione
                 return render(request, 'anist_titoli_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
             elif csv_file.name.endswith('.xlsx') or csv_file.name.endswith('.XLSX') or csv_file.name.endswith('.Xlsx'):
@@ -701,12 +724,14 @@ def anist_titoli_massiva(request):
                     if row[0]:
                         correttezza_cf = verifica_cf(row[0].strip().upper())
                         if correttezza_cf == 1 or correttezza_cf == 2:
-                            data.append((row[0].strip().upper(), anis_verifica_utente(request.user.username, row[0].strip().upper(), 4)))
-                            data = converti_data(data)
+                            res, status, purp_id, tok_id = anis_verifica_utente(request.user.username, row[0].strip().upper(), 4)
+                            data.append((row[0].strip().upper(), res))
+                            salva_log(request.user,"Verifica ANIST - Titoli Massivo", "Verificato utente " + row[0].strip().upper(), purposeid=purp_id, resp_status=status, token_id=tok_id)
                         else:
                             data.append(str(row[0].strip().upper()) + " Codice fiscale non corretto")
+                            salva_log(request.user,"Verifica ANIST - Titoli Massivo", "Verificato utente " + row[0].strip().upper())
                         contatore += 1
-                salva_log(request.user,"Verifica ANIST - Titoli Massivo", "Verificati n. " + str(contatore) + " CF")
+                data = converti_data(data)
                 request.session["multi_data"] = data  # <--- Salva i dati nella sessione
                 return render(request, 'anist_titoli_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
             else:
@@ -715,6 +740,30 @@ def anist_titoli_massiva(request):
     else:
         utente_abilitato = False
     return render(request, 'anist_titoli_massiva.html', { 'utente_abilitato': utente_abilitato })
+
+
+def anis_get_voucher(clientid, baseurlauth, client_assertion):
+    params = urllib.parse.urlencode({
+        'client_id': clientid,
+        'client_assertion': client_assertion,
+        'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+        'grant_type': 'client_credentials'
+    })
+
+    headers = {"Content-type": "application/x-www-form-urlencoded"}
+    conn = http.client.HTTPSConnection(re.sub(r'^https?://', '', baseurlauth))
+    conn.request("POST", "/token.oauth2", params, headers)
+    response = conn.getresponse()
+    resp_data = response.read()
+    voucher_json = json.loads(resp_data)
+    voucher = voucher_json["access_token"]
+    token_id = None
+    try:
+        decoded_token = jwt.decode(voucher, options={"verify_signature": False})
+        token_id = decoded_token.get('jti')
+    except Exception:
+        token_id = None
+    return voucher, token_id
 
 
 def anis_verifica_utente(user_ID, cf, id_caso):
@@ -796,18 +845,7 @@ def anis_verifica_utente(user_ID, cf, id_caso):
 
     client_assertion = jwt.encode(payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
 
-    params = urllib.parse.urlencode({
-        'client_id': clientid,
-        'client_assertion': client_assertion,
-        'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
-        'grant_type': 'client_credentials'
-        })
-
-    headers = {"Content-type": "application/x-www-form-urlencoded"}
-    conn = http.client.HTTPSConnection(re.sub(r'^https?://', '', baseurlauth))
-    conn.request("POST", "/token.oauth2", params, headers)
-    response = conn.getresponse()
-    voucher = json.loads(response.read())["access_token"]
+    voucher, token_id = anis_get_voucher(clientid, baseurlauth, client_assertion)
 
     # prepara il body per la richiesta e relativo digest
     body = richiesta
@@ -845,13 +883,31 @@ def anis_verifica_utente(user_ID, cf, id_caso):
                 "Agid-JWT-Signature":signature
                 }
 
-    response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
-    if response.status_code == 403:
-        return str(cf) + "Errore di comunicazione con la API"
-    elif response.status_code == 500:
-        return str(cf) + " La richiesta effettuata non produce alcun risultato"
-    else:
-        return response.json()
+    try:
+        response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
+        status_code = response.status_code
+        if response.status_code != 200:
+            return {
+                "esito": {
+                    "codice": str(response.status_code),
+                    "descrizione": f"Errore API ANIS: {response.text[:200]}"
+                }
+            }, status_code, purposeid, token_id
+        return response.json(), status_code, purposeid, token_id
+    except json.JSONDecodeError:
+        return {
+            "esito": {
+                "codice": "JSON_ERR",
+                "descrizione": f"Risposta non valida dal server (non JSON): {response.text[:200]}"
+            }
+        }, 500, purposeid, token_id
+    except Exception as e:
+        return {
+            "esito": {
+                "codice": "network_error",
+                "descrizione": str(e)
+            }
+        }, 500, purposeid, token_id
 
 def impostazioni_anis(request):
     servizi_anis = AnisServizi.objects.all()

@@ -88,19 +88,20 @@ def inipec_singola(request):
             data = []
             cf = request.POST.get('input_CF')
             data.append(cf)
-            bearer = registro_imprese_get_bearer()
+            bearer, tok_id_bearer = registro_imprese_get_bearer()
             correttezza_cf_azienda = verifica_cf_azienda(cf)
             if correttezza_cf_azienda == 1:
-                elenco_dati_registro =  registro_imprese_verifica_utente(cf, bearer)
+                elenco_dati_registro, status_code, purp_id, tok_id = registro_imprese_verifica_utente(cf, bearer, tok_id_bearer)
                 if elenco_dati_registro:
                     dd = elenco_dati_registro.get('blocchi_impresa').get('dati_identificativi').get('indirizzo_posta_certificata')
                 else:
                     dd="Ditta non presente nel Registro Imprese"
                 data.append(dd.lower())
                 data = converti_data(data)
+                salva_log(request.user, "Verifica INI-PEC singolo", "Verificato domicilio impresa " + cf, purposeid=purp_id, resp_status=status_code, token_id=tok_id)
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica INI-PEC singolo", "Verificato domicilio impresa " + cf )
+                salva_log(request.user, "Verifica INI-PEC singolo", "Verificato domicilio impresa " + cf)
             return render(request, 'inipec_singola.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -115,7 +116,7 @@ def inipec_massiva(request):
             csv_file = request.FILES['cf_csv']
             data = []
             contatore = 0
-            bearer = registro_imprese_get_bearer()
+            bearer, tok_id_bearer = registro_imprese_get_bearer()
             if csv_file.name.endswith('.csv'):
                 csv_file_text = io.TextIOWrapper(csv_file.file, encoding='utf-8')
                 csv_reader = csv.reader(csv_file_text)
@@ -125,16 +126,17 @@ def inipec_massiva(request):
                             row[0] = row[0].zfill(11)
                         correttezza_cf_azienda = verifica_cf_azienda(row[0].strip().upper())
                         if correttezza_cf_azienda == 1:
-                            elenco_dati_registro =  registro_imprese_verifica_utente(row[0].strip().upper(), bearer)
+                            elenco_dati_registro, status_code, purp_id, tok_id = registro_imprese_verifica_utente(row[0].strip().upper(), bearer, tok_id_bearer)
                             if elenco_dati_registro:
                                 dd = elenco_dati_registro.get('blocchi_impresa').get('dati_identificativi').get('indirizzo_posta_certificata')
                             else:
                                 dd="Ditta non presente nel Registro Imprese"
                             data.append(row[0].strip().upper() + " " + str(correttezza_cf_azienda) + " " + dd.lower())
+                            salva_log(request.user, "Verifica INI-PEC massivo - riga CSV", "Verificato CF " + row[0], purposeid=purp_id, resp_status=status_code, token_id=tok_id)
                         else:
                             data.append(row[0].strip().upper() + " " + str(correttezza_cf_azienda) + " Codice fiscale non corretto")
                         contatore += 1
-                salva_log(request.user,"Verifica INI-PEC massivo", "Verificati n. " + str(contatore) + " CF")
+                salva_log(request.user, "Verifica INI-PEC massivo", "Fine caricamento CSV verificati n. " + str(contatore) + " CF")
                 request.session["multi_data"] = data  # <--- Salva i dati nella sessione
                 return render(request, 'inipec_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
             elif csv_file.name.endswith('.xlsx') or csv_file.name.endswith('.XLSX') or csv_file.name.endswith('.Xlsx'):
@@ -149,17 +151,17 @@ def inipec_massiva(request):
                             row[0] = row[0].zfill(11)
                         correttezza_cf_azienda = verifica_cf_azienda(row[0].strip().upper())
                         if correttezza_cf_azienda == 1:
-                            elenco_dati_registro = registro_imprese_verifica_utente(row[0].strip().upper(), bearer)
+                            elenco_dati_registro, status_code, purp_id, tok_id = registro_imprese_verifica_utente(row[0].strip().upper(), bearer, tok_id_bearer)
                             if elenco_dati_registro:
                                 dd = elenco_dati_registro.get('blocchi_impresa').get('dati_identificativi').get('indirizzo_posta_certificata')
                             else:
                                 dd="Ditta non presente nel Registro Imprese"
                             data.append(row[0].strip().upper() + " " + str(correttezza_cf_azienda) + " " + dd.lower())
+                            salva_log(request.user, "Verifica INI-PEC massivo - riga XLSX", "Verificato CF " + row[0], purposeid=purp_id, resp_status=status_code, token_id=tok_id)
                         else:
                             data.append(row[0].strip().upper() + " " + str(correttezza_cf_azienda) + " Codice fiscale non corretto")
                         contatore += 1
-
-                salva_log(request.user,"Verifica INI-PEC massivo", "Verificati n. " + str(contatore) + " CF")
+                salva_log(request.user, "Verifica INI-PEC massivo", "Fine caricamento XLSX verificati n. " + str(contatore) + " CF")
                 request.session["multi_data"] = data  # <--- Salva i dati nella sessione
                 return render(request, 'inipec_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
             else:
@@ -222,7 +224,16 @@ def registro_imprese_get_bearer():
         curl_command=curl_command.replace("'", '"')
     result = subprocess.run(curl_command, shell=True, capture_output=True, text=True)
     data = json.loads(result.stdout)
-    return data['access_token']
+    voucher = data['access_token']
+    
+    # Estrae il token_id (jti) dal voucher
+    try:
+        decoded_token = jwt.decode(voucher, options={"verify_signature": False})
+        token_id = decoded_token.get('jti')
+    except:
+        token_id = None
+        
+    return voucher, token_id
 
 
 def registro_imprese(request):
@@ -342,10 +353,10 @@ def registro_imprese(request):
 
             cf = request.POST.get('input_CF')
             data.append(cf)
-            bearer = registro_imprese_get_bearer()
+            bearer, tok_id_bearer = registro_imprese_get_bearer()
             correttezza_cf_azienda = verifica_cf_azienda(cf)
             if correttezza_cf_azienda == 1:
-                elenco_dati_registro_temp = registro_imprese_verifica_utente(cf, bearer)
+                elenco_dati_registro_temp, status_code, purp_id, tok_id = registro_imprese_verifica_utente(cf, bearer, tok_id_bearer)
                 if elenco_dati_registro_temp :
                     elenco_dati_registro = sostituisci_chiavi(elenco_dati_registro_temp, testi_registro)
                     elenco_dati_registro = converti_data(elenco_dati_registro)
@@ -370,12 +381,13 @@ def registro_imprese(request):
                         info_patrimoniali_finanziarie = elenco_dati_registro['blocchi_impresa']['info_patrimoniali_finanziarie']
                     if 'scritta_pco_s' in elenco_dati_registro['blocchi_impresa'] :
                         scritta_pco_s = elenco_dati_registro['blocchi_impresa']['scritta_pco_s']
+                    salva_log(request.user, "Verifica Registro Imprese", "Verificato azienda " + cf, purposeid=purp_id, resp_status=status_code, token_id=tok_id)
                 else:
                     data.append("Ditta non presente")
+                    salva_log(request.user, "Verifica Registro Imprese", "Verificato azienda " + cf, purposeid=purp_id, resp_status=status_code, token_id=tok_id)
             else:
                 data.append("Codice fiscale non corretto")
-
-            salva_log(request.user,"Verifica Registro Imprese", "Verificato azienda " + cf)
+                salva_log(request.user, "Verifica Registro Imprese", "Verificato azienda " + cf)
             return render(request, 'registro_imprese.html', {'data': data, 'dati_identificativi' : dati_identificativi, 'info_attivita' : info_attivita, 'albi_ruoli_licenze_ridotti' : albi_ruoli_licenze_ridotti, 'persone_sede' : persone_sede, 'localizzazioni' : localizzazioni, 'elenco_soci' : elenco_soci, 'info_statuto' : info_statuto, 'amministrazione_controllo' : amministrazione_controllo, 'info_patrimoniali_finanziarie' : info_patrimoniali_finanziarie, 'scritta_pco_s' : scritta_pco_s, 'utente_abilitato': utente_abilitato })
 
     else:
@@ -384,8 +396,9 @@ def registro_imprese(request):
     return render(request, 'registro_imprese.html', { 'utente_abilitato': utente_abilitato })
 
 
-def registro_imprese_verifica_utente(cf, bearer):
+def registro_imprese_verifica_utente(cf, bearer, token_id):
     registro_imprese_parametri = RegistroImpreseParametri.objects.get(id=1)
+    purposeid = registro_imprese_parametri.purposeid
     url = registro_imprese_parametri.target + '/dettaglio/codicefiscale' ####da vedere
     #### /ricerca/codicefiscale
     #### /dettaglio/codicefiscale
@@ -397,6 +410,7 @@ def registro_imprese_verifica_utente(cf, bearer):
         "codiceFiscale": cf
         }
     response = requests.get(url, headers=headers, params=params)
+    status_code = response.status_code
 
     def modify_keys(d):
         new_d = {}
@@ -413,9 +427,9 @@ def registro_imprese_verifica_utente(cf, bearer):
         xml_data = response.content
         parsed_data = xmltodict.parse(xml_data)
         modified_data = modify_keys(parsed_data)
-        return modified_data
+        return modified_data, status_code, purposeid, token_id
     else:
-        return False
+        return False, status_code, purposeid, token_id
 
 
 def registro_imprese_valida_cf(cf):

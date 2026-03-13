@@ -39,8 +39,9 @@ Tracing Interop - OpenMSP - Multi Services Portal
                                 <input type="date" class="form-control" id="tracingDate" name="date" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label for="tracingFile" class="active">File CSV</label>
-                                <input type="file" class="form-control" id="tracingFile" name="file" accept=".csv" required>
+                                <label for="tracingFile" class="active">File CSV (generato automaticamente)</label>
+                                <input type="file" class="form-control" id="tracingFile" name="file" accept=".csv" disabled>
+                                <small class="form-text text-muted">Il file viene creato dal sistema usando i log della data selezionata.</small>
                             </div>
                         </div>
                         <div class="text-end">
@@ -143,32 +144,64 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Submit Tracing
-    document.getElementById('formSubmit').addEventListener('submit', function(e) {
+    document.getElementById('formSubmit').addEventListener('submit', async function(e) {
         e.preventDefault();
         const btn = document.getElementById('btnSubmit');
         const spinner = document.getElementById('submitSpinner');
-        const formData = new FormData(this);
+        const dateValue = document.getElementById('tracingDate').value;
+
+        if (!dateValue) {
+            alert("Seleziona una data valida");
+            return;
+        }
 
         btn.disabled = true;
         spinner.classList.remove('d-none');
 
-        fetch("{% url 'ajax_submit_tracing' %}", {
-            method: 'POST',
-            body: formData,
-            headers: {'X-CSRFToken': '{{ csrf_token }}'}
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.errore) alert("Errore: " + JSON.stringify(data.dettaglio));
-            else {
+        try {
+            const exportUrl = "{% url 'ajax_export_tracing_csv' %}?date=" + encodeURIComponent(dateValue);
+            const csvResponse = await fetch(exportUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+
+            if (!csvResponse.ok) {
+                let message = "Errore durante la generazione del CSV";
+                try {
+                    const err = await csvResponse.json();
+                    if (err.errore) message = err.errore;
+                    if (err.dettaglio) message += ": " + JSON.stringify(err.dettaglio);
+                } catch (e) {}
+                alert(message);
+                return;
+            }
+
+            const blob = await csvResponse.blob();
+            const filename = getFilenameFromDisposition(csvResponse.headers.get('Content-Disposition')) || ("Tracing_" + dateValue + ".csv");
+
+            downloadBlob(blob, filename);
+
+            const file = new File([blob], filename, { type: 'text/csv' });
+            const formData = new FormData();
+            formData.append('date', dateValue);
+            formData.append('file', file);
+
+            const submitResponse = await fetch("{% url 'ajax_submit_tracing' %}", {
+                method: 'POST',
+                body: formData,
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            });
+            const data = await submitResponse.json();
+
+            if (data.errore) {
+                alert("Errore: " + JSON.stringify(data.dettaglio));
+            } else {
                 alert("Invio completato! ID: " + data.tracingId);
                 loadTracings();
             }
-        })
-        .finally(() => {
+        } catch (err) {
+            alert("Errore inatteso: " + err);
+        } finally {
             btn.disabled = false;
             spinner.classList.add('d-none');
-        });
+        }
     });
 
     document.getElementById('btnRefresh').addEventListener('click', loadTracings);
@@ -222,6 +255,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     tbody.appendChild(row);
                 });
             });
+    }
+
+    function getFilenameFromDisposition(disposition) {
+        if (!disposition) return null;
+        const match = /filename\\*=UTF-8''([^;]+)|filename=\"?([^\";]+)\"?/i.exec(disposition);
+        if (!match) return null;
+        return decodeURIComponent(match[1] || match[2]);
+    }
+
+    function downloadBlob(blob, filename) {
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     }
 });
 </script>

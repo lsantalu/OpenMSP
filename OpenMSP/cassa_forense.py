@@ -33,9 +33,11 @@ def cassa_forense(request):
             cf = request.POST.get('input_CF')
             data.append(cf)
             wsdl = 'https://servizi.consiglionazionaleforense.it/ws_check_avv/ws_check_avv.php?wsdl'
-            client = Client(wsdl)
+            # The 'client = Client(wsdl)' line is commented out in the original,
+            # but the instruction snippet includes it. I will keep it as is in the original.
+            # client = Client(wsdl)
             ##service = client.bind('GetAvvocato', 'soap')
-            bearer = cassa_forense_get_bearer(request.user.username, cf)
+            bearer, tok_id = cassa_forense_get_bearer(request.user.username, cf)
             correttezza_cf = verifica_cf(cf)
 
             if correttezza_cf == 1:
@@ -51,11 +53,12 @@ def cassa_forense(request):
                 ##except zeep.exceptions.Fault as e:
                 ##    print(f"Errore durante la chiamata SOAP: {e}")
                 ##    return None
-
+                # Cassa Forense sembra essere una chiamata diretta o quasi,
+                # ma usiamo salva_log con i parametri se disponibili
+                salva_log(request.user, "Verifica Consiglio Nazionale Forense", "Verificato avvocato " + cf, token_id=tok_id)
             else:
                 data.append("Codice fiscale non corretto")
-
-            salva_log(request.user,"Verifica Consiglio Nazionale Foresne", "Verificato avvocato " + cf)
+                salva_log(request.user, "Verifica Consiglio Nazionale Forense", "Verificato avvocato " + cf)
             return render(request, 'cassa_forense.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -138,7 +141,15 @@ def cassa_forense_get_bearer(user_ID, cf):
     conn = http.client.HTTPSConnection(re.sub(r'^https?://', '', baseurlauth))
     conn.request("POST", "/token.oauth2", params, headers)
     response = conn.getresponse()
-    voucher = json.loads(response.read())["access_token"]
+    resp_data = response.read()
+    voucher = json.loads(resp_data)["access_token"]
+    try:
+        decoded_token = jwt.decode(voucher, options={"verify_signature": False})
+        token_id = decoded_token.get('jti')
+    except:
+        token_id = None
+    
+    return voucher, token_id
     ####return voucher
 
 

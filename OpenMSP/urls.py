@@ -68,7 +68,7 @@ from .anpr import impostazioni_anpr
 from .tracing import (
     impostazioni_tracing, tracing_page, ajax_verifica_status_tracing,
     ajax_submit_tracing, ajax_get_tracings, ajax_get_tracing_errors,
-    ajax_recover_tracing, ajax_replace_tracing
+    ajax_recover_tracing, ajax_replace_tracing, ajax_export_tracing_csv
 )
 
 from .inps import inps_isee
@@ -222,6 +222,7 @@ urlpatterns = [
     path("ajax_get_tracing_errors/<uuid:tracing_id>/", ajax_get_tracing_errors, name="ajax_get_tracing_errors"),
     path("ajax_recover_tracing/<uuid:tracing_id>/", ajax_recover_tracing, name="ajax_recover_tracing"),
     path("ajax_replace_tracing/<uuid:tracing_id>/", ajax_replace_tracing, name="ajax_replace_tracing"),
+    path("ajax_export_tracing_csv/", ajax_export_tracing_csv, name="ajax_export_tracing_csv"),
     path("impostazioni_anpr/", impostazioni_anpr, name="impostazioni_anpr"),
     path("impostazioni_inps_isee/", impostazioni_inps_isee, name="impostazioni_inps_isee"),
     path("impostazioni_inps_durc/", impostazioni_inps_durc, name="impostazioni_inps_durc"),
