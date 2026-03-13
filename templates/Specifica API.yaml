@@ -1,0 +1,470 @@
+openapi: 3.0.0
+info:
+  title: Tracing Interop API specifications
+  description: >-
+    OpenAPI specification for Tracing services exposed for the Interop platform
+  version: 1.0.0
+  contact:
+    name: API Support
+    url: "https://github.com/pagopa/pdnd-interop-frontend/issues"
+  termsOfService: "https://selfcare.interop.pagopa.it/ui/it/termini-di-servizio"
+tags:
+  - name: Tracings
+    description: Tracings service
+  - name: Health
+    description: Verify service status
+security:
+  - bearerAuth: []
+servers:
+  - url: https://api.att.tracing.interop.pagopa.it
+    description: Tracing Attestazione environment
+paths:
+  /status:
+    get:
+      security: []
+      tags:
+        - Health
+      summary: Health status endpoint
+      description: Return ok
+      operationId: getStatus
+      responses:
+        "200":
+          description: successful operation
+  /tracings/submit:
+    post:
+      security:
+        - bearerAuth: []
+      tags:
+        - Tracings
+      summary: Submit tracing data
+      operationId: submitTracing
+
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/SubmitTracingRequest"
+
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmitTracingResponse"
+        "400":
+          description: The provided input data is invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: The requested resource could not be found on the server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          description: A managed error has occurred during the request elaboration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /tracings:
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Tracings
+      summary: Get tracings
+      operationId: getTracings
+      parameters:
+        - in: query
+          name: states
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/TracingState"
+          style: form
+          explode: false
+        - in: query
+          name: offset
+          required: true
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+        - in: query
+          name: limit
+          required: true
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetTracingsResponse"
+        "500":
+          description: A managed error has occurred during the request elaboration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /tracings/{tracingId}/errors:
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Tracings
+      summary: Get errors for existing tracing
+      operationId: getTracingErrors
+      parameters:
+        - in: path
+          name: tracingId
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the tracing
+        - in: query
+          name: offset
+          required: true
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+        - in: query
+          name: limit
+          required: true
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetTracingErrorsResponse"
+        "400":
+          description: The provided input data is invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: The requested resource could not be found on the server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          description: A managed error has occurred during the request elaboration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /tracings/{tracingId}/recover:
+    post:
+      security:
+        - bearerAuth: []
+      tags:
+        - Tracings
+      summary: Recover data for existing tracing with state ERROR
+      operationId: recoverTracing
+      parameters:
+        - in: path
+          name: tracingId
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the tracing
+
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/RecoverTracingRequest"
+
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoverTracingResponse"
+        "400":
+          description: The provided input data is invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: The requested resource could not be found on the server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          description: A managed error has occurred during the request elaboration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /tracings/{tracingId}/replace:
+    post:
+      security:
+        - bearerAuth: []
+      tags:
+        - Tracings
+      summary: Replace data for existing tracing with state COMPLETED
+      operationId: replaceTracing
+      parameters:
+        - in: path
+          name: tracingId
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the tracing
+
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ReplaceTracingRequest"
+
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplaceTracingResponse"
+        "400":
+          description: The provided input data is invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: The requested resource could not be found on the server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          description: A managed error has occurred during the request elaboration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+
+components:
+  schemas:
+    SubmitTracingRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+          description: >-
+            The CSV file to upload containing tracing data.
+            <br><br>
+            Example format:
+            <br>
+            `date,purpose_id,token_id,status,requests_count`
+            <br>
+            `2023-05-01,0e1114e6-31d1-41a4-811d-a0c3d1b70bbf,99382e29-b0cf-412b-a060-72e421b6d167,404,100`
+        date:
+          type: string
+          pattern: ^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+          description: The date of the tracing data in YYYY-MM-DD format
+      required:
+        - file
+        - date
+    SubmitTracingResponse:
+      type: object
+      properties:
+        tracingId:
+          type: string
+          format: uuid
+        errors:
+          type: boolean
+    RecoverTracingRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+          description: >-
+            The CSV file to upload containing tracing data.
+            <br><br>
+            Example format:
+            <br>
+            `date,purpose_id,token_id,status,requests_count`
+            <br>
+            `2023-05-01,0e1114e6-31d1-41a4-811d-a0c3d1b70bbf,4e1234e6-31d1-41a4-811d-a0c3d1b70aad,404,100`
+      required:
+        - file
+    ReplaceTracingResponse:
+      type: object
+      properties:
+        tracingId:
+          type: string
+          format: uuid
+        errors:
+          type: boolean
+    ReplaceTracingRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+          description: >-
+            The CSV file to upload containing tracing data.
+            <br><br>
+            Example format:
+            <br>
+            `date,purpose_id,token_id,status,requests_count`
+            <br>
+            `2023-05-01,0e1114e6-31d1-41a4-811d-a0c3d1b70bbf,99382e29-b0cf-412b-a060-72e421b6d167,404,100`
+      required:
+        - file
+    RecoverTracingResponse:
+      type: object
+      properties:
+        tracingId:
+          type: string
+          format: uuid
+        errors:
+          type: boolean
+    GetTracingErrorsResponse:
+      type: object
+      required:
+        - results
+        - totalCount
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              purposeId:
+                type: string
+              errorCode:
+                type: string
+              message:
+                type: string
+              rowNumber:
+                type: integer
+                format: int32
+                minimum: 0
+            required:
+              - purposeId
+              - errorCode
+              - message
+              - rowNumber
+        totalCount:
+          type: integer
+          format: int64
+    GetTracingsResponse:
+      type: object
+      required:
+        - results
+        - totalCount
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              tracingId:
+                type: string
+              date:
+                type: string
+                format: date
+              state:
+                type: string
+        totalCount:
+          type: integer
+          format: int64
+    TracingState:
+      type: string
+      enum:
+        - PENDING
+        - COMPLETED
+        - MISSING
+        - ERROR
+    Problem:
+      properties:
+        type:
+          description: URI reference of type definition
+          type: string
+        status:
+          description: The HTTP status code generated by the origin server for this occurrence of the problem.
+          example: 500
+          exclusiveMaximum: true
+          format: int32
+          maximum: 600
+          minimum: 100
+          type: integer
+        title:
+          description: A short, summary of the problem type. Written in english and readable
+          example: Service Unavailable
+          maxLength: 64
+          pattern: "^[ -~]{0,64}$"
+          type: string
+        correlationId:
+          description: Unique identifier of the request
+          example: "53af4f2d-0c87-41ef-a645-b726a821852b"
+          maxLength: 64
+          type: string
+        detail:
+          description: A human readable explanation of the problem.
+          example: Request took too long to complete.
+          maxLength: 4096
+          pattern: "^.{0,1024}$"
+          type: string
+        errors:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ProblemError"
+      additionalProperties: false
+      required:
+        - type
+        - status
+        - title
+        - errors
+    ProblemError:
+      properties:
+        code:
+          description: Internal code of the error
+          example: TRACING_ALREADY_EXISTS
+          type: string
+        detail:
+          description: A human readable explanation specific to this occurrence of the problem.
+          example: Parameter not valid
+          type: string
+      required:
+        - code
+        - detail
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      description: "A bearer token in the format of a JWS and conformed to the specifications included in [RFC8725](https://tools.ietf.org/html/RFC8725)."
+      scheme: bearer
+      bearerFormat: JWT

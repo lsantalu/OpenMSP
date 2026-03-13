@@ -128,6 +128,11 @@ def mit_get_request(user_ID, cf, id_caso):
         resp_data = response.read()
         if response.status == 200:
             voucher = json.loads(resp_data)["access_token"]
+            try:
+                decoded_token = jwt.decode(voucher, options={"verify_signature": False})
+                token_id = decoded_token.get('jti')
+            except:
+                token_id = None
         else:
             return {
                 "esito": {
@@ -181,14 +186,15 @@ def mit_get_request(user_ID, cf, id_caso):
 
     try:
         response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
+        status_code = response.status_code
         if response.status_code != 200:
             return {
                 "esito": {
                     "codice": str(response.status_code),
                     "descrizione": f"Errore API MIT: {response.text[:200]}"
                 }
-            }
-        return response.json()
+            }, status_code, purposeid, token_id
+        return response.json(), status_code, purposeid, token_id
     except json.JSONDecodeError:
         return {
             "esito": {
@@ -224,14 +230,13 @@ def mit_whitelist(request):
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
                 # id_caso = 2 per "Lista veicoli" come definito in mit_get_request
-                response = mit_get_request(request.user.username, cf, 3)
-                data.append(response)
+                res, status, purp_id, tok_id = mit_get_request(request.user.username, cf, 3)
+                data.append(res)
                 data = converti_data(data)
-                # Gestione errori eventuale o formattazione se necessaria
+                salva_log(request.user, "Verifica MIT - Whitelist", "Verificato utente " + cf, purposeid=purp_id, resp_status=status, token_id=tok_id)
             else:
                 data.append("Codice fiscale non corretto")
-
-            salva_log(request.user,"Verifica MIT - Whitelist", "Verificato utente " + cf)
+                salva_log(request.user, "Verifica MIT - Whitelist", "Verificato utente " + cf)
 
             return render(request, 'mit_whitelist.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
@@ -252,14 +257,14 @@ def mit_lista_veicoli(request):
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
                 # id_caso = 2 per "Lista veicoli" come definito in mit_get_request
-                response = mit_get_request(request.user.username, cf, 2)
-                data.append(response)
+                res, status, purp_id, tok_id = mit_get_request(request.user.username, cf, 2)
+                data.append(res)
                 data = converti_data(data)
-                # Gestione errori eventuale o formattazione se necessaria
+                salva_log(request.user, "Verifica MIT - Lista Veicoli", "Verificato utente " + cf, purposeid=purp_id, resp_status=status, token_id=tok_id)
             else:
                 data.append("Codice fiscale non corretto")
+                salva_log(request.user, "Verifica MIT - Lista Veicoli", "Verificato utente " + cf)
 
-            salva_log(request.user, "Verifica MIT - Lista Veicoli", "Verificato utente " + cf)
             return render(request, 'mit_lista_veicoli.html', {'data': data, 'utente_abilitato': utente_abilitato })
 
     return render(request, 'mit_lista_veicoli.html', { 'utente_abilitato': utente_abilitato })

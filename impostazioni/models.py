@@ -5,11 +5,14 @@ from django.contrib.auth.models import User
 # NOTE: convertire da sqlite3 a mysql
 
 class Logs(models.Model):
-    id = models.IntegerField(blank=True, primary_key=True)
+    id = models.AutoField(primary_key=True)
     utente_id = models.ForeignKey(User, models.DO_NOTHING, db_column='utente_id')
     servizio = models.CharField(max_length=50)
     richiesta = models.CharField(max_length=150, blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
+    purposeid = models.CharField(max_length=36, blank=True, null=True)
+    resp_status = models.IntegerField(blank=True, null=True)
+    token_id = models.CharField(max_length=36, blank=True, null=True)
 
     class Meta:
         managed = False

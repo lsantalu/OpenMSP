@@ -108,7 +108,16 @@ def inps_durc_get_bearer():
 
     result = subprocess.run(curl_command, shell=True, capture_output=True, text=True)
     data = json.loads(result.stdout)
-    return data['access_token']
+    voucher = data['access_token']
+    
+    # Estrae il token_id (jti) dal voucher
+    try:
+        decoded_token = jwt.decode(voucher, options={"verify_signature": False})
+        token_id = decoded_token.get('jti')
+    except:
+        token_id = None
+        
+    return voucher, token_id
 
 
 def inps_durc_singolo(request):
@@ -121,12 +130,14 @@ def inps_durc_singolo(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                bearer = inps_durc_get_bearer()
-                data.append(inps_durc_verifica_impresa(cf, bearer))
+                bearer, tok_id = inps_durc_get_bearer()
+                res_data, status, purp_id = inps_durc_verifica_impresa(cf, bearer)
+                data.append(res_data)
                 data = converti_data(data)
+                salva_log(request.user, "Verifica INPS - DURC", "Verificato utente " + cf, purposeid=purp_id, resp_status=status, token_id=tok_id)
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica INPS - DURC", "Verificato utente " + cf)
+                salva_log(request.user, "Verifica INPS - DURC", "Verificato utente " + cf)
 
             return render(request, 'inps_durc_singolo.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
@@ -144,12 +155,14 @@ def inps_durc_massivo(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                bearer = inps_durc_get_bearer()
-                data.append(inps_durc_verifica_impresa(cf, bearer))
+                bearer, tok_id = inps_durc_get_bearer()
+                res_data, status, purp_id = inps_durc_verifica_impresa(cf, bearer)
+                data.append(res_data)
                 data = converti_data(data)
+                salva_log(request.user, "Verifica INPS - DURC massivo", "Verificato utente " + cf, purposeid=purp_id, resp_status=status, token_id=tok_id)
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica INPS - DURC", "Verificato utente " + cf)
+                salva_log(request.user, "Verifica INPS - DURC massivo", "Verificato utente " + cf)
 
             return render(request, 'inps_durc_massivo.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
@@ -172,13 +185,15 @@ def inps_durc_verifica_impresa(cf, bearer):
         "codicefiscale": cf
         }
     response = requests.post(url, headers=headers, json=data)
+    status_code = response.status_code
+    purposeid = inps_durc_parametri.purposeid
 
     if response.status_code == 200:
         xml_data = response.content
         parsed_data = xmltodict.parse(xml_data)
-        return parsed_data
+        return parsed_data, status_code, purposeid
     else:
-        return False
+        return False, status_code, purposeid
 
 
 def impostazioni_inps_durc(request):

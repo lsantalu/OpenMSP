@@ -493,7 +493,9 @@ def app_io_singolo(request):
                         id_messaggio = data
 
                     app_io_salva_messaggio(request.user, servizioScelto, cf, titolo, messaggio, dataScadenza, input_IUV, mezzo1, testobottone1, comandobottone1, mezzo2, testobottone2, comandobottone2, id_messaggio)
-                salva_log(request.user,"App IO singolo", "Invio messaggio del servizio " + servizioScelto.servizio + " a " + cf)
+                
+                status_code = response.status_code if 'response' in locals() else None
+                salva_log(request.user, "App IO singolo", "Invio messaggio del servizio " + servizioScelto.servizio + " a " + cf, resp_status=status_code)
                 return render(request, 'app_io_singolo.html', {'data': data, 'utente_abilitato': utente_abilitato })
             else:
                 data.append(cf) #--0

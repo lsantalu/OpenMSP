@@ -125,7 +125,16 @@ def inad_get_bearer():
 
     result = subprocess.run(curl_command, shell=True, capture_output=True, text=True)
     data = json.loads(result.stdout)
-    return data['access_token']
+    voucher = data['access_token']
+    
+    # Estrae il token_id (jti) dal voucher
+    try:
+        decoded_token = jwt.decode(voucher, options={"verify_signature": False})
+        token_id = decoded_token.get('jti')
+    except:
+        token_id = None
+        
+    return voucher, token_id
 
 
 def inad_singola(request):
@@ -136,16 +145,19 @@ def inad_singola(request):
             data = []
             cf = request.POST.get('input_CF')
             data.append(cf)
-            bearer = inad_get_bearer()
+            # bearer ottenuto internamente se correttezza_cf == 1
             correttezza_cf = verifica_cf(cf) 
             if correttezza_cf == 1:
-                parsed_output= inad_verifica_utente(cf, bearer)
+                bearer, tok_id = inad_get_bearer()
+                parsed_output, status, purp_id = inad_verifica_utente(cf, bearer)
                 data.append(estrai_mail(json.dumps(parsed_output)))
+                salva_log(request.user, "Verifica INAD singolo", "Verificato domicilio utente " + cf, purposeid=purp_id, resp_status=status, token_id=tok_id)
             elif correttezza_cf == 2:
-                data.append("Codice fiscale di persona minorenne") 
+                data.append("Codice fiscale di persona minorenne")
+                salva_log(request.user, "Verifica INAD singolo", "Verificato domicilio utente " + cf)
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica INAD singolo", "Verificato domicilio utente " + cf )
+                salva_log(request.user, "Verifica INAD singolo", "Verificato domicilio utente " + cf)
             return render(request, 'inad_singola.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else: 
         utente_abilitato = False
@@ -160,7 +172,7 @@ def inad_massiva(request):
             csv_file = request.FILES['cf_csv']
             data = []
             contatore = 0
-            bearer = inad_get_bearer()
+            # bearer ottenuto per ogni riga valida
             if csv_file.name.endswith('.csv'):
                 csv_file_text = io.TextIOWrapper(csv_file.file, encoding='utf-8')
                 csv_reader = csv.reader(csv_file_text)
@@ -168,14 +180,16 @@ def inad_massiva(request):
                     if row[0]:  # Se row[0] non è vuoto o None
                         correttezza_cf = verifica_cf(row[0].strip().upper())
                         if correttezza_cf == 1:
-                            parsed_output= inad_verifica_utente(row[0].strip().upper(), bearer)
+                            bearer, tok_id = inad_get_bearer()
+                            parsed_output, status, purp_id = inad_verifica_utente(row[0].strip().upper(), bearer)
                             data.append(row[0].strip().upper() + " " + str(correttezza_cf) + " " + estrai_mail(json.dumps(parsed_output)))
+                            salva_log(request.user, "Verifica INAD massivo - riga CSV", "Verificato CF " + row[0], purposeid=purp_id, resp_status=status, token_id=tok_id)
                         elif correttezza_cf == 2:
                             data.append(row[0].strip().upper() + " " + str(correttezza_cf) + " Codice fiscale di persona minorenne")
                         else:
                             data.append(row[0].strip().upper() + " " + str(correttezza_cf) + " Codice fiscale non corretto")               
                         contatore += 1
-                salva_log(request.user,"Verifica INAD massivo", "Verificati n. " + str(contatore) + " CF")
+                salva_log(request.user, "Verifica INAD massivo", "Fine elaborazione CSV - n. " + str(contatore) + " CF")
                 request.session["multi_data"] = data  # <--- Salva i dati nella sessione
                 return render(request, 'inad_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
             elif csv_file.name.endswith('.xlsx') or csv_file.name.endswith('.XLSX') or csv_file.name.endswith('.Xlsx'):
@@ -205,6 +219,7 @@ def inad_massiva(request):
 
 def inad_verifica_utente(cf, bearer):
     inad_parametri = InadParametri.objects.get(id=1)
+    purposeid = inad_parametri.purposeid
     url = inad_parametri.target + '/extract'
     curl_command = (
         f'curl --silent --request GET '
@@ -215,7 +230,11 @@ def inad_verifica_utente(cf, bearer):
         curl_command=curl_command.replace("'", '"')    
             
     result = subprocess.run(curl_command, shell=True, capture_output=True, text=True) 
-    return json.loads(result.stdout)
+    response_data = json.loads(result.stdout)
+    # Nota: curl non restituisce status_code facilmente, usiamo 200 se json decodificato 
+    # o 500 se errore nel json. In una implementazione reale requests sarebbe meglio.
+    status = 200 if response_data else 500
+    return response_data, status, purposeid
 
 
 def impostazioni_inad(request):

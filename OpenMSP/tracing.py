@@ -1,8 +1,10 @@
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.decorators import login_required
 from impostazioni.models import TracingParametri
+from impostazioni.models import Logs
 from .utils import salva_log
+from django.db.models import Count
 
 import datetime
 from jose.constants import Algorithms
@@ -16,6 +18,7 @@ import requests
 import json
 import re
 import urllib3
+import csv
 
 
 def get_tracing_bearer(parametri_tracing, user_id):
@@ -182,16 +185,38 @@ def chiamata_api_tracing(request, method, endpoint, params=None, data=None, file
     
     url = f"{parametri_tracing.target.rstrip('/')}{endpoint}"
     
-    # Digest e Headers
-    body = "" # Per multipart il digest è più complesso, ma spesso richiesto sul file
-    # In OpenAPI non vedo digest obbligatorio per multipart/form-data nelle spec fornite, 
-    # ma seguiamo il pattern esistente se necessario.
-    
     issued = datetime.datetime.utcnow()
     expire_in = issued + datetime.timedelta(minutes=60)
     
     headers_rsa = {"kid": parametri_tracing.kid, "alg": parametri_tracing.alg, "typ": parametri_tracing.typ}
     
+    # Prepara richiesta per calcolare il digest corretto (anche multipart)
+    session = requests.Session()
+    req = requests.Request(
+        method=method,
+        url=url,
+        params=params if method == "GET" else None,
+        data=data if method == "POST" else None,
+        files=files if method == "POST" else None,
+        headers={}
+    )
+    prepared = session.prepare_request(req)
+
+    body_bytes = prepared.body if prepared.body is not None else b""
+    if isinstance(body_bytes, str):
+        body_bytes = body_bytes.encode("utf-8")
+
+    body_digest = hashlib.sha256(body_bytes)
+    digest = 'SHA-256=' + base64.b64encode(body_digest.digest()).decode('UTF-8')
+
+    signed_headers = [{"digest": digest}]
+    content_type = prepared.headers.get("Content-Type")
+    if content_type:
+        signed_headers.append({"content-type": content_type})
+    content_encoding = prepared.headers.get("Content-Encoding")
+    if content_encoding:
+        signed_headers.append({"content-encoding": content_encoding})
+
     payload = {
         "iss" : parametri_tracing.clientid,
         "aud" : parametri_tracing.audience,
@@ -201,7 +226,7 @@ def chiamata_api_tracing(request, method, endpoint, params=None, data=None, file
         "iat": issued,
         "nbf" : issued,
         "exp": expire_in,
-        "signed_headers": []
+        "signed_headers": signed_headers
     }
     
     signature = jwt.encode(payload, parametri_tracing.private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
@@ -210,14 +235,13 @@ def chiamata_api_tracing(request, method, endpoint, params=None, data=None, file
         "Authorization": f"Bearer {voucher}",
         "Agid-JWT-TrackingEvidence": audit,
         "Agid-JWT-Signature": signature,
-        "Accept": "application/json"
+        "Accept": "application/json",
+        "Digest": digest
     }
     
     try:
-        if method == "GET":
-            response = requests.get(url, headers=headers, params=params, verify=False)
-        elif method == "POST":
-            response = requests.post(url, headers=headers, data=data, files=files, verify=False)
+        prepared.headers.update(headers)
+        response = session.send(prepared, verify=False)
         
         if response.status_code == 200:
             return response.json()
@@ -298,6 +322,53 @@ def ajax_replace_tracing(request, tracing_id):
     files = {'file': (file_obj.name, file_obj.read(), 'text/csv')}
     risultato = chiamata_api_tracing(request, "POST", f"/tracings/{tracing_id}/replace", files=files)
     return JsonResponse(risultato, safe=False)
+
+
+@login_required
+def ajax_export_tracing_csv(request):
+    if request.method != 'GET':
+        return JsonResponse({"errore": "Metodo non consentito"}, status=405)
+
+    date_str = request.GET.get('date')
+    if not date_str:
+        return JsonResponse({"errore": "Data obbligatoria"}, status=400)
+
+    try:
+        selected_date = datetime.date.fromisoformat(date_str)
+    except ValueError:
+        return JsonResponse({"errore": "Formato data non valido (YYYY-MM-DD)"}, status=400)
+
+    logs = (
+        Logs.objects.filter(timestamp__date=selected_date)
+        .exclude(purposeid__isnull=True)
+        .exclude(purposeid__exact="")
+        .exclude(resp_status__isnull=True)
+        .exclude(token_id__isnull=True)
+        .exclude(token_id__exact="")
+        .values('purposeid', 'resp_status', 'token_id')
+        .annotate(requests_count=Count('id'))
+        .order_by('purposeid', 'resp_status', 'token_id')
+    )
+
+    filename = f"Tracing_{selected_date.isoformat()}.csv"
+    response = HttpResponse(
+        content_type='text/csv',
+        headers={'Content-Disposition': f'attachment; filename=\"{filename}\"'},
+    )
+
+    writer = csv.writer(response, delimiter=',')
+    writer.writerow(['date', 'purpose_id', 'status', 'token_id', 'requests_count'])
+
+    for row in logs:
+        writer.writerow([
+            selected_date.isoformat(),
+            row.get('purposeid') or '',
+            row.get('resp_status') if row.get('resp_status') is not None else '',
+            row.get('token_id') or '',
+            row.get('requests_count') or 0,
+        ])
+
+    return response
 
 
 

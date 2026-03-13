@@ -194,7 +194,8 @@ def ipa_singola(request):
                     risultato = {"error": f"Request failed with status code {response.status_code}"}
                 data.append(risultato)
 
-            salva_log(request.user,"Verifica IndicePA", "Verificato domicilio ente " + testo_log )
+            status_code = 200 # Default se arriviamo qui con dati
+            salva_log(request.user, "Verifica IndicePA", "Verificato domicilio ente " + testo_log, resp_status=status_code)
             return render(request, 'ipa_singola.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
