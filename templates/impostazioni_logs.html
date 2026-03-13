@@ -60,6 +60,8 @@ Logs - OpenMSP - Multi Services Portal
         <th scope="col">ID</th>
         <th scope="col">Utente</th>
         <th scope="col">Servizio</th>
+        <th scope="col">Purpose ID</th>
+        <th scope="col">Status</th>
         <th scope="col">Richiesta / Azione</th>
         <th scope="col">Data e Ora</th>
       </tr>
@@ -70,12 +72,20 @@ Logs - OpenMSP - Multi Services Portal
         <td class="text-center">{{ log.id }}</td>
         <td>{{ log.utente_id.username }}</td>
         <td>{{ log.servizio }}</td>
+        <td><small>{{ log.purposeid|default:"" }}</small></td>
+        <td class="text-center">
+          {% if log.resp_status %}
+            <span class="badge {% if log.resp_status >= 200 and log.resp_status < 300 %}bg-success{% else %}bg-danger{% endif %}">
+              {{ log.resp_status }}
+            </span>
+          {% endif %}
+        </td>
         <td>{{ log.richiesta }}</td>
         <td class="text-center">{{ log.timestamp|date:"d/m/Y H:i:s" }}</td>
       </tr>
       {% empty %}
       <tr>
-        <td colspan="5" class="text-center">Nessun log trovato.</td>
+        <td colspan="7" class="text-center">Nessun log trovato.</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -199,6 +209,8 @@ Logs - OpenMSP - Multi Services Portal
       "id": "{{ log.id }}",
       "utente": "{{ log.utente_id.username }}",
       "servizio": "{{ log.servizio }}",
+      "purposeid": "{{ log.purposeid|default:'' }}",
+      "resp_status": "{{ log.resp_status|default:'' }}",
       "richiesta": "{{ log.richiesta|escapejs }}",
       "timestamp": "{{ log.timestamp|date:'d/m/Y H:i:s' }}"
     }{% if not forloop.last %},{% endif %}
@@ -206,10 +218,10 @@ Logs - OpenMSP - Multi Services Portal
   ];
 
   document.getElementById('exportCsvBtnFull').addEventListener('click', function() {
-    const header = ['ID', 'Utente', 'Servizio', 'Richiesta', 'Timestamp'];
+    const header = ['ID', 'Utente', 'Servizio', 'Purpose ID', 'Status', 'Richiesta', 'Timestamp'];
     let csvContent = header.join(';') + '\n';
     all_logs.forEach(function(l) {
-      const row = [l.id, l.utente, l.servizio, l.richiesta.replace(/;/g, ','), l.timestamp];
+      const row = [l.id, l.utente, l.servizio, l.purposeid, l.resp_status, l.richiesta.replace(/;/g, ','), l.timestamp];
       csvContent += row.join(';') + '\n';
     });
     scaricaFile(csvContent, 'Logs_Completo.csv');

@@ -43,11 +43,15 @@ def inps_isee(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,7), 1))
+                from .anpr import anpr_get_request
+                id_anpr = anpr_get_request(request.user.username, cf, 7)
+                res, status, pid = anpr_get_request(request.user.username, id_anpr, 1, return_full=True)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica INPS - ISEE", "Verificato utente " + cf, purposeid=pid, resp_status=status)
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica INPS - ISEE", "Verificato utente " + cf)
+                salva_log(request.user,"Verifica INPS - ISEE", "Verificato utente " + cf)
 
             return render(request, 'inps_isee.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
@@ -122,11 +126,13 @@ def inps_durc_singolo(request):
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
                 bearer = inps_durc_get_bearer()
-                data.append(inps_durc_verifica_impresa(cf, bearer))
+                res, status, pid = inps_durc_verifica_impresa(cf, bearer)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica INPS - DURC", "Verificato utente " + cf, purposeid=pid, resp_status=status)
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica INPS - DURC", "Verificato utente " + cf)
+                salva_log(request.user,"Verifica INPS - DURC", "Verificato utente " + cf)
 
             return render(request, 'inps_durc_singolo.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
@@ -145,11 +151,13 @@ def inps_durc_massivo(request):
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
                 bearer = inps_durc_get_bearer()
-                data.append(inps_durc_verifica_impresa(cf, bearer))
+                res, status, pid = inps_durc_verifica_impresa(cf, bearer)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica INPS - DURC", "Verificato utente " + cf, purposeid=pid, resp_status=status)
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica INPS - DURC", "Verificato utente " + cf)
+                salva_log(request.user,"Verifica INPS - DURC", "Verificato utente " + cf)
 
             return render(request, 'inps_durc_massivo.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
@@ -176,9 +184,9 @@ def inps_durc_verifica_impresa(cf, bearer):
     if response.status_code == 200:
         xml_data = response.content
         parsed_data = xmltodict.parse(xml_data)
-        return parsed_data
+        return parsed_data, 200, inps_durc_parametri.purposeid
     else:
-        return False
+        return False, response.status_code, inps_durc_parametri.purposeid
 
 
 def impostazioni_inps_durc(request):

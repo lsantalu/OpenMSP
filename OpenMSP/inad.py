@@ -14,6 +14,7 @@ import io
 import csv
 import sys
 import re
+import requests
 import openpyxl
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Alignment
@@ -139,13 +140,15 @@ def inad_singola(request):
             bearer = inad_get_bearer()
             correttezza_cf = verifica_cf(cf) 
             if correttezza_cf == 1:
-                parsed_output= inad_verifica_utente(cf, bearer)
-                data.append(estrai_mail(json.dumps(parsed_output)))
+                res, status, pid = inad_verifica_utente(cf, bearer)
+                data.append(estrai_mail(json.dumps(res)))
+                salva_log(request.user,"Verifica INAD singolo", "Verificato domicilio utente " + cf, purposeid=pid, resp_status=status )
             elif correttezza_cf == 2:
                 data.append("Codice fiscale di persona minorenne") 
+                salva_log(request.user,"Verifica INAD singolo", "Verificato domicilio utente " + cf )
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica INAD singolo", "Verificato domicilio utente " + cf )
+                salva_log(request.user,"Verifica INAD singolo", "Verificato domicilio utente " + cf )
             return render(request, 'inad_singola.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else: 
         utente_abilitato = False
@@ -205,17 +208,22 @@ def inad_massiva(request):
 
 def inad_verifica_utente(cf, bearer):
     inad_parametri = InadParametri.objects.get(id=1)
-    url = inad_parametri.target + '/extract'
-    curl_command = (
-        f'curl --silent --request GET '
-        f"--url '{url}/{cf}?practicalReference=ABC123' "
-        f"--header 'Authorization: Bearer {bearer}'"
-        )
-    if not sys.platform.startswith('linux'):
-        curl_command=curl_command.replace("'", '"')    
-            
-    result = subprocess.run(curl_command, shell=True, capture_output=True, text=True) 
-    return json.loads(result.stdout)
+    url = f"{inad_parametri.target}/extract/{cf}?practicalReference=ABC123"
+    
+    headers = {
+        "Authorization": f"Bearer {bearer}"
+    }
+    
+    response = requests.get(url, headers=headers)
+    
+    if response.status_code == 200:
+        return response.json(), 200, inad_parametri.purposeid
+    else:
+        try:
+            res = response.json()
+        except:
+            res = {"error": response.text}
+        return res, response.status_code, inad_parametri.purposeid
 
 
 def impostazioni_inad(request):

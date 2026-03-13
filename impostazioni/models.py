@@ -9,6 +9,8 @@ class Logs(models.Model):
     utente_id = models.ForeignKey(User, models.DO_NOTHING, db_column='utente_id')
     servizio = models.CharField(max_length=50)
     richiesta = models.CharField(max_length=150, blank=True, null=True)
+    purposeid = models.CharField(max_length=36, blank=True, null=True)
+    resp_status = models.IntegerField(blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:

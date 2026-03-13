@@ -26,7 +26,7 @@ import re
 
 
 
-def anpr_get_request(user_ID, id_anpr, id_caso):
+def anpr_get_request(user_ID, id_anpr, id_caso, return_full=False):
     parametri_anpr = AnprParametri.objects.get(id=id_caso)
     caso = ''
     if id_caso == 1:
@@ -167,14 +167,20 @@ def anpr_get_request(user_ID, id_anpr, id_caso):
                 }
 
     response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
+    
+    res_json = response.json()
+    status_code = response.status_code
+
+    if return_full:
+        return res_json, status_code, purposeid
+
     if id_caso == 8:
-        aux = response.json()
-        if 'listaSoggetti' in aux:
-            return aux['listaSoggetti']['datiSoggetto'][0]['identificativi']['idANPR']
+        if 'listaSoggetti' in res_json:
+            return res_json['listaSoggetti']['datiSoggetto'][0]['identificativi']['idANPR']
         else:
             return 'ZZZZZZZZZ'
     else:
-        return response.json()
+        return res_json
 
 def anpr_esistenza_in_vita(request):
     if request.user.id:
@@ -186,11 +192,14 @@ def anpr_esistenza_in_vita(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf, 8), 2))
+                id_anpr = anpr_get_request(request.user.username, cf, 8)
+                res, status, pid = anpr_get_request(request.user.username, id_anpr, 2, return_full=True)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica ANPR - C007 - Esistenza in vita", "Verificato utente " + cf, purposeid=pid, resp_status=status )
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica ANPR - C007 - Esistenza in vita", "Verificato utente " + cf )
+                salva_log(request.user,"Verifica ANPR - C007 - Esistenza in vita", "Verificato utente " + cf )
             return render(request, 'anpr_esistenza_in_vita.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -207,11 +216,14 @@ def anpr_cittadinanza(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,8), 5))
+                id_anpr = anpr_get_request(request.user.username, cf, 8)
+                res, status, pid = anpr_get_request(request.user.username, id_anpr, 5, return_full=True)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica ANPR - C018 - Cittadinanza", "Verificato utente " + cf, purposeid=pid, resp_status=status )
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica ANPR - C018 - Cittadinanza", "Verificato utente " + cf )
+                salva_log(request.user,"Verifica ANPR - C018 - Cittadinanza", "Verificato utente " + cf )
             return render(request, 'anpr_cittadinanza.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -228,11 +240,14 @@ def anpr_generalita(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,8), 3))
+                id_anpr = anpr_get_request(request.user.username, cf, 8)
+                res, status, pid = anpr_get_request(request.user.username, id_anpr, 3, return_full=True)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica ANPR - C015 - Generalità", "Verificato utente " + cf, purposeid=pid, resp_status=status)
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica ANPR - C015 - Generalità", "Verificato utente " + cf)
+                salva_log(request.user,"Verifica ANPR - C015 - Generalità", "Verificato utente " + cf)
 
             return render(request, 'anpr_generalita.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
@@ -264,12 +279,14 @@ def anpr_matrimonio(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,8), 4))
+                id_anpr = anpr_get_request(request.user.username, cf, 8)
+                res, status, pid = anpr_get_request(request.user.username, id_anpr, 4, return_full=True)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica ANPR - C017 - Matrimonio", "Verificato utente " + cf, purposeid=pid, resp_status=status)
             else:
                 data.append("Codice fiscale non corretto")
-
-            salva_log(request.user,"Verifica ANPR - C017 - Matrimonio", "Verificato utente " + cf)
+                salva_log(request.user,"Verifica ANPR - C017 - Matrimonio", "Verificato utente " + cf)
             return render(request, 'anpr_matrimonio.html', {'data': data, 'cessazione': cessazione_matrimonio_choices, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -286,11 +303,14 @@ def anpr_notifica(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,8), 1))
+                id_anpr = anpr_get_request(request.user.username, cf, 8)
+                res, status, pid = anpr_get_request(request.user.username, id_anpr, 1, return_full=True)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica ANPR - C001 - Notifica", "Verificato utente " + cf, purposeid=pid, resp_status=status)
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica ANPR - C001 - Notifica", "Verificato utente " + cf)
+                salva_log(request.user,"Verifica ANPR - C001 - Notifica", "Verificato utente " + cf)
 
             return render(request, 'anpr_notifica.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
@@ -308,11 +328,14 @@ def anpr_residenza(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,8), 6))
+                id_anpr = anpr_get_request(request.user.username, cf, 8)
+                res, status, pid = anpr_get_request(request.user.username, id_anpr, 6, return_full=True)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica ANPR - C020 - Residenza", "Verificato utente " + cf, purposeid=pid, resp_status=status )
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica ANPR - C020 - Residenza", "Verificato utente " + cf )
+                salva_log(request.user,"Verifica ANPR - C020 - Residenza", "Verificato utente " + cf )
             return render(request, 'anpr_residenza.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -362,11 +385,14 @@ def anpr_stato_famiglia(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf, 8), 7))
+                id_anpr = anpr_get_request(request.user.username, cf, 8)
+                res, status, pid = anpr_get_request(request.user.username, id_anpr, 7, return_full=True)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica ANPR - C021 - Stato famiglia", "Verificato utente " + cf, purposeid=pid, resp_status=status )
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica ANPR - C021 - Stato famiglia", "Verificato utente " + cf )
+                salva_log(request.user,"Verifica ANPR - C021 - Stato famiglia", "Verificato utente " + cf )
             return render(request, 'anpr_stato_famiglia.html', {'data': data, 'parentela':parentela_choices, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False

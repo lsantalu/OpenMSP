@@ -91,16 +91,17 @@ def inipec_singola(request):
             bearer = registro_imprese_get_bearer()
             correttezza_cf_azienda = verifica_cf_azienda(cf)
             if correttezza_cf_azienda == 1:
-                elenco_dati_registro =  registro_imprese_verifica_utente(cf, bearer)
-                if elenco_dati_registro:
-                    dd = elenco_dati_registro.get('blocchi_impresa').get('dati_identificativi').get('indirizzo_posta_certificata')
+                res, status, pid =  registro_imprese_verifica_utente(cf, bearer)
+                if res:
+                    dd = res.get('blocchi_impresa').get('dati_identificativi').get('indirizzo_posta_certificata')
                 else:
                     dd="Ditta non presente nel Registro Imprese"
                 data.append(dd.lower())
                 data = converti_data(data)
+                salva_log(request.user,"Verifica INI-PEC singolo", "Verificato domicilio impresa " + cf, purposeid=pid, resp_status=status )
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica INI-PEC singolo", "Verificato domicilio impresa " + cf )
+                salva_log(request.user,"Verifica INI-PEC singolo", "Verificato domicilio impresa " + cf )
             return render(request, 'inipec_singola.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -345,9 +346,9 @@ def registro_imprese(request):
             bearer = registro_imprese_get_bearer()
             correttezza_cf_azienda = verifica_cf_azienda(cf)
             if correttezza_cf_azienda == 1:
-                elenco_dati_registro_temp = registro_imprese_verifica_utente(cf, bearer)
-                if elenco_dati_registro_temp :
-                    elenco_dati_registro = sostituisci_chiavi(elenco_dati_registro_temp, testi_registro)
+                res, status, pid = registro_imprese_verifica_utente(cf, bearer)
+                if res :
+                    elenco_dati_registro = sostituisci_chiavi(res, testi_registro)
                     elenco_dati_registro = converti_data(elenco_dati_registro)
                     data.append(elenco_dati_registro)
                     if 'dati_identificativi' in elenco_dati_registro['blocchi_impresa'] :
@@ -370,12 +371,13 @@ def registro_imprese(request):
                         info_patrimoniali_finanziarie = elenco_dati_registro['blocchi_impresa']['info_patrimoniali_finanziarie']
                     if 'scritta_pco_s' in elenco_dati_registro['blocchi_impresa'] :
                         scritta_pco_s = elenco_dati_registro['blocchi_impresa']['scritta_pco_s']
+                    salva_log(request.user,"Verifica Registro Imprese", "Verificato azienda " + cf, purposeid=pid, resp_status=status)
                 else:
                     data.append("Ditta non presente")
+                    salva_log(request.user,"Verifica Registro Imprese", "Verificato azienda " + cf, purposeid=pid, resp_status=status)
             else:
                 data.append("Codice fiscale non corretto")
-
-            salva_log(request.user,"Verifica Registro Imprese", "Verificato azienda " + cf)
+                salva_log(request.user,"Verifica Registro Imprese", "Verificato azienda " + cf)
             return render(request, 'registro_imprese.html', {'data': data, 'dati_identificativi' : dati_identificativi, 'info_attivita' : info_attivita, 'albi_ruoli_licenze_ridotti' : albi_ruoli_licenze_ridotti, 'persone_sede' : persone_sede, 'localizzazioni' : localizzazioni, 'elenco_soci' : elenco_soci, 'info_statuto' : info_statuto, 'amministrazione_controllo' : amministrazione_controllo, 'info_patrimoniali_finanziarie' : info_patrimoniali_finanziarie, 'scritta_pco_s' : scritta_pco_s, 'utente_abilitato': utente_abilitato })
 
     else:
@@ -413,9 +415,9 @@ def registro_imprese_verifica_utente(cf, bearer):
         xml_data = response.content
         parsed_data = xmltodict.parse(xml_data)
         modified_data = modify_keys(parsed_data)
-        return modified_data
+        return modified_data, 200, registro_imprese_parametri.purposeid
     else:
-        return False
+        return False, response.status_code, registro_imprese_parametri.purposeid
 
 
 def registro_imprese_valida_cf(cf):

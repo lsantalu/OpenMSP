@@ -155,10 +155,12 @@ def ipa_singola(request):
                             else:
                                 risultato = {"error": f"Request failed with status code {response.status_code}"}
                             data.append(risultato)
+                            salva_log(request.user,"Verifica IndicePA", "Verificato domicilio ente " + testo_log, resp_status=response.status_code )
                     else:
                         response = ipa_codice(auth_id, "999999")
                         risultato = response.json()
                         data.append(risultato)
+                        salva_log(request.user,"Verifica IndicePA", "Verificato domicilio ente " + testo_log, resp_status=response.status_code )
 
 
             elif (cf != None): ##inserisco CF
@@ -177,13 +179,12 @@ def ipa_singola(request):
                     if response.status_code == 200:
                         content_str = response.content.decode('utf-8')
                         temp_data = json.loads(content_str)
-                        codice_ipa = temp_data['data'][0]['cod_amm']
-                        response = ipa_codice(auth_id, codice_ipa)
                         if response.status_code == 200:
                             risultato = response.json()
                         else:
                             risultato = {"error": f"Request failed with status code {response.status_code}"}
                         data.append(risultato)
+                        salva_log(request.user,"Verifica IndicePA", "Verificato domicilio ente " + testo_log, resp_status=response.status_code )
                 else:
                     data.append("Codice fiscale non corretto")
             else: ##inserisco codice ipa
@@ -193,8 +194,8 @@ def ipa_singola(request):
                 else:
                     risultato = {"error": f"Request failed with status code {response.status_code}"}
                 data.append(risultato)
+                salva_log(request.user,"Verifica IndicePA", "Verificato domicilio ente " + testo_log, resp_status=response.status_code )
 
-            salva_log(request.user,"Verifica IndicePA", "Verificato domicilio ente " + testo_log )
             return render(request, 'ipa_singola.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False

@@ -27,7 +27,7 @@ import sys
 import subprocess
 
 
-def mit_get_request(user_ID, cf, id_caso):
+def mit_get_request(user_ID, cf, id_caso, return_full=False):
     parametri_mit = MitParametri.objects.get(id=id_caso)
     userid= user_ID
 
@@ -181,6 +181,14 @@ def mit_get_request(user_ID, cf, id_caso):
 
     try:
         response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
+        
+        if return_full:
+            try:
+                res_json = response.json()
+            except:
+                res_json = {"error": response.text}
+            return res_json, response.status_code, purposeid
+
         if response.status_code != 200:
             return {
                 "esito": {
@@ -197,6 +205,8 @@ def mit_get_request(user_ID, cf, id_caso):
             }
         }
     except Exception as e:
+        if return_full:
+             return {"error": str(e)}, "ERR", purposeid
         return {
             "esito": {
                 "codice": "network_error",
@@ -224,14 +234,13 @@ def mit_whitelist(request):
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
                 # id_caso = 2 per "Lista veicoli" come definito in mit_get_request
-                response = mit_get_request(request.user.username, cf, 3)
+                response, status, pid = mit_get_request(request.user.username, cf, 3, return_full=True)
                 data.append(response)
                 data = converti_data(data)
-                # Gestione errori eventuale o formattazione se necessaria
+                salva_log(request.user,"Verifica MIT - Whitelist", "Verificato utente " + cf, purposeid=pid, resp_status=status)
             else:
                 data.append("Codice fiscale non corretto")
-
-            salva_log(request.user,"Verifica MIT - Whitelist", "Verificato utente " + cf)
+                salva_log(request.user,"Verifica MIT - Whitelist", "Verificato utente " + cf)
 
             return render(request, 'mit_whitelist.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
@@ -252,14 +261,13 @@ def mit_lista_veicoli(request):
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
                 # id_caso = 2 per "Lista veicoli" come definito in mit_get_request
-                response = mit_get_request(request.user.username, cf, 2)
+                response, status, pid = mit_get_request(request.user.username, cf, 2, return_full=True)
                 data.append(response)
                 data = converti_data(data)
-                # Gestione errori eventuale o formattazione se necessaria
+                salva_log(request.user, "Verifica MIT - Lista Veicoli", "Verificato utente " + cf, purposeid=pid, resp_status=status)
             else:
                 data.append("Codice fiscale non corretto")
-
-            salva_log(request.user, "Verifica MIT - Lista Veicoli", "Verificato utente " + cf)
+                salva_log(request.user, "Verifica MIT - Lista Veicoli", "Verificato utente " + cf)
             return render(request, 'mit_lista_veicoli.html', {'data': data, 'utente_abilitato': utente_abilitato })
 
     return render(request, 'mit_lista_veicoli.html', { 'utente_abilitato': utente_abilitato })
@@ -274,12 +282,10 @@ def mit_verifica_targa(request):
             data = []
             targa = request.POST.get('input_targa')
             data.append(targa)
-            response = mit_get_request(request.user.username, targa, 4)
+            response, status, pid = mit_get_request(request.user.username, targa, 4, return_full=True)
             data.append(response)
             data = converti_data(data)
-            # Gestione errori eventuale o formattazione se necessaria
-
-            salva_log(request.user, "Verifica MIT - Verifica Targa", "Verificato targa " + targa)
+            salva_log(request.user, "Verifica MIT - Verifica Targa", "Verificato targa " + targa, purposeid=pid, resp_status=status)
             return render(request, 'mit_verifica_targa.html', {'data': data, 'utente_abilitato': utente_abilitato })
 
 

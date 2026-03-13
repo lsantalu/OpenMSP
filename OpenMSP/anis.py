@@ -436,12 +436,13 @@ def anis_iscrizioni_singola(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anis_verifica_utente(request.user.username, cf, 1))
+                res, status, pid = anis_verifica_utente(request.user.username, cf, 1, return_full=True)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica ANIS - IFS02 - Iscrizioni Singolo", "Verificato utente " + cf, purposeid=pid, resp_status=status)
             else:
                 data.append(str(cf) + " Codice fiscale non corretto")
-
-            salva_log(request.user,"Verifica ANIS - IFS02 - Iscrizioni Singolo", "Verificato utente " + cf)
+                salva_log(request.user,"Verifica ANIS - IFS02 - Iscrizioni Singolo", "Verificato utente " + cf)
             return render(request, 'anis_iscrizioni_singola.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -506,12 +507,13 @@ def anis_titoli_singola(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anis_verifica_utente(request.user.username, cf, 2))
+                res, status, pid = anis_verifica_utente(request.user.username, cf, 2, return_full=True)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica ANIS - IFS03 - Titoli Singolo", "Verificato utente " + cf, purposeid=pid, resp_status=status)
             else:
                 data.append(str(cf) + " Codice fiscale non corretto")
-
-            salva_log(request.user,"Verifica ANIS - IFS03 - Titoli Singolo", "Verificato utente " + cf)
+                salva_log(request.user,"Verifica ANIS - IFS03 - Titoli Singolo", "Verificato utente " + cf)
             return render(request, 'anis_titoli_singola.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -589,12 +591,13 @@ def anist_frequenze_singola(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anis_verifica_utente(request.user.username, cf, 3))
+                res, status, pid = anis_verifica_utente(request.user.username, cf, 3, return_full=True)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica ANIST - Frequenze Singolo", "Verificato utente " + cf, purposeid=pid, resp_status=status)
             else:
                 data.append(str(cf) + " Codice fiscale non corretto")
-
-            salva_log(request.user,"Verifica ANIST - Frequenze Singolo", "Verificato utente " + cf)
+                salva_log(request.user,"Verifica ANIST - Frequenze Singolo", "Verificato utente " + cf)
             return render(request, 'anist_frequenze_singola.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -658,12 +661,13 @@ def anist_titoli_singola(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anis_verifica_utente(request.user.username, cf, 4))
+                res, status, pid = anis_verifica_utente(request.user.username, cf, 4, return_full=True)
+                data.append(res)
                 data = converti_data(data)
+                salva_log(request.user,"Verifica ANIST - Titoli Singolo", "Verificato utente " + cf, purposeid=pid, resp_status=status)
             else:
                 data.append(str(cf) + " Codice fiscale non corretto")
-
-            salva_log(request.user,"Verifica ANIST - Titoli Singolo", "Verificato utente " + cf)
+                salva_log(request.user,"Verifica ANIST - Titoli Singolo", "Verificato utente " + cf)
             return render(request, 'anist_titoli_singola.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -717,7 +721,7 @@ def anist_titoli_massiva(request):
     return render(request, 'anist_titoli_massiva.html', { 'utente_abilitato': utente_abilitato })
 
 
-def anis_verifica_utente(user_ID, cf, id_caso):
+def anis_verifica_utente(user_ID, cf, id_caso, return_full=False):
     parametri_anis = AnisParametri.objects.get(id=id_caso)
     caso = ''
     if id_caso == 1:
@@ -846,6 +850,14 @@ def anis_verifica_utente(user_ID, cf, id_caso):
                 }
 
     response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
+    
+    if return_full:
+        try:
+            res_json = response.json()
+        except:
+            res_json = {"error": response.text}
+        return res_json, response.status_code, purposeid
+
     if response.status_code == 403:
         return str(cf) + "Errore di comunicazione con la API"
     elif response.status_code == 500:

@@ -476,9 +476,11 @@ def app_io_singolo(request):
     f"Messaggio inviato con successo a <b>{cf}</b><br><br>"
     f"ID messaggio = <b>{id_messaggio}</b>"
 )
+                            salva_log(request.user,"App IO singolo", "Invio messaggio del servizio " + servizioScelto.servizio + " a " + cf, resp_status=response.status_code)
                         else:
                             data = "Errore di comunicazione"
                             id_messaggio = data
+                            salva_log(request.user,"App IO singolo", "Invio messaggio del servizio " + servizioScelto.servizio + " a " + cf, resp_status=response.status_code)
                     elif risposta == 0: ##UTENTE ATTIVO NON PERMESSO
                         data = "Utente attivo ma servizio non attivo"
                         id_messaggio = data
@@ -493,7 +495,6 @@ def app_io_singolo(request):
                         id_messaggio = data
 
                     app_io_salva_messaggio(request.user, servizioScelto, cf, titolo, messaggio, dataScadenza, input_IUV, mezzo1, testobottone1, comandobottone1, mezzo2, testobottone2, comandobottone2, id_messaggio)
-                salva_log(request.user,"App IO singolo", "Invio messaggio del servizio " + servizioScelto.servizio + " a " + cf)
                 return render(request, 'app_io_singolo.html', {'data': data, 'utente_abilitato': utente_abilitato })
             else:
                 data.append(cf) #--0

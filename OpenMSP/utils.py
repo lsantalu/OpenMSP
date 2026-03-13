@@ -43,6 +43,6 @@ def is_daylight_saving(date, timezone):
     aware_date = tz.localize(datetime.datetime.combine(date, datetime.datetime.min.time()), is_dst=None)
     return aware_date.dst() != datetime.timedelta(0)
 
-def salva_log(utente, servizio, richiesta):
-    log = Logs( utente_id=utente, servizio=servizio, richiesta=richiesta, )
+def salva_log(utente, servizio, richiesta, purposeid=None, resp_status=None):
+    log = Logs( utente_id=utente, servizio=servizio, richiesta=richiesta, purposeid=purposeid, resp_status=resp_status )
     log.save();

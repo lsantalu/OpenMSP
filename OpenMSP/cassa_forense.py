@@ -35,27 +35,13 @@ def cassa_forense(request):
             wsdl = 'https://servizi.consiglionazionaleforense.it/ws_check_avv/ws_check_avv.php?wsdl'
             client = Client(wsdl)
             ##service = client.bind('GetAvvocato', 'soap')
-            bearer = cassa_forense_get_bearer(request.user.username, cf)
-            correttezza_cf = verifica_cf(cf)
-
             if correttezza_cf == 1:
-                request_data = {
-                    'key': bearer,
-                    'codfisc': cf
-                    }
-                ##try:
-                ##    response = service.getAvvocato(**request_data)
-                ##    response_data = serialize_object(response)
-                ##    data.append(response_data)
-                ##    return response_data
-                ##except zeep.exceptions.Fault as e:
-                ##    print(f"Errore durante la chiamata SOAP: {e}")
-                ##    return None
-
+                res, status, pid = cassa_forense_get_bearer(request.user.username, cf, return_full=True)
+                data.append(res)
+                salva_log(request.user,"Verifica Consiglio Nazionale Foresne", "Verificato avvocato " + cf, purposeid=pid, resp_status=status)
             else:
                 data.append("Codice fiscale non corretto")
-
-            salva_log(request.user,"Verifica Consiglio Nazionale Foresne", "Verificato avvocato " + cf)
+                salva_log(request.user,"Verifica Consiglio Nazionale Foresne", "Verificato avvocato " + cf)
             return render(request, 'cassa_forense.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -63,7 +49,7 @@ def cassa_forense(request):
     return render(request, 'cassa_forense.html', { 'utente_abilitato': utente_abilitato })
 
 
-def cassa_forense_get_bearer(user_ID, cf):
+def cassa_forense_get_bearer(user_ID, cf, return_full=False):
     parametri_cassa_forense = CassaForenseParametri.objects.get(id=1)
     kid = parametri_cassa_forense.kid
     alg = parametri_cassa_forense.alg
@@ -184,6 +170,12 @@ def cassa_forense_get_bearer(user_ID, cf):
                 }
 
     response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
+    if return_full:
+        try:
+            res_json = response.json()
+        except:
+            res_json = {"error": response.text}
+        return res_json, response.status_code, purposeid
     return response.json()
 
 
