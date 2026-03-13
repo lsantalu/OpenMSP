@@ -15,6 +15,8 @@ import jwt
 import requests
 import json
 import re
+import urllib3
+
 
 def get_tracing_bearer(parametri_tracing, user_id):
     kid = parametri_tracing.kid
