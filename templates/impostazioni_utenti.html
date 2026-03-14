@@ -58,9 +58,10 @@ Impostazioni Utenti - OpenMSP - Multi Services Portal
   <input type="hidden" name="array_permessi" id="array_permessi">
   <div class="accordion p-3 mb-5 accordion-background-active shadow-lg " id="accordionExampleHa">
     {% for gruppo in gruppi_parametri%}
+    {% if gruppo.descrizione != "Tracing PDND" %}
     <div class="accordion-item">
       <h2 class="accordion-header" id="heading{{ forloop.counter }}">
-        <button class="accordion-button {% if forloop.counter != 1 %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}" aria-expanded="{% if forloop.counter == 1 %}true{% else %}false{% endif %}" aria-controls="collapse{{ forloop.counter }}">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}" aria-expanded="false" aria-controls="collapse{{ forloop.counter }}">
           {{gruppo.descrizione}}
         </button>
       </h2>
@@ -107,6 +108,7 @@ Impostazioni Utenti - OpenMSP - Multi Services Portal
         </div>
       </div>
     </div>
+    {% endif %}
     {% endfor %}
 
 

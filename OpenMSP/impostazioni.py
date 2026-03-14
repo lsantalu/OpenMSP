@@ -182,7 +182,7 @@ def impostazioni_parametri(request):
 
 
 def impostazioni_servizi(request):
-    servizi_impostazioni = ServiziParametri.objects.all()
+    servizi_impostazioni = ServiziParametri.objects.exclude(codice_servizio='tracing_pdnd')
     gruppi_parametri = GruppiParametri.objects.all()
 
     if request.method == 'POST':
