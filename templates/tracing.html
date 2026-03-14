@@ -51,6 +51,15 @@ Tracing Interop - OpenMSP - Multi Services Portal
                             </button>
                         </div>
                     </form>
+                    <!-- Response API -->
+                    <div id="apiResponse" class="d-none mt-3">
+                        <hr class="my-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small class="fw-bold" id="apiResponseTitle">Response API</small>
+                            <button type="button" class="btn btn-link btn-sm p-0" onclick="document.getElementById('apiResponse').classList.add('d-none')">Chiudi</button>
+                        </div>
+                        <pre id="apiResponseBody" class="bg-light border rounded p-2 small" style="max-height:200px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;"></pre>
+                    </div>
                 </div>
             </div>
         </div>
@@ -82,6 +91,14 @@ Tracing Interop - OpenMSP - Multi Services Portal
                         </tr>
                     </tbody>
                 </table>
+            </div>
+            <!-- JSON Response storico -->
+            <div class="mt-2">
+                <button class="btn btn-link btn-sm p-0 text-muted" type="button"
+                    onclick="var p=document.getElementById('jsonStorico');p.classList.toggle('d-none');this.textContent=p.classList.contains('d-none')?'▶ Mostra JSON risposta API':'▼ Nascondi JSON risposta API'">
+                    ▶ Mostra JSON risposta API
+                </button>
+                <pre id="jsonStorico" class="d-none bg-light border rounded p-2 small mt-1" style="max-height:250px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;"></pre>
             </div>
         </div>
     </div>
@@ -190,10 +207,20 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             const data = await submitResponse.json();
 
+            // Mostra la response API nella pagina
+            const apiResponseDiv = document.getElementById('apiResponse');
+            const apiResponseTitle = document.getElementById('apiResponseTitle');
+            const apiResponseBody = document.getElementById('apiResponseBody');
+            apiResponseDiv.classList.remove('d-none');
+
             if (data.errore) {
-                alert("Errore: " + JSON.stringify(data.dettaglio));
+                apiResponseTitle.textContent = '❌ Errore invio tracing';
+                apiResponseTitle.className = 'fw-bold text-danger small';
+                apiResponseBody.textContent = JSON.stringify(data, null, 2);
             } else {
-                alert("Invio completato! ID: " + data.tracingId);
+                apiResponseTitle.textContent = '✅ Invio completato — ID: ' + data.tracingId;
+                apiResponseTitle.className = 'fw-bold text-success small';
+                apiResponseBody.textContent = JSON.stringify(data, null, 2);
                 loadTracings();
             }
         } catch (err) {
@@ -211,6 +238,10 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch("{% url 'ajax_get_tracings' %}")
             .then(r => r.json())
             .then(data => {
+                // Mostra JSON grezzo
+                const jsonEl = document.getElementById('jsonStorico');
+                if (jsonEl) jsonEl.textContent = JSON.stringify(data, null, 2);
+
                 tbody.innerHTML = '';
                 if (!data.results || data.results.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="4" class="text-center">Nessun tracing trovato</td></tr>';

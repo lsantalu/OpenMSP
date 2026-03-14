@@ -25,78 +25,69 @@ def get_tracing_bearer(parametri_tracing, user_id):
     kid = parametri_tracing.kid
     alg = parametri_tracing.alg
     typ = parametri_tracing.typ
-    issuer = parametri_tracing.iss
-    subject = parametri_tracing.sub
     aud = parametri_tracing.aud
     purposeid = parametri_tracing.purposeid
-    audience = parametri_tracing.audience
+    # tracing_audience è l'aud corretto per la tracing API (es. att.interop.pagopa.it/tracing)
+    # audience è per gli e-service normali (eservices.att.interop.pagopa.it)
+    tracing_audience = parametri_tracing.tracing_audience or parametri_tracing.audience
     baseurlauth = parametri_tracing.baseurlauth
-    target = parametri_tracing.target
     clientid = parametri_tracing.clientid
     private_key = parametri_tracing.private_key
-    userid = user_id
     location = 'PortaleOpenMSP'
     loa = 'LoA2'
 
     issued = datetime.datetime.utcnow()
-    delta = datetime.timedelta(minutes=43200)
+    delta = datetime.timedelta(minutes=15)
     expire_in = issued + delta
     dnonce = random.randint(1000000000000, 9999999999999)
 
-    headers_rsa = {
-        "kid": kid,
-        "alg": alg,
-        "typ": typ
-    }
+    headers_rsa = {"kid": kid, "alg": alg, "typ": typ}
 
-    jti = uuid.uuid4()
+    # Costruisce l'audit con tracing_audience (aud per la tracing API)
+    jti_audit = uuid.uuid4()
     audit_payload = {
-        "userID": userid,
+        "userID": user_id,
         "userLocation": location,
         "LoA": loa,
-        "iss" : clientid,
-        "aud" : audience,
+        "iss": clientid,
+        "sub": clientid,
+        "aud": tracing_audience,
         "purposeId": purposeid,
-        "dnonce" : dnonce,
-        "jti":str(jti),
+        "dnonce": dnonce,
+        "jti": str(jti_audit),
         "iat": issued,
-        "nbf" : issued,
+        "nbf": issued,
         "exp": expire_in
-        }
-
+    }
     audit = jwt.encode(audit_payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
     audit_hash = hashlib.sha256(audit.encode('UTF-8')).hexdigest()
 
-    jti = uuid.uuid4()
-    payload = {
+    # Costruisce la client_assertion con l'hash dell'audit
+    jti_ca = uuid.uuid4()
+    client_assertion_payload = {
         "iss": clientid,
         "sub": clientid,
         "aud": aud,
         "purposeId": purposeid,
-        "jti": str(jti),
+        "jti": str(jti_ca),
         "iat": issued,
         "exp": expire_in,
-        "digest": {
-            "alg": "SHA256",
-            "value": audit_hash
-            }
-        }
-
-    client_assertion = jwt.encode(payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
+        "digest": {"alg": "SHA256", "value": audit_hash}
+    }
+    client_assertion = jwt.encode(client_assertion_payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
 
     params = urllib.parse.urlencode({
         'client_id': clientid,
         'client_assertion': client_assertion,
         'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
         'grant_type': 'client_credentials'
-        })
-
+    })
     headers = {"Content-type": "application/x-www-form-urlencoded"}
     conn = http.client.HTTPSConnection(re.sub(r'^https?://', '', baseurlauth))
     conn.request("POST", "/token.oauth2", params, headers)
     response = conn.getresponse()
     voucher = json.loads(response.read())["access_token"]
-    
+
     return voucher, audit
 
 
@@ -130,7 +121,7 @@ def verifica_status_tracing(request):
     digest = 'SHA-256=' + base64.b64encode(body_digest.digest()).decode('UTF-8')
 
     issued = datetime.datetime.utcnow()
-    delta = datetime.timedelta(minutes=43200)
+    delta = datetime.timedelta(minutes=15)
     expire_in = issued + delta
 
     headers_rsa = {
@@ -182,74 +173,131 @@ def chiamata_api_tracing(request, method, endpoint, params=None, data=None, file
 
     user_id = request.user.username if request.user.is_authenticated else 'admin'
     voucher, audit = get_tracing_bearer(parametri_tracing, user_id)
-    
+
     url = f"{parametri_tracing.target.rstrip('/')}{endpoint}"
-    
+
+    kid = parametri_tracing.kid
+    alg = parametri_tracing.alg
+    typ = parametri_tracing.typ
+    clientid = parametri_tracing.clientid
+    audience = parametri_tracing.audience
+    purposeid = parametri_tracing.purposeid
+    private_key = parametri_tracing.private_key
+
+    tracing_audience = parametri_tracing.tracing_audience or parametri_tracing.audience
+
     issued = datetime.datetime.utcnow()
-    expire_in = issued + datetime.timedelta(minutes=60)
-    
-    headers_rsa = {"kid": parametri_tracing.kid, "alg": parametri_tracing.alg, "typ": parametri_tracing.typ}
-    
-    # Prepara richiesta per calcolare il digest corretto (anche multipart)
-    session = requests.Session()
-    req = requests.Request(
-        method=method,
-        url=url,
-        params=params if method == "GET" else None,
-        data=data if method == "POST" else None,
-        files=files if method == "POST" else None,
-        headers={}
-    )
-    prepared = session.prepare_request(req)
+    expire_in = issued + datetime.timedelta(minutes=15)
+    headers_rsa = {"kid": kid, "alg": alg, "typ": typ}
 
-    body_bytes = prepared.body if prepared.body is not None else b""
-    if isinstance(body_bytes, str):
-        body_bytes = body_bytes.encode("utf-8")
-
-    body_digest = hashlib.sha256(body_bytes)
-    digest = 'SHA-256=' + base64.b64encode(body_digest.digest()).decode('UTF-8')
-
-    signed_headers = [{"digest": digest}]
-    content_type = prepared.headers.get("Content-Type")
-    if content_type:
-        signed_headers.append({"content-type": content_type})
-    content_encoding = prepared.headers.get("Content-Encoding")
-    if content_encoding:
-        signed_headers.append({"content-encoding": content_encoding})
-
-    payload = {
-        "iss" : parametri_tracing.clientid,
-        "aud" : parametri_tracing.audience,
-        "purposeId": parametri_tracing.purposeid,
-        "sub": parametri_tracing.clientid,
-        "jti": str(uuid.uuid4()),
-        "iat": issued,
-        "nbf" : issued,
-        "exp": expire_in,
-        "signed_headers": signed_headers
-    }
-    
-    signature = jwt.encode(payload, parametri_tracing.private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
-    
-    headers = {
-        "Authorization": f"Bearer {voucher}",
-        "Agid-JWT-TrackingEvidence": audit,
-        "Agid-JWT-Signature": signature,
-        "Accept": "application/json",
-        "Digest": digest
-    }
-    
     try:
-        prepared.headers.update(headers)
-        response = session.send(prepared, verify=False)
-        
+        if method == "GET":
+            # body vuoto per GET
+            body = ""
+            body_digest = hashlib.sha256(body.encode('UTF-8'))
+            digest = 'SHA-256=' + base64.b64encode(body_digest.digest()).decode('UTF-8')
+
+            payload = {
+                "iss": clientid,
+                "aud": tracing_audience,   # aud del voucher, non dell'e-service
+                "purposeId": purposeid,
+                "sub": clientid,
+                "jti": str(uuid.uuid4()),
+                "iat": issued,
+                "nbf": issued,
+                "exp": expire_in,
+                "signed_headers": [{"digest": digest}]
+            }
+            signature = jwt.encode(payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
+
+            headers = {
+                "Accept": "application/json",
+                "Digest": digest,
+                "Authorization": "Bearer " + voucher,
+                "Agid-JWT-TrackingEvidence": audit,
+                "Agid-JWT-Signature": signature
+            }
+            response = requests.get(url, headers=headers, params=params, verify=False)
+
+        else:  # POST multipart
+            session = requests.Session()
+            req = requests.Request(
+                method="POST",
+                url=url,
+                data=data,
+                files=files,
+                headers={}
+            )
+            prepared = session.prepare_request(req)
+
+            body_bytes = prepared.body if prepared.body is not None else b""
+            if isinstance(body_bytes, str):
+                body_bytes = body_bytes.encode("utf-8")
+
+            body_digest = hashlib.sha256(body_bytes)
+            digest = 'SHA-256=' + base64.b64encode(body_digest.digest()).decode('UTF-8')
+
+            signed_headers = [{"digest": digest}]
+            content_type = prepared.headers.get("Content-Type")
+            if content_type:
+                signed_headers.append({"content-type": content_type})
+
+            payload = {
+                "iss": clientid,
+                "aud": tracing_audience,   # aud del voucher, non dell'e-service
+                "purposeId": purposeid,
+                "sub": clientid,
+                "jti": str(uuid.uuid4()),
+                "iat": issued,
+                "nbf": issued,
+                "exp": expire_in,
+                "signed_headers": signed_headers
+            }
+            signature = jwt.encode(payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
+
+            prepared.headers.update({
+                "Authorization": f"Bearer {voucher}",
+                "Agid-JWT-TrackingEvidence": audit,
+                "Agid-JWT-Signature": signature,
+                "Accept": "application/json",
+                "Digest": digest
+            })
+            response = session.send(prepared, verify=False)
+
         if response.status_code == 200:
             return response.json()
         else:
             try:
-                return {"errore": response.status_code, "dettaglio": response.json()}
-            except:
-                return {"errore": response.status_code, "dettaglio": response.text}
+                errore_api = response.json()
+            except Exception:
+                errore_api = response.text
+            # Debug: decodifica JWT senza verifica firma per ispezionare i claim
+            try:
+                voucher_claims = jwt.decode(voucher, options={"verify_signature": False})
+            except Exception as ex:
+                voucher_claims = f"(non decodificabile: {ex})"
+            try:
+                audit_claims = jwt.decode(audit, options={"verify_signature": False})
+            except Exception as ex:
+                audit_claims = f"(non decodificabile: {ex})"
+            try:
+                signature_claims = jwt.decode(signature, options={"verify_signature": False})
+            except Exception as ex:
+                signature_claims = f"(non decodificabile: {ex})"
+
+            return {
+                "errore": response.status_code,
+                "dettaglio": errore_api,
+                "debug": {
+                    "url": url,
+                    "method": method,
+                    "digest": digest,
+                    "voucher_claims": voucher_claims,
+                    "audit_claims": audit_claims,
+                    "signature_claims": signature_claims,
+                }
+            }
+
     except Exception as e:
         return {"errore": "Eccezione", "dettaglio": str(e)}
 

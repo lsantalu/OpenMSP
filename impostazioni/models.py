@@ -382,6 +382,7 @@ class TracingParametri(models.Model):
     aud = models.CharField(max_length=150)
     purposeid = models.CharField(max_length=36)
     audience = models.CharField(max_length=150)
+    tracing_audience = models.CharField(max_length=150, default='')  # aud per la tracing API
     baseurlauth = models.CharField(max_length=150)
     target = models.CharField(max_length=150)
     clientid = models.CharField(max_length=50)
