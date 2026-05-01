@@ -39,30 +39,126 @@ INPS verifica DURC - OpenMSP - Multi Services Portal
 </div>
 <br />
 {% if data %}
-<div class="col-6">
-  <div class="card card-bg">
-    <div class="card-body">
-      <div class="top-icon">
-        {% if '@' in data.1 %}
-        <svg class="icon icon-xl icon-success bg-light">
-          <use href="{% static 'svg/sprites.svg' %}#it-check"></use>
-        </svg>
-        {% elif 'minorenne' in data.1 %}
-        <svg class="icon icon-xl icon-warning bg-light">
-          <use href="{% static 'svg/sprites.svg' %}#it-warning-circle"></use>
-        </svg>
-        {% else %}
-        <svg class="icon icon-xl icon-danger bg-light">
-          <use href="{% static 'svg/sprites.svg' %}#it-close-big"></use>
-        </svg>
-        {% endif %}
+<div class="col-12 mt-4">
+  {% if data.1.protocollo %}
+  <div class="card card-bg shadow-sm border-light">
+    <div class="card-body p-4">
+      <div class="row">
+        <!-- Colonna Informazioni Generali -->
+        <div class="col-md-7 border-end-md">
+          <div class="d-flex align-items-center mb-4">
+            <div class="me-3">
+              {% if data.1.esitoInps == '1' or data.1.esitoInail == '1' or data.1.esitoCe == '1' %}
+              <div class="bg-danger-light p-3 rounded-circle">
+                <svg class="icon icon-xl icon-danger"><use href="{% static 'svg/sprites.svg' %}#it-close-big"></use></svg>
+              </div>
+              {% else %}
+              <div class="bg-success-light p-3 rounded-circle">
+                <svg class="icon icon-xl icon-success"><use href="{% static 'svg/sprites.svg' %}#it-check"></use></svg>
+              </div>
+              {% endif %}
+            </div>
+            <div>
+              <h3 class="card-title h4 mb-0">{{ data.1.denominazione }}</h3>
+              <p class="card-text {% if data.1.esitoInps == '1' or data.1.esitoInail == '1' or data.1.esitoCe == '1' %}text-danger{% else %}text-success{% endif %} fw-bold">
+                {% if data.1.esitoInps == '1' or data.1.esitoInail == '1' or data.1.esitoCe == '1' %}
+                Verifica Irregolare
+                {% else %}
+                Verifica Regolare
+                {% endif %}
+              </p>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-sm-6 mb-3">
+              <label class="text-uppercase small fw-bold text-secondary d-block">Codice Fiscale</label>
+              <span class="h6">{{ data.1.codiceFiscale }}</span>
+            </div>
+            <div class="col-sm-6 mb-3">
+              <label class="text-uppercase small fw-bold text-secondary d-block">Data Richiesta</label>
+              <span class="h6">{{ data.1.del|slice:":10" }}</span>
+            </div>
+            
+            <div class="col-sm-6 mb-3">
+              <label class="text-uppercase small fw-bold text-secondary d-block">Protocollo</label>
+              <div class="d-flex align-items-center">
+                <code class="h6 text-primary mb-0 me-2">{{ data.1.protocollo }}</code>
+                <a href="{% url 'inps_durc_download' data.1.protocollo %}" class="btn btn-xs btn-outline-primary p-1" title="Scarica PDF">
+                  <svg class="icon icon-sm"><use href="{% static 'svg/sprites.svg' %}#it-download"></use></svg>
+                </a>
+              </div>
+            </div>
+            <div class="col-sm-6 mb-3">
+              <label class="text-uppercase small fw-bold text-secondary d-block text-danger">Scadenza (120gg)</label>
+              <span class="h6 text-danger fw-bold">{{ data.1.scadenza }}</span>
+            </div>
+             </div>
+        </div>
+
+        <!-- Colonna Esiti per Ente -->
+        <div class="col-md-5 ps-md-4 mt-4 mt-md-0">
+          <h5 class="h6 text-uppercase fw-bold text-secondary mb-4">Esiti per Ente</h5>
+          
+          <!-- INPS -->
+          <div class="d-flex justify-content-between align-items-center mb-3 p-2 rounded {% if data.1.esitoInps == '0' %}bg-light-success{% elif data.1.esitoInps == '2' %}bg-light-warning{% else %}bg-light-danger{% endif %}">
+            <div class="d-flex align-items-center">
+              <svg class="icon icon-sm {% if data.1.esitoInps == '0' %}icon-success{% elif data.1.esitoInps == '2' %}icon-warning{% else %}icon-danger{% endif %} me-2">
+                <use href="{% static 'svg/sprites.svg' %}#{% if data.1.esitoInps == '0' %}it-check{% elif data.1.esitoInps == '2' %}it-warning-circle{% else %}it-close-big{% endif %}"></use>
+              </svg>
+              <span class="fw-bold">INPS</span>
+            </div>
+            <span class="badge {% if data.1.esitoInps == '0' %}bg-success{% elif data.1.esitoInps == '2' %}bg-warning text-dark{% else %}bg-danger{% endif %} text-uppercase">
+              {% if data.1.esitoInps == '0' %}Regolare{% elif data.1.esitoInps == '2' %}N.E.{% else %}Irregolare{% endif %}
+            </span>
+          </div>
+
+          <!-- INAIL -->
+          <div class="d-flex justify-content-between align-items-center mb-3 p-2 rounded {% if data.1.esitoInail == '0' %}bg-light-success{% elif data.1.esitoInail == '2' %}bg-light-warning{% else %}bg-light-danger{% endif %}">
+            <div class="d-flex align-items-center">
+              <svg class="icon icon-sm {% if data.1.esitoInail == '0' %}icon-success{% elif data.1.esitoInail == '2' %}icon-warning{% else %}icon-danger{% endif %} me-2">
+                <use href="{% static 'svg/sprites.svg' %}#{% if data.1.esitoInail == '0' %}it-check{% elif data.1.esitoInail == '2' %}it-warning-circle{% else %}it-close-big{% endif %}"></use>
+              </svg>
+              <span class="fw-bold">INAIL</span>
+            </div>
+            <span class="badge {% if data.1.esitoInail == '0' %}bg-success{% elif data.1.esitoInail == '2' %}bg-warning text-dark{% else %}bg-danger{% endif %} text-uppercase">
+              {% if data.1.esitoInail == '0' %}Regolare{% elif data.1.esitoInail == '2' %}N.E.{% else %}Irregolare{% endif %}
+            </span>
+          </div>
+
+          <!-- Cassa Edile -->
+          <div class="d-flex justify-content-between align-items-center mb-3 p-2 rounded {% if data.1.esitoCe == '0' %}bg-light-success{% elif data.1.esitoCe == '2' %}bg-light-warning{% else %}bg-light-danger{% endif %}">
+            <div class="d-flex align-items-center">
+              <svg class="icon icon-sm {% if data.1.esitoCe == '0' %}icon-success{% elif data.1.esitoCe == '2' %}icon-warning{% else %}icon-danger{% endif %} me-2">
+                <use href="{% static 'svg/sprites.svg' %}#{% if data.1.esitoCe == '0' %}it-check{% elif data.1.esitoCe == '2' %}it-warning-circle{% else %}it-close-big{% endif %}"></use>
+              </svg>
+              <span class="fw-bold">Cassa Edile</span>
+            </div>
+            <span class="badge {% if data.1.esitoCe == '0' %}bg-success{% elif data.1.esitoCe == '2' %}bg-warning text-dark{% else %}bg-danger{% endif %} text-uppercase">
+              {% if data.1.esitoCe == '0' %}Regolare{% elif data.1.esitoCe == '2' %}N.E.{% else %}Irregolare{% endif %}
+            </span>
+          </div>
+
+          <div class="mt-2">
+            <small class="text-muted italic">N.E. = Non effettuabile</small>
+          </div>
+        </div>
       </div>
-      <h3 class="card-title h5">Regolarità contributiva di <b>{{ data.0 }}</b></h3>
-      <p class="it-card-text">
-        Esito verifica: <b>{{ data.1 }}</b>
-      </p>
     </div>
   </div>
+  {% else %}
+  <div class="alert alert-warning shadow-sm border-warning" role="alert">
+    <div class="d-flex align-items-center">
+      <svg class="icon icon-sm icon-warning me-2"><use href="{% static 'svg/sprites.svg' %}#it-warning-circle"></use></svg>
+      <strong>Attenzione:</strong>&nbsp;
+      {% if data.1 == False %}
+      Si è verificato un errore nella comunicazione con il servizio INPS o il dato non è disponibile.
+      {% else %}
+      {{ data.1 }}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endif %}
 {% else %}
@@ -87,9 +183,9 @@ INPS verifica DURC - OpenMSP - Multi Services Portal
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Il campo "Codice Fiscale" è da controllare.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
+    const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Il campo "Codice Fiscale o Partita IVA" è da controllare.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
     const errorWrapper = document.querySelector('#errorMsgContainer')
-    const validate = new bootstrap.FormValidate('#inad_singola', {
+    const validate = new bootstrap.FormValidate('#inps_durc_singola', {
       errorFieldCssClass: 'is-invalid',
       errorLabelCssClass: 'form-feedback',
       errorLabelStyle: '',
@@ -103,22 +199,22 @@ INPS verifica DURC - OpenMSP - Multi Services Portal
     },
     {
       rule: 'minLength',
-      value: 16,
-      errorMessage: 'Il C.F. deve avere 16 caratteri'
+      value: 11,
+      errorMessage: 'Il C.F. deve avere 11 o 16 caratteri'
     },
     {
       rule: 'maxLength',
       value: 16,
-      errorMessage: 'Il C.F. deve avere 16 caratteri'
+      errorMessage: 'Il C.F. deve avere 11 o 16 caratteri'
     },
     {
       rule: 'customRegexp',
-      value: '^[a-zA-Z]{6}[0-9]{2}[a-zA-Z][0-9]{2}[a-zA-Z][0-9]{3}[a-zA-Z]$',
-      errorMessage: 'Il C.F. è scritto correttamente'
+      value: '^([a-zA-Z]{6}[0-9]{2}[a-zA-Z][0-9]{2}[a-zA-Z][0-9]{3}[a-zA-Z]|[0-9]{11})$',
+      errorMessage: 'Formato non valido: inserire un C.F. (16 caratteri) o una P.IVA (11 cifre)'
     }
     ])
     .onSuccess(() => {
-      document.forms['inad_singola'].submit()
+      document.forms['inps_durc_singola'].submit()
     })
     .onFail((fields) => {
       errorWrapper.innerHTML = ''

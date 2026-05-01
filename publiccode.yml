@@ -3,8 +3,8 @@ name: OpenMSP
 applicationSuite: OpenCED - Multi Services Portal
 url: https://github.com/lsantalu/OpenMSP
 landingURL: https://www.openced.it
-softwareVersion: 1.0.0
-releaseDate: 2026-01-01
+softwareVersion: 1.2.0
+releaseDate: 2026-04-10
 platforms:
   - web
 categories:
