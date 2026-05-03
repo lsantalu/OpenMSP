@@ -2,8 +2,6 @@ from django.shortcuts import render
 from django.http import HttpResponse
 
 from impostazioni.models import UtentiParametri
-from impostazioni.models import ServiziParametri
-from impostazioni.models import GruppiParametri
 from impostazioni.models import InpsIseeParametri
 from impostazioni.models import InpsDurcParametri
 from impostazioni.models import DatiEnte
@@ -14,14 +12,7 @@ from .verifica_cf import verifica_cf
 from .verifica_cf import verifica_cf_azienda
 
 import xmltodict
-
-
-##from datetime import datetime, date
-import datetime
-from jose.constants import Algorithms
-import http.client, urllib.parse
-import hashlib
-import random
+import urllib.parse
 import base64
 import datetime
 import uuid
@@ -31,10 +22,60 @@ import requests
 import json
 import io
 import csv
-import re
 import sys
 import openpyxl
 
+def _get_inps_token(parametri):
+    issued = datetime.datetime.utcnow()
+    delta = datetime.timedelta(minutes=43200)
+    expire_in = issued + delta
+    jti = uuid.uuid4()
+    
+    headers_rsa = {
+        "kid": parametri.kid,
+        "alg": parametri.alg,
+        "typ": parametri.typ
+    }
+
+    payload = {
+        "iss": parametri.iss,
+        "sub": parametri.sub,
+        "aud": parametri.aud,
+        "purposeId": parametri.purposeid,
+        "jti": str(jti),
+        "iat": issued,
+        "exp": expire_in
+    }
+
+    asserzione = jwt.encode(payload, parametri.private_key, algorithm="RS256", headers=headers_rsa)
+
+    curl_command = (
+        f"curl --location --silent --request POST {parametri.baseurlauth}/token.oauth2 "
+        f"--header 'Content-Type: application/x-www-form-urlencoded' "
+        f"--data-urlencode 'client_id={parametri.iss}' "
+        f"--data-urlencode 'client_assertion={asserzione}' "
+        "--data-urlencode 'client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer' "
+        "--data-urlencode 'grant_type=client_credentials'"
+    )
+
+    if not sys.platform.startswith('linux'):
+        curl_command = curl_command.replace("'", '"')
+
+    result = subprocess.run(curl_command, shell=True, capture_output=True, text=True)
+    try:
+        data = json.loads(result.stdout)
+        voucher = data.get('access_token', '')
+    except json.JSONDecodeError:
+        voucher = ""
+    
+    # Estrae il token_id (jti) dal voucher
+    try:
+        decoded_token = jwt.decode(voucher, options={"verify_signature": False})
+        token_id = decoded_token.get('jti')
+    except:
+        token_id = None
+        
+    return voucher, token_id
 
 
 def inps_isee(request):
@@ -47,11 +88,14 @@ def inps_isee(request):
             data.append(cf)
             correttezza_cf = verifica_cf(cf)
             if correttezza_cf == 1 or correttezza_cf == 2:
-                data.append(anpr_get_request(request.user.username, anpr_get_request(request.user.username, cf,7), 1))
+                bearer, tok_id = inps_isee_get_bearer()
+                res_data, status, purp_id = RichiestaIsee(cf, bearer)
+                data.append(res_data)
                 data = converti_data(data)
+                salva_log(request.user, "Verifica INPS - ISEE", "Verificato utente " + cf, purposeid=purp_id, resp_status=status, token_id=tok_id)
             else:
                 data.append("Codice fiscale non corretto")
-            salva_log(request.user,"Verifica INPS - ISEE", "Verificato utente " + cf)
+                salva_log(request.user, "Verifica INPS - ISEE", "Verificato utente " + cf)
 
             return render(request, 'inps_isee.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
@@ -59,69 +103,108 @@ def inps_isee(request):
     return render(request, 'inps_isee.html', { 'utente_abilitato': utente_abilitato })
 
 
+def inps_isee_get_bearer():
+    parametri_inps_isee = InpsIseeParametri.objects.get(id=1)
+    return _get_inps_token(parametri_inps_isee)
+
+
+def RichiestaIsee(cf, bearer):
+    parametri_inps_isee = InpsIseeParametri.objects.get(id=1)
+    url = parametri_inps_isee.target
+    dati_ente = DatiEnte.objects.first()
+
+    # SOAP Action dalla specifica WSDL
+    soap_action = "http://inps.it/ConsultazioneISEE/ISvcConsultazione/ConsultazioneAttestazioneResidenti"
+
+    headers = {
+        "Authorization": f"Bearer {bearer}",
+        "Content-Type": "text/xml; charset=utf-8",
+        "SOAPAction": f'"{soap_action}"',
+        "INPS-Identity-UserId": dati_ente.cf,
+        "INPS-Identity-CodiceUfficio": "001"
+    }
+
+    # Costruzione dell'inviluppo SOAP basato sull'XSD e sull'XML di esempio fornito
+    body = f"""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:con="http://inps.it/ConsultazioneISEE">
+   <soapenv:Header>
+      <inps:Identity xmlns:inps="http://inps.it/">
+         <UserId>{dati_ente.cf}</UserId>
+         <CodiceUfficio>001</CodiceUfficio>
+      </inps:Identity>
+   </soapenv:Header>
+   <soapenv:Body>
+      <con:ConsultazioneAttestazioneResidenti>
+         <con:request>
+            <con:RicercaCF>
+               <con:CodiceFiscale>{cf}</con:CodiceFiscale>
+               <con:PrestazioneDaErogare>A1.01</con:PrestazioneDaErogare>
+               <con:ProtocolloDomandaEnteErogatore>OpenMSP-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}</con:ProtocolloDomandaEnteErogatore>
+               <con:StatodomandaPrestazione>Da Erogare</con:StatodomandaPrestazione>
+            </con:RicercaCF>
+         </con:request>
+      </con:ConsultazioneAttestazioneResidenti>
+   </soapenv:Body>
+</soapenv:Envelope>"""
+
+    try:
+        response = requests.post(url, headers=headers, data=body.encode('utf-8'))
+        status_code = response.status_code
+        purposeid = parametri_inps_isee.purposeid
+
+        if response.status_code == 200:
+            try:
+                # Parsing della risposta XML
+                dict_data = xmltodict.parse(response.content)
+                # Estrazione del risultato dal body SOAP
+                envelope = dict_data.get('s:Envelope', {}) or dict_data.get('soapenv:Envelope', {}) or dict_data.get('SOAP-ENV:Envelope', {})
+                body = envelope.get('s:Body', {}) or envelope.get('soapenv:Body', {}) or envelope.get('SOAP-ENV:Body', {})
+                response_node = body.get('ConsultazioneAttestazioneResidentiResponse', {})
+                result = response_node.get('ConsultazioneAttestazioneResidentiResult', {})
+                
+                # Se il risultato è vuoto, proviamo con altri prefissi possibili
+                if not result:
+                   for key in response_node.keys():
+                       if key.endswith('ConsultazioneAttestazioneResidentiResult'):
+                           result = response_node[key]
+                           break
+
+                # Decodifica dell'XML base64 se presente (contiene i dati reali dell'attestazione)
+                xml_base64 = result.get('XmlEsitoAttestazione')
+                if xml_base64:
+                    try:
+                        decoded_xml = base64.b64decode(xml_base64).decode('utf-8')
+                        attestazione_dict = xmltodict.parse(decoded_xml)
+                        
+                        # Estrazione dei dati per il template
+                        # L'XML decodificato ha come root <Attestazione>
+                        att = attestazione_dict.get('Attestazione', {})
+                        
+                        # Mappatura campi per il template
+                        result['ProtocolloMittente'] = att.get('@ProtocolloMittente')
+                        result['DataSottoscrizione'] = att.get('@DataPresentazione')
+                        result['DataScadenza'] = att.get('@DataScadenzaDSUCorrente')
+                        
+                        # Ricerca del valore ISEE (può essere in Ordinario, Ridotto, etc.)
+                        ordinario = att.get('Ordinario', {})
+                        isee_ord = ordinario.get('ISEEOrdinario', {})
+                        valori = isee_ord.get('Valori', {})
+                        result['ValoreISEE'] = valori.get('@ISEE')
+                        
+                    except Exception as e:
+                        result['error_parsing_attestazione'] = str(e)
+
+                return result, status_code, purposeid
+            except Exception as e:
+                return {"error": f"Errore nel parsing XML: {str(e)}"}, status_code, purposeid
+        else:
+            return False, status_code, purposeid
+    except Exception as e:
+        return {"error": f"Errore nella richiesta: {str(e)}"}, 500, parametri_inps_isee.purposeid
+
+
 def inps_durc_get_bearer():
     parametri_inps_durc = InpsDurcParametri.objects.get(id=1)
-
-    kid = parametri_inps_durc.kid
-    alg = parametri_inps_durc.alg
-    typ = parametri_inps_durc.typ
-    issuer = parametri_inps_durc.iss
-    subject = parametri_inps_durc.sub
-    aud = parametri_inps_durc.aud
-    purposeId = parametri_inps_durc.purposeid
-    audience = parametri_inps_durc.audience
-    baseurlauth = parametri_inps_durc.baseurlauth
-    target = parametri_inps_durc.target
-    clientid = parametri_inps_durc.clientid
-    private_key = parametri_inps_durc.private_key
-
-
-    issued = datetime.datetime.utcnow()
-    delta = datetime.timedelta(minutes=43200)
-    expire_in = issued + delta
-    jti = uuid.uuid4()
-    headers_rsa = {
-        "kid": kid,
-        "alg": alg,
-        "typ": typ
-    }
-
-    payload = {
-        "iss": issuer,
-        "sub": subject,
-        "aud": aud,
-        "purposeId": purposeId,
-        "jti": str(jti),
-        "iat": issued,
-        "exp": expire_in
-    }
-
-    asserzione = jwt.encode(payload, private_key, algorithm="RS256", headers=headers_rsa)
-
-    curl_command = (
-        f"curl --location --silent --request POST {baseurlauth}/token.oauth2 "
-        f"--header 'Content-Type: application/x-www-form-urlencoded' "
-        f"--data-urlencode 'client_id={issuer}' "
-        f"--data-urlencode 'client_assertion={asserzione}' "
-        "--data-urlencode 'client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer' "
-        "--data-urlencode 'grant_type=client_credentials'"
-    )
-
-    if not sys.platform.startswith('linux'):
-        curl_command=curl_command.replace("'", '"')
-
-    result = subprocess.run(curl_command, shell=True, capture_output=True, text=True)
-    data = json.loads(result.stdout)
-    voucher = data['access_token']
-    
-    # Estrae il token_id (jti) dal voucher
-    try:
-        decoded_token = jwt.decode(voucher, options={"verify_signature": False})
-        token_id = decoded_token.get('jti')
-    except:
-        token_id = None
-        
-    return voucher, token_id
+    return _get_inps_token(parametri_inps_durc)
 
 
 def inps_durc_singolo(request):
@@ -244,7 +327,6 @@ def inps_durc_verifica_impresa(cf, bearer):
         "codicefiscale": cf
         }
 
-    ### FINO A QUA TUTTO BENE MA DOPO VA IN TIMEOUT
     response = requests.post(url, headers=headers, json=data)
     status_code = response.status_code
     purposeid = inps_durc_parametri.purposeid
@@ -256,54 +338,24 @@ def inps_durc_verifica_impresa(cf, bearer):
         return False, status_code, purposeid
 
 
-def impostazioni_inps_durc(request):
-    parametri_inps_durc = InpsDurcParametri.objects.all()
+def _salva_impostazioni_inps(request, modello, nome_servizio):
     if request.method == 'POST':
-        kid = request.POST.get('kid')
-        alg = request.POST.get('alg')
-        typ = request.POST.get('typ')
-        iss = request.POST.get('iss')
-        sub = request.POST.get('sub')
-        aud = request.POST.get('aud')
-        purposeid = request.POST.get('purposeid')
-        audience = request.POST.get('audience')
-        baseurlauth = request.POST.get('baseurlauth')
-        target = request.POST.get('target')
-        clientid = request.POST.get('clientid')
-        private_key = request.POST.get('private_key')
-        ver_eservice = request.POST.get('ver_eservice')
-        dati = InpsDurcParametri(1, kid, alg, typ, iss, sub, aud, purposeid, audience, baseurlauth, target, clientid, private_key, ver_eservice)
+        campi = ['kid', 'alg', 'typ', 'iss', 'sub', 'aud', 'purposeid', 'audience', 'baseurlauth', 'target', 'clientid', 'private_key', 'ver_eservice']
+        dati_post = {campo: request.POST.get(campo) for campo in campi}
+        dati = modello(id=1, **dati_post)
         dati.save()
-        salva_log(request.user,"Impostazioni INPS - DURC", "modifica parametri")
-    else:
-        parametri_inps_durc = InpsDurcParametri.objects.all()
+        salva_log(request.user, f"Impostazioni INPS - {nome_servizio}", "modifica parametri")
 
+
+def impostazioni_inps_durc(request):
+    _salva_impostazioni_inps(request, InpsDurcParametri, "DURC")
+    parametri_inps_durc = InpsDurcParametri.objects.all()
     return render(request, 'impostazioni_inps_durc.html', {'parametri_inps_durc': parametri_inps_durc})
 
 
 def impostazioni_inps_isee(request):
+    _salva_impostazioni_inps(request, InpsIseeParametri, "ISEE")
     parametri_inps_isee = InpsIseeParametri.objects.all()
-    if request.method == 'POST':
-        kid = request.POST.get('kid')
-        alg = request.POST.get('alg')
-        typ = request.POST.get('typ')
-        iss = request.POST.get('iss')
-        sub = request.POST.get('sub')
-        aud = request.POST.get('aud')
-        purposeid = request.POST.get('purposeid')
-        audience = request.POST.get('audience')
-        baseurlauth = request.POST.get('baseurlauth')
-        target = request.POST.get('target')
-        clientid = request.POST.get('clientid')
-        private_key = request.POST.get('private_key')
-        ver_eservice = request.POST.get('ver_eservice')
-
-        dati = InpsIseeParametri(1, kid, alg, typ, iss, sub, aud, purposeid, audience, baseurlauth, target, clientid, private_key, ver_eservice)
-        dati.save()
-        salva_log(request.user,"Impostazioni INPS - ISEE", "modifica parametri")
-    else:
-        parametri_inps_isee = InpsIseeParametri.objects.all()
-
     return render(request, 'impostazioni_inps_isee.html', {'parametri_inps_isee': parametri_inps_isee})
 
 
@@ -350,7 +402,4 @@ def inps_durc_download(request, protocollo):
                 return HttpResponse(f"Eccezione durante il download: {str(e)}", status=500)
     
     return HttpResponse("Non autorizzato", status=403)
-
-
-
 
