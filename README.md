@@ -79,7 +79,6 @@ Modulo completo per la gestione delle notifiche verso l'App dei servizi pubblici
 * **Invio Messaggi:** Invio messaggi personalizzati attingendo dal catalogo servizi pagoPA (inclusi eventuali estremi di pagamento).
 * **Invio Massivo:** Caricamento file XLSX/CSV per invii multipli con informazioni personalizzate per ogni cittadino.
 * **Invio Massivo tramite "Composer":** Caricamento file XLSX/CSV per invii multipli con la possibilità di comporre il messaggio attraverso la funzione "Campi unione".
-* **Tracking:** Restituzione ID messaggio per prova accettazione e verifica successiva della messa a disposizione al cittadino.
 
 ---
 
@@ -255,13 +254,6 @@ chmod +x update/update_to_1.3.sh
 *   **Migrazioni Django**: Gli script eseguono automaticamente `makemigrations` e `migrate` al termine della procedura.
 *   **Sincronizzazione Parametri**: Alcuni script sincronizzano parametri applicativi e variabili `.env` se previsti per quella versione.
 
-### Nota per la versione 1.3.0
-Lo script `update/update_to_1.3.sh` aggiorna principalmente i parametri PDND e i target dei servizi nel database, inclusi:
-*   **INPS - ISEE**: allineamento al servizio `ConsultazioneAttestazioneResidenti` v2.
-*   **INPS - DURC**: aggiornamento del target REST del servizio.
-*   **MIT**: riallineamento dei target dei servizi CUDE.
-
-La configurazione base documentata in `.env_example` resta valida anche per la versione 1.3.0.
 
 ## 📄 Licenze di Terze Parti
 
@@ -314,3 +306,4 @@ Sviluppato da **OpenCED di Santalucia Luca** - [openced.it](https://openced.it).
 [![Downloads](https://img.shields.io/github/downloads/lsantalu/OpenMSP/total.svg)](https://github.com/lsantalu/OpenMSP/releases)
 
 [![Star History Chart](https://api.star-history.com/svg?repos=lsantalu/OpenMSP&type=Date)](https://star-history.com/#lsantalu/OpenMSP&Date)
+
