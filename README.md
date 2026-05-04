@@ -13,6 +13,7 @@ inviare messaggi tramite la App IO<br>
 
 ![Python](https://img.shields.io/badge/Python-3.13%2B-blue)
 ![Django](https://img.shields.io/badge/Django-5.2%2B-green)
+![Version](https://img.shields.io/badge/Version-1.3.0-brightgreen)
 ![License](https://img.shields.io/badge/License-BSD_3--Clause-blue)
 ![Author](https://img.shields.io/badge/Author-OpenCED_di_Santalucia_Luca-orange)
 
@@ -58,9 +59,12 @@ Restituzione di tutti i dati indicanti la formazione dalla scuola primaria all'u
 * **ANIS (Istruzione Superiore ed universitaria):** Consultazione iscrizioni e titoli conseguiti presso Istituti di Formazione Superiore ed Universitari (modalità singola o massiva).
 * **ANIST (Istruzione di primo e secondo grado):** Consultazione frequenza e titoli conseguiti presso Istituti di primo e secondo grado (modalità singola o massiva).
 
-### 5. PROSSIME IMPLEMENTAZIONI
-* **INPS - ISEE:** Richiesta attestazione per varie tipologie (standard, università, socio-sanitario, minorenni, ecc.).
-* **INPS - DURC:** Consultazione in corso di validità con possibilità di acquisizione del file PDF.
+### 5. INPS
+Nuove integrazioni disponibili dalla versione 1.3.0:
+* **INPS - ISEE:** Richiesta attestazione ISEE per residenti.
+* **INPS - DURC:** Consultazione DURC in corso di validità in modalità singola e massiva, con possibilità di acquisizione del file PDF.
+
+### 6. PROSSIME IMPLEMENTAZIONI
 * **MIT (Trasporti):** Consultazione patenti possedute e verifica contrassegni disabili/targhe (Piattaforma Unica Nazionale Informatica dei Contrassegni Unici).
 * **CNF (Forense):** Verifica iscrizione di un soggetto all'albo degli avvocati.
 
@@ -174,7 +178,7 @@ CONTAINER_NAME=openmsp_2 HOST_PORT=8002 SQLITE_VOLUME_NAME=openmsp_2_sqlite_data
 docker compose -p openmsp2 -f docker/docker-compose.yml up -d --build
 ```
 
-## ⚙️ Configurazione `.env` (v1.1)
+## ⚙️ Configurazione `.env` (v1.3.0)
 
 Crea o aggiorna il file `.env` nella root del progetto con i parametri seguenti:
 
@@ -220,35 +224,44 @@ Nota: usa **una sola** coppia `AUTH_LDAP_USER_SEARCH_FILTER` e `AUTH_LDAP_USER_A
 
 ## 🔁 Script di aggiornamento (Step-by-Step)
 
-Per aggiornare la struttura del database e il file `.env` tra le diverse versioni, utilizza gli script presenti nella directory `update/`. Gli script sono progettati per essere eseguiti in modo incrementale.
+Per aggiornare la struttura del database e, quando previsto, il file `.env` tra le diverse versioni, utilizza gli script presenti nella directory `update/`. Gli script sono progettati per essere eseguiti in modo incrementale.
 
 ### Logica di Aggiornamento Incrementale
-Se desideri aggiornare alla versione più recente (es. 1.2), puoi eseguire direttamente l'ultimo script disponibile. Se il database è fermo a più versioni precedenti, lo script rileverà automaticamente la situazione e invocherà i passaggi intermedi necessari.
+Se desideri aggiornare alla versione più recente (es. 1.3), puoi eseguire direttamente l'ultimo script disponibile. Se il database è fermo a più versioni precedenti, lo script rileverà automaticamente la situazione e invocherà i passaggi intermedi necessari.
 
-Esempio: eseguendo `update_to_1.2.sh` su un database 1.0.0, verrà automaticamente chiamato prima `update_to_1.1.sh`.
+Esempio: eseguendo `update_to_1.3.sh` su un database 1.1.0, verrà automaticamente chiamato prima `update_to_1.2.sh`.
 
 ### Script Disponibili
 *   `update/update_to_1.1.sh`: Aggiornamento alla versione 1.1.0.
 *   `update/update_to_1.2.sh`: Aggiornamento alla versione 1.2.0 (include logica incrementale).
+*   `update/update_to_1.3.sh`: Aggiornamento alla versione 1.3.0 (include logica incrementale).
 
-### Uso (Esempio per v1.2)
+### Uso (Esempio per v1.3)
 
 Uso (non interattivo):
 ```bash
-./update/update_to_1.2.sh [path/to/db.sqlite3] [path/to/.env]
+./update/update_to_1.3.sh [path/to/db.sqlite3] [path/to/.env]
 ```
 
 Uso (interattivo):
 ```bash
-chmod +x update/update_to_1.2.sh
-./update/update_to_1.2.sh
+chmod +x update/update_to_1.3.sh
+./update/update_to_1.3.sh
 ```
 
 ### Funzionalità degli Script
 *   **Verifica Versione**: Ogni script verifica la versione attuale del DB prima di procedere.
-*   **Backup Automatico**: Viene creato un backup `.bak` del database e del file `.env` prima di ogni modifica.
+*   **Backup Automatico**: Viene creato un backup `.bak` del database prima di ogni modifica; il backup del file `.env` dipende dallo script eseguito e dalle sincronizzazioni previste per quella versione.
 *   **Migrazioni Django**: Gli script eseguono automaticamente `makemigrations` e `migrate` al termine della procedura.
-*   **Sincronizzazione Parametri**: Sincronizza i parametri applicativi e le variabili `.env` se vengono forniti file di riferimento corretti.
+*   **Sincronizzazione Parametri**: Alcuni script sincronizzano parametri applicativi e variabili `.env` se previsti per quella versione.
+
+### Nota per la versione 1.3.0
+Lo script `update/update_to_1.3.sh` aggiorna principalmente i parametri PDND e i target dei servizi nel database, inclusi:
+*   **INPS - ISEE**: allineamento al servizio `ConsultazioneAttestazioneResidenti` v2.
+*   **INPS - DURC**: aggiornamento del target REST del servizio.
+*   **MIT**: riallineamento dei target dei servizi CUDE.
+
+La configurazione base documentata in `.env_example` resta valida anche per la versione 1.3.0.
 
 ## 📄 Licenze di Terze Parti
 

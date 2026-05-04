@@ -41,6 +41,15 @@ INPS attestazione ISEE - OpenMSP - Multi Services Portal
 {% if data %}
 <div class="col-12 mt-4">
   {% if data.1 %}
+  {% if data.1.Esito == 'DATI_NON_TROVATI' %}
+  <div class="alert alert-warning shadow-sm border-warning" role="alert">
+    <div class="d-flex align-items-center">
+      <svg class="icon icon-sm icon-warning me-2"><use href="{% static 'svg/sprites.svg' %}#it-warning-circle"></use></svg>
+      <strong>Attenzione:</strong>&nbsp;
+      Nessuna attestazione trovata per il C.F. {{ data.0 }}
+    </div>
+  </div>
+  {% else %}
   <div class="card card-bg shadow-sm border-light">
     <div class="card-body p-4">
       <div class="row">
@@ -48,17 +57,43 @@ INPS attestazione ISEE - OpenMSP - Multi Services Portal
         <div class="col-md-7 border-end-md">
           <div class="d-flex align-items-center mb-4">
             <div class="me-3">
-              <div class="bg-success-light p-3 rounded-circle">
-                <svg class="icon icon-xl icon-success"><use href="{% static 'svg/sprites.svg' %}#it-check"></use></svg>
+              <div class="{% if data.1.Esito == 'OK' %}bg-success-light{% elif data.1.Esito == 'DATI_NON_TROVATI' %}bg-warning{% else %}bg-danger{% endif %} p-3 rounded-circle">
+                <svg class="icon icon-xl {% if data.1.Esito == 'OK' %}icon-success{% elif data.1.Esito == 'DATI_NON_TROVATI' %}icon-warning{% else %}icon-white{% endif %}"><use href="{% static 'svg/sprites.svg' %}#{% if data.1.Esito == 'OK' %}it-check{% elif data.1.Esito == 'DATI_NON_TROVATI' %}it-warning-circle{% else %}it-close-circle{% endif %}"></use></svg>
               </div>
             </div>
             <div>
-              <h3 class="card-title h4 mb-0">Dati Attestazione ISEE</h3>
-              <p class="card-text text-success fw-bold">
+              <h3 class="card-title h4 mb-0">
+                {% if data.1.Esito == 'OK' %}
+                Dati Attestazione ISEE
+                {% elif data.1.Esito == 'DATI_NON_TROVATI' %}
+                Nessuna Attestazione Trovata
+                {% else %}
+                Esito Interrogazione ISEE
+                {% endif %}
+              </h3>
+              <p class="card-text {% if data.1.Esito == 'OK' %}text-success{% elif data.1.Esito == 'DATI_NON_TROVATI' %}text-warning{% else %}text-danger{% endif %} fw-bold">
+                {% if data.1.Esito == 'OK' %}
                 Riscontro Trovato
+                {% elif data.1.Esito == 'DATI_NON_TROVATI' %}
+                Nessun dato disponibile per il CF indicato
+                {% else %}
+                Errore o risposta incompleta del servizio
+                {% endif %}
               </p>
             </div>
           </div>
+
+          {% if data.1.DescrizioneErrore %}
+          <div class="alert alert-warning shadow-sm border-warning mb-4" role="alert">
+            <div class="small text-uppercase fw-bold mb-1">Dettaglio INPS</div>
+            <div>{{ data.1.DescrizioneErrore }}</div>
+          </div>
+          {% elif data.1.error %}
+          <div class="alert alert-danger shadow-sm border-danger mb-4" role="alert">
+            <div class="small text-uppercase fw-bold mb-1">Dettaglio Tecnico</div>
+            <div>{{ data.1.error }}</div>
+          </div>
+          {% endif %}
 
           <div class="row">
             <div class="col-sm-6 mb-3">
@@ -66,17 +101,36 @@ INPS attestazione ISEE - OpenMSP - Multi Services Portal
               <span class="h6">{{ data.0 }}</span>
             </div>
             <div class="col-sm-6 mb-3">
+              <label class="text-uppercase small fw-bold text-secondary d-block">Esito</label>
+              <span class="h6">{{ data.1.Esito|default:"N/D" }}</span>
+            </div>
+            <div class="col-sm-6 mb-3">
               <label class="text-uppercase small fw-bold text-secondary d-block">Protocollo DSU</label>
+              <code class="h6 text-primary mb-0">{{ data.1.NumeroProtocolloDSU|default:"N/D" }}</code>
+            </div>
+            <div class="col-sm-6 mb-3">
+              <label class="text-uppercase small fw-bold text-secondary d-block">Protocollo Mittente</label>
               <code class="h6 text-primary mb-0">{{ data.1.ProtocolloMittente|default:"N/D" }}</code>
             </div>
-            
             <div class="col-sm-6 mb-3">
-              <label class="text-uppercase small fw-bold text-secondary d-block">Data Sottoscrizione</label>
+              <label class="text-uppercase small fw-bold text-secondary d-block">Codice Fiscale Dichiarante</label>
+              <span class="h6">{{ data.1.CodiceFiscaleDichiarante|default:"N/D" }}</span>
+            </div>
+            <div class="col-sm-6 mb-3">
+              <label class="text-uppercase small fw-bold text-secondary d-block">Data Presentazione</label>
               <span class="h6">{{ data.1.DataSottoscrizione|default:"N/D" }}</span>
             </div>
             <div class="col-sm-6 mb-3">
-              <label class="text-uppercase small fw-bold text-secondary d-block">Scadenza</label>
+              <label class="text-uppercase small fw-bold text-secondary d-block">Data Validita Attestazione</label>
+              <span class="h6">{{ data.1.DataValiditaAttestazione|default:"N/D" }}</span>
+            </div>
+            <div class="col-sm-6 mb-3">
+              <label class="text-uppercase small fw-bold text-secondary d-block">Scadenza DSU Corrente</label>
               <span class="h6 text-danger fw-bold">{{ data.1.DataScadenza|default:"N/D" }}</span>
+            </div>
+            <div class="col-sm-6 mb-3">
+              <label class="text-uppercase small fw-bold text-secondary d-block">Data Validita Richiesta</label>
+              <span class="h6">{{ data.1.DataValiditaRichiesta|default:"N/D" }}</span>
             </div>
           </div>
         </div>
@@ -87,21 +141,138 @@ INPS attestazione ISEE - OpenMSP - Multi Services Portal
           
           <div class="mb-3">
             <label class="text-uppercase small fw-bold text-secondary d-block">Valore ISEE</label>
-            <span class="h4 text-primary">€ {{ data.1.ValoreISEE|default:"--" }}</span>
+            <span class="h4 text-primary">{{ data.1.ValoreISEE|default:"--" }}</span>
+          </div>
+
+          <div class="mb-3">
+            <label class="text-uppercase small fw-bold text-secondary d-block">ISE</label>
+            <span class="h6">{{ data.1.ValoreISE|default:"--" }}</span>
+          </div>
+
+          <div class="mb-3">
+            <label class="text-uppercase small fw-bold text-secondary d-block">ISR</label>
+            <span class="h6">{{ data.1.ValoreISR|default:"--" }}</span>
+          </div>
+
+          <div class="mb-3">
+            <label class="text-uppercase small fw-bold text-secondary d-block">ISP</label>
+            <span class="h6">{{ data.1.ValoreISP|default:"--" }}</span>
+          </div>
+
+          <div class="mb-3">
+            <label class="text-uppercase small fw-bold text-secondary d-block">Scala Equivalenza</label>
+            <span class="h6">{{ data.1.ScalaEquivalenza|default:"--" }}</span>
           </div>
 
           <div class="mb-3">
             <label class="text-uppercase small fw-bold text-secondary d-block">Tipo ISEE</label>
-            <span class="badge bg-primary">{{ data.1.TipoISEE|default:"Ordinario" }}</span>
+            <span class="badge bg-primary">{{ data.1.TipoISEE|default:"N/D" }}</span>
           </div>
 
-          <div class="mt-4">
-            <small class="text-muted italic">I dati sono estratti in tempo reale dalle banche dati INPS tramite gateway PDND.</small>
+          <div class="mb-3">
+            <label class="text-uppercase small fw-bold text-secondary d-block">Data Rilascio Indicatore</label>
+            <span class="h6">{{ data.1.DataRilascioIndicatore|default:"N/D" }}</span>
           </div>
+
+          {% if data.1.warning %}
+          <div class="alert alert-warning shadow-sm border-warning py-2 px-3 mt-3 mb-0" role="alert">
+            <small>{{ data.1.warning }}</small>
+          </div>
+          {% endif %}
+
         </div>
       </div>
     </div>
   </div>
+
+  {% if data.1.ComponentiNucleo %}
+  <div class="card card-bg shadow-sm border-light mt-4">
+    <div class="card-body p-4">
+      <h4 class="h5 mb-3">Nucleo familiare</h4>
+      <div class="table-responsive">
+        <table class="table table-striped table-hover">
+          <thead>
+            <tr>
+              <th>Rapporto</th>
+              <th>Cognome</th>
+              <th>Nome</th>
+              <th>Codice fiscale</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for componente in data.1.ComponentiNucleo %}
+            <tr>
+              <td>{{ componente.RapportoConDichiarante|default:"N/D" }}</td>
+              <td>{{ componente.Cognome|default:"N/D" }}</td>
+              <td>{{ componente.Nome|default:"N/D" }}</td>
+              <td><code>{{ componente.CodiceFiscale|default:"N/D" }}</code></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if data.1.ModalitaCalcolo %}
+  <div class="card card-bg shadow-sm border-light mt-4">
+    <div class="card-body p-4">
+      <h4 class="h5 mb-3">Modalita di calcolo</h4>
+      <div class="row">
+        {% for item in data.1.ModalitaCalcolo %}
+        <div class="col-md-6 mb-3">
+          <label class="text-uppercase small fw-bold text-secondary d-block">{{ item.label }}</label>
+          <span class="h6">{{ item.value|default:"N/D" }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if data.1.RicercaSezioni or data.1.AttestazioneSezioni %}
+  <div class="card card-bg shadow-sm border-light mt-4">
+    <div class="card-body p-4">
+      <h4 class="h5 mb-3">Dettaglio completo risposta</h4>
+
+      {% if data.1.RicercaSezioni %}
+      <h5 class="h6 text-uppercase fw-bold text-secondary mb-3">Dati ricerca</h5>
+      {% for sezione in data.1.RicercaSezioni %}
+      <div class="border rounded p-3 mb-3">
+        <div class="small text-uppercase fw-bold text-secondary mb-2">{{ sezione.title }}</div>
+        <div class="row">
+          {% for field in sezione.fields %}
+          <div class="col-md-6 mb-2">
+            <label class="text-uppercase small fw-bold text-secondary d-block">{{ field.label }}</label>
+            <span class="h6">{{ field.value|default:"N/D" }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      {% endif %}
+
+      {% if data.1.AttestazioneSezioni %}
+      <h5 class="h6 text-uppercase fw-bold text-secondary mb-3 mt-4">Dati attestazione</h5>
+      {% for sezione in data.1.AttestazioneSezioni %}
+      <div class="border rounded p-3 mb-3">
+        <div class="small text-uppercase fw-bold text-secondary mb-2">{{ sezione.title }}</div>
+        <div class="row">
+          {% for field in sezione.fields %}
+          <div class="col-md-6 mb-2">
+            <label class="text-uppercase small fw-bold text-secondary d-block">{{ field.label }}</label>
+            <span class="h6">{{ field.value|default:"N/D" }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
   {% else %}
   <div class="alert alert-warning shadow-sm border-warning" role="alert">
     <div class="d-flex align-items-center">
@@ -175,4 +346,3 @@ INPS attestazione ISEE - OpenMSP - Multi Services Portal
   })
 </script>
 {% endblock %}
-
