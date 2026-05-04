@@ -24,6 +24,150 @@ import io
 import csv
 import sys
 import openpyxl
+from decimal import Decimal, InvalidOperation
+
+
+def _get_node_by_suffix(data, suffix):
+    if not isinstance(data, dict):
+        return {}
+
+    for key, value in data.items():
+        if key == suffix or key.endswith(f":{suffix}"):
+            return value
+    return {}
+
+
+def _ensure_list(value):
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def _humanize_key(key):
+    key = key.lstrip('@').replace('_', ' ')
+    output = []
+    for index, char in enumerate(key):
+        if index > 0 and char.isupper() and key[index - 1].islower():
+            output.append(' ')
+        output.append(char)
+    return ''.join(output).strip()
+
+
+def _format_euro(value):
+    if value in (None, ""):
+        return value
+
+    try:
+        amount = Decimal(str(value).replace(",", "."))
+    except (InvalidOperation, ValueError):
+        return value
+
+    formatted = f"{amount:,.2f}"
+    formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"€ {formatted}"
+
+
+def _format_date(value):
+    if value in (None, ""):
+        return value
+
+    text = str(value).strip()
+    for date_format in ("%Y-%m-%d", "%d-%m-%Y"):
+        try:
+            parsed = datetime.datetime.strptime(text, date_format)
+            return parsed.strftime("%d/%m/%Y")
+        except ValueError:
+            continue
+    return value
+
+
+def _is_euro_field(label):
+    normalized = label.lower().replace(" ", "")
+    euro_tokens = (
+        "isee",
+        "ise",
+        "isr",
+        "isp",
+        "reddito",
+        "patrimonio",
+        "detrazione",
+        "somma",
+        "valore",
+        "saldo",
+        "consistenzamedia",
+    )
+    return any(token in normalized for token in euro_tokens)
+
+
+def _is_date_field(label):
+    normalized = label.lower().replace(" ", "")
+    date_tokens = (
+        "data",
+        "rilascio",
+        "presentazione",
+        "scadenza",
+        "validita",
+        "inizio",
+        "fine",
+        "controllo",
+    )
+    return any(token in normalized for token in date_tokens)
+
+
+def _format_section_currency_fields(sections):
+    for section in sections:
+        for field in section.get("fields", []):
+            if _is_euro_field(field.get("label", "")):
+                field["value"] = _format_euro(field.get("value"))
+            elif _is_date_field(field.get("label", "")):
+                field["value"] = _format_date(field.get("value"))
+
+
+def _collect_display_sections(node, title, sections):
+    if isinstance(node, dict):
+        fields = []
+        child_nodes = []
+
+        for key, value in node.items():
+            if key.startswith('@'):
+                fields.append({"label": _humanize_key(key), "value": value})
+            elif isinstance(value, (dict, list)):
+                child_nodes.append((key, value))
+            else:
+                fields.append({"label": _humanize_key(key), "value": value})
+
+        if fields:
+            sections.append({"title": title, "fields": fields})
+
+        for key, value in child_nodes:
+            child_title = _humanize_key(key)
+            if isinstance(value, list):
+                for index, item in enumerate(value, start=1):
+                    _collect_display_sections(item, f"{child_title} {index}", sections)
+            else:
+                _collect_display_sections(value, child_title, sections)
+
+    elif isinstance(node, list):
+        for index, item in enumerate(node, start=1):
+            _collect_display_sections(item, f"{title} {index}", sections)
+    elif node not in (None, ""):
+        sections.append({"title": title, "fields": [{"label": title, "value": node}]})
+
+
+def _extract_first_indicator(ordinario):
+    indicator_map = [
+        ("ISEEOrdinario", "Ordinario"),
+        ("ISEEFamiglia", "Famiglia"),
+    ]
+
+    for key, label in indicator_map:
+        section = ordinario.get(key, {})
+        if isinstance(section, dict) and section.get('Valori'):
+            return label, section
+
+    return None, {}
 
 def _get_inps_token(parametri):
     issued = datetime.datetime.utcnow()
@@ -112,6 +256,7 @@ def RichiestaIsee(cf, bearer):
     parametri_inps_isee = InpsIseeParametri.objects.get(id=1)
     url = parametri_inps_isee.target
     dati_ente = DatiEnte.objects.first()
+    data_validita = datetime.date.today().isoformat()
 
     # SOAP Action dalla specifica WSDL
     soap_action = "http://inps.it/ConsultazioneISEE/ISvcConsultazione/ConsultazioneAttestazioneResidenti"
@@ -137,6 +282,7 @@ def RichiestaIsee(cf, bearer):
          <con:request>
             <con:RicercaCF>
                <con:CodiceFiscale>{cf}</con:CodiceFiscale>
+               <con:DataValidita>{data_validita}</con:DataValidita>
                <con:PrestazioneDaErogare>A1.01</con:PrestazioneDaErogare>
                <con:ProtocolloDomandaEnteErogatore>OpenMSP-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}</con:ProtocolloDomandaEnteErogatore>
                <con:StatodomandaPrestazione>Da Erogare</con:StatodomandaPrestazione>
@@ -156,17 +302,18 @@ def RichiestaIsee(cf, bearer):
                 # Parsing della risposta XML
                 dict_data = xmltodict.parse(response.content)
                 # Estrazione del risultato dal body SOAP
-                envelope = dict_data.get('s:Envelope', {}) or dict_data.get('soapenv:Envelope', {}) or dict_data.get('SOAP-ENV:Envelope', {})
-                body = envelope.get('s:Body', {}) or envelope.get('soapenv:Body', {}) or envelope.get('SOAP-ENV:Body', {})
-                response_node = body.get('ConsultazioneAttestazioneResidentiResponse', {})
-                result = response_node.get('ConsultazioneAttestazioneResidentiResult', {})
-                
-                # Se il risultato è vuoto, proviamo con altri prefissi possibili
+                envelope = _get_node_by_suffix(dict_data, 'Envelope')
+                body = _get_node_by_suffix(envelope, 'Body')
+                response_node = _get_node_by_suffix(body, 'ConsultazioneAttestazioneResidentiResponse')
+                result = _get_node_by_suffix(response_node, 'ConsultazioneAttestazioneResidentiResult')
+
                 if not result:
-                   for key in response_node.keys():
-                       if key.endswith('ConsultazioneAttestazioneResidentiResult'):
-                           result = response_node[key]
-                           break
+                    return {
+                        "error": "Risposta SOAP priva del nodo ConsultazioneAttestazioneResidentiResult",
+                        "raw_response": response.text[:1000],
+                    }, status_code, purposeid
+
+                result['DataValiditaRichiesta'] = _format_date(data_validita)
 
                 # Decodifica dell'XML base64 se presente (contiene i dati reali dell'attestazione)
                 xml_base64 = result.get('XmlEsitoAttestazione')
@@ -174,24 +321,75 @@ def RichiestaIsee(cf, bearer):
                     try:
                         decoded_xml = base64.b64decode(xml_base64).decode('utf-8')
                         attestazione_dict = xmltodict.parse(decoded_xml)
-                        
-                        # Estrazione dei dati per il template
-                        # L'XML decodificato ha come root <Attestazione>
-                        att = attestazione_dict.get('Attestazione', {})
-                        
-                        # Mappatura campi per il template
+
+                        esito_attestazione = attestazione_dict.get('EsitoAttestazione', {})
+                        att = attestazione_dict.get('Attestazione', {}) or esito_attestazione.get('Attestazione', {})
+                        ricerca = esito_attestazione.get('Ricerca', {})
+
+                        result['AttestazioneXml'] = decoded_xml
+                        result['AttestazioneRaw'] = att
+                        result['RicercaRaw'] = ricerca
+
+                        # Mappatura campi generali dell'attestazione
+                        result['CodiceFiscaleDichiarante'] = att.get('@CodiceFiscaleDichiarante')
+                        result['NumeroProtocolloDSU'] = att.get('@NumeroProtocolloDSU')
                         result['ProtocolloMittente'] = att.get('@ProtocolloMittente')
-                        result['DataSottoscrizione'] = att.get('@DataPresentazione')
-                        result['DataScadenza'] = att.get('@DataScadenzaDSUCorrente')
-                        
-                        # Ricerca del valore ISEE (può essere in Ordinario, Ridotto, etc.)
+                        result['DataSottoscrizione'] = _format_date(att.get('@DataPresentazione'))
+                        result['DataPresentazione'] = _format_date(att.get('@DataPresentazione'))
+                        result['DataValiditaAttestazione'] = _format_date(att.get('@DataValidita'))
+                        result['DataScadenza'] = _format_date(att.get('@DataScadenzaDSUCorrente'))
+
                         ordinario = att.get('Ordinario', {})
-                        isee_ord = ordinario.get('ISEEOrdinario', {})
-                        valori = isee_ord.get('Valori', {})
-                        result['ValoreISEE'] = valori.get('@ISEE')
+                        tipo_isee, indicator_section = _extract_first_indicator(ordinario)
+                        indicator_values = indicator_section.get('Valori', {}) if isinstance(indicator_section, dict) else {}
+                        modalita_key = next(
+                            (key for key in indicator_section.keys() if key.startswith('ModalitaCalcolo')),
+                            None
+                        ) if isinstance(indicator_section, dict) else None
+                        modalita_values = indicator_section.get(modalita_key, {}) if modalita_key else {}
+
+                        result['TipoISEE'] = tipo_isee
+                        result['ValoreISEE'] = _format_euro(indicator_values.get('@ISEE'))
+                        result['ValoreISE'] = _format_euro(indicator_values.get('@ISE'))
+                        result['ValoreISR'] = _format_euro(indicator_values.get('@ISR'))
+                        result['ValoreISP'] = _format_euro(indicator_values.get('@ISP'))
+                        result['ScalaEquivalenza'] = indicator_values.get('@ScalaEquivalenza')
+                        result['DataRilascioIndicatore'] = _format_date(indicator_section.get('@DataRilascio')) if isinstance(indicator_section, dict) else None
+                        result['ModalitaCalcolo'] = [
+                            {
+                                "label": _humanize_key(key),
+                                "value": _format_euro(value) if _is_euro_field(_humanize_key(key)) else value,
+                            }
+                            for key, value in modalita_values.items()
+                            if key.startswith('@')
+                        ]
+
+                        componenti_nucleo = []
+                        for componente in _ensure_list(ordinario.get('NucleoFamiliare', {}).get('ComponenteNucleo')):
+                            if isinstance(componente, dict):
+                                componenti_nucleo.append({
+                                    "RapportoConDichiarante": componente.get('@RapportoConDichiarante'),
+                                    "Cognome": componente.get('@Cognome'),
+                                    "Nome": componente.get('@Nome'),
+                                    "CodiceFiscale": componente.get('@CodiceFiscale'),
+                                })
+                        result['ComponentiNucleo'] = componenti_nucleo
+
+                        attestazione_sezioni = []
+                        ricerca_sezioni = []
+                        _collect_display_sections(att, "Attestazione", attestazione_sezioni)
+                        _collect_display_sections(ricerca, "Ricerca", ricerca_sezioni)
+                        _format_section_currency_fields(attestazione_sezioni)
+                        _format_section_currency_fields(ricerca_sezioni)
+                        result['AttestazioneSezioni'] = attestazione_sezioni
+                        result['RicercaSezioni'] = ricerca_sezioni
+                        result['AttestazioneJson'] = json.dumps(att, indent=2, ensure_ascii=False)
+                        result['RicercaJson'] = json.dumps(ricerca, indent=2, ensure_ascii=False) if ricerca else ""
                         
                     except Exception as e:
                         result['error_parsing_attestazione'] = str(e)
+                else:
+                    result['warning'] = "XmlEsitoAttestazione assente nella risposta"
 
                 return result, status_code, purposeid
             except Exception as e:
@@ -402,4 +600,3 @@ def inps_durc_download(request, protocollo):
                 return HttpResponse(f"Eccezione durante il download: {str(e)}", status=500)
     
     return HttpResponse("Non autorizzato", status=403)
-
