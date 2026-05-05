@@ -106,8 +106,8 @@ ANIS Iscrizioni Universitarie Multipla - OpenMSP - Multi Services Portal
       {% with parts=studente.split %}
       <h5 class="it-card-title it-card-title-icon">Iscrizioni di {{ parts.0 }}</h5>
       {% endwith %}
-      {% elif studente.enrollments|length == 0 %}
-      <h5 class="it-card-title it-card-title-icon">Iscrizioni di {{ studente.personal_data.tax_code }}</h5>
+      {% elif studente.esito %}
+      <h5 class="it-card-title it-card-title-icon">Iscrizioni</h5>
       {% else %}
       <h5 class="it-card-title it-card-title-icon">Iscrizioni di {{ studente.personal_data.tax_code }}</h5>
       {% endif %}
@@ -126,6 +126,10 @@ ANIS Iscrizioni Universitarie Multipla - OpenMSP - Multi Services Portal
             <b>{{ parts.1 }} {{ parts.2 }} {{ parts.3 }} {{ parts.4 }} {{ parts.5 }} {{ parts.6 }} {{ parts.7 }}</b>
           </p>
           {% endwith %}
+          {% elif studente.esito %}
+          <p class="it-card-text">
+            <b>{{ studente.esito.descrizione }}</b>
+          </p>
           {% elif studente.enrollments|length == 0 %}
           <p class="it-card-text">
             <b>La richiesta effettuata non produce alcun risultato</b>

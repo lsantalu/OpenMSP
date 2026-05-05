@@ -887,6 +887,18 @@ def anis_verifica_utente(user_ID, cf, id_caso):
         response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
         status_code = response.status_code
         if response.status_code != 200:
+            if response.status_code == 500 and id_caso == 3:
+                return {"frequentante": False}, status_code, purposeid, token_id
+            try:
+                payload = response.json()
+                if isinstance(payload, dict) and (
+                    "personal_data" in payload
+                    or "enrollments" in payload
+                    or "qualifications" in payload
+                ):
+                    return payload, status_code, purposeid, token_id
+            except ValueError:
+                pass
             return {
                 "esito": {
                     "codice": str(response.status_code),
@@ -895,6 +907,8 @@ def anis_verifica_utente(user_ID, cf, id_caso):
             }, status_code, purposeid, token_id
         return response.json(), status_code, purposeid, token_id
     except json.JSONDecodeError:
+        if id_caso == 3:
+            return {"frequentante": False}, 500, purposeid, token_id
         return {
             "esito": {
                 "codice": "JSON_ERR",
@@ -902,6 +916,8 @@ def anis_verifica_utente(user_ID, cf, id_caso):
             }
         }, 500, purposeid, token_id
     except Exception as e:
+        if id_caso == 3:
+            return {"frequentante": False}, 500, purposeid, token_id
         return {
             "esito": {
                 "codice": "network_error",
@@ -942,4 +958,3 @@ def impostazioni_anis(request):
         salva_log(request.user,"Impostazioni ANIS", "modifica parametri")
 
     return render(request, 'impostazioni_anis.html', { 'servizi_anis': servizi_anis, 'parametri_anis': parametri_anis })
-
