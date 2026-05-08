@@ -1,5 +1,4 @@
 from django.apps import AppConfig
-from .scheduler import start
 
 
 class ImpostazioniConfig(AppConfig):
@@ -7,4 +6,5 @@ class ImpostazioniConfig(AppConfig):
     name = 'impostazioni'
 
     def ready(self):
+        from .scheduler import start
         start()

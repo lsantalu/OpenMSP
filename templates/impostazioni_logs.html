@@ -61,6 +61,7 @@ Logs - OpenMSP - Multi Services Portal
         <th scope="col">Utente</th>
         <th scope="col">Servizio</th>
         <th scope="col">Richiesta / Azione</th>
+        <th scope="col">Status Response</th>
         <th scope="col">Data e Ora</th>
       </tr>
     </thead>
@@ -71,11 +72,12 @@ Logs - OpenMSP - Multi Services Portal
         <td>{{ log.utente_id.username }}</td>
         <td>{{ log.servizio }}</td>
         <td>{{ log.richiesta }}</td>
+        <td class="text-center">{{ log.resp_status }}</td>
         <td class="text-center">{{ log.timestamp|date:"d/m/Y H:i:s" }}</td>
       </tr>
       {% empty %}
       <tr>
-        <td colspan="5" class="text-center">Nessun log trovato.</td>
+        <td colspan="6" class="text-center">Nessun log trovato.</td>
       </tr>
       {% endfor %}
     </tbody>

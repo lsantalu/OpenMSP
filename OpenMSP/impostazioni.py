@@ -511,7 +511,7 @@ def impostazioni_logs(request):
     logs_full = logs_list
 
     # Paginazione
-    paginator = Paginator(logs_list, 20)  # Mostra 20 log per pagina
+    paginator = Paginator(logs_list, 50)  # Mostra 50 log per pagina
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
