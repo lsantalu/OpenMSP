@@ -35,7 +35,7 @@ def app_io_storico_pagina_export_excel(request):
     messaggi = request.session.get("multi_messaggi", [])  # Oppure recuperalo come preferisci
     page_number = request.GET.get('page', 1)
 
-    elementi_per_pagina = 20
+    elementi_per_pagina = 50
 
     paginator = Paginator(messaggi, elementi_per_pagina)
     try:
@@ -1292,7 +1292,7 @@ def app_io_storico_messaggi(request):
     elif data_a:
         messaggi = messaggi.filter(timestamp__lte=data_a)  # Minore o uguale a data_a
 
-    paginator = Paginator(messaggi, 20)
+    paginator = Paginator(messaggi, 50)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
 

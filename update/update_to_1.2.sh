@@ -221,10 +221,12 @@ UPDATE servizi_parametri SET url='impostazioni_anpr/#tab6' WHERE codice_servizio
 UPDATE servizi_parametri SET url='impostazioni_anpr/#tab7' WHERE codice_servizio='anpr_c021';
 UPDATE servizi_parametri SET url='impostazioni_anpr/#tab8' WHERE codice_servizio='anpr_c030';
 
--- Fix MIT services: codice, descrizione e url aggiornati alla produzione
-UPDATE servizi_parametri SET codice_servizio='mit_cude',      descrizione='Ministero Trasporti (MIT) - Dettaglio Cude',     url='impostazioni_mit/#tab1' WHERE codice_servizio='mit_patenti';
-UPDATE servizi_parametri SET codice_servizio='mit_veicoli',   descrizione='Ministero Trasporti (MIT) - Lista Veicoli',      url='impostazioni_mit/#tab2' WHERE codice_servizio='mit_cude';
-UPDATE servizi_parametri SET codice_servizio='mit_whitelist', descrizione='Ministero Trasporti (MIT) - Recupera Whitelist', url='impostazioni_mit/#tab3' WHERE codice_servizio='mit_veicoli';
+-- Fix MIT services using stable ids.
+-- Avoid chained updates by codice_servizio, otherwise rows renamed in the
+-- first statement are matched again by the next ones and collapse to duplicates.
+UPDATE servizi_parametri SET codice_servizio='mit_cude',      descrizione='Ministero Trasporti (MIT) - Dettaglio Cude',     url='impostazioni_mit/#tab1' WHERE id=12;
+UPDATE servizi_parametri SET codice_servizio='mit_veicoli',   descrizione='Ministero Trasporti (MIT) - Lista Veicoli',      url='impostazioni_mit/#tab2' WHERE id=13;
+UPDATE servizi_parametri SET codice_servizio='mit_whitelist', descrizione='Ministero Trasporti (MIT) - Recupera Whitelist', url='impostazioni_mit/#tab3' WHERE id=14;
 
 COMMIT;
 PRAGMA foreign_keys = ON;
