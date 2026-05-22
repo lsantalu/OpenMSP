@@ -20,104 +20,27 @@
     <section class="py-5">
         <div class="container">
             <div class="row row-cols-1 row-cols-md-4 g-4">
-                <!-- Card 1 -->
+                {% for card in home_cards %}
                 <div class="col">
-                    <article class="it-card it-card-image rounded shadow-lg border it-card-height-full">
+                    <article class="it-card it-card-image rounded shadow-lg border it-card-height-full {% if not card.enabled %}bg-light text-muted{% endif %}">
                         <h3 class="it-card-title">
-                            <a href="{% url 'inad_singola' %}">Domicili Digitali</a>
+                            {% if card.url_name and card.enabled %}
+                            <a href="{% url card.url_name %}">{{ card.title }}</a>
+                            {% else %}
+                            <span class="text-muted">{{ card.title }}</span>
+                            {% endif %}
                         </h3>
                         <div class="it-card-image-wrapper">
                             <div class="ratio ratio-16x9">
-                                <img src=" {% static "images/domicio_digitale.png" %} " class="card-img-top" alt="Domicili Digitali">
+                                <img src="{% static card.image %}" class="card-img-top {% if not card.enabled %}opacity-50{% endif %}" alt="{{ card.alt }}">
                             </div>
                         </div>
                         <div class="it-card-body">
-                            <p class="it-card-text">Accedi ai domicili digitali iPA, INAD e INI-PEC in modo semplice e veloce.</p>
+                            <p class="it-card-text">{{ card.description }}</p>
                         </div>
                     </article>
                 </div>
-                <!-- Card 2 -->
-                <div class="col">
-                    <article class="it-card it-card-image rounded shadow-lg border it-card-height-full">
-                        <h3 class="it-card-title">
-                            <a href="{% url 'anpr_notifica' %}">Interrogazioni ANPR</a>
-                        </h3>
-                        <div class="it-card-image-wrapper">
-                            <div class="ratio ratio-16x9">
-                                <img src=" {% static "images/anpr.png" %} " class="card-img-top" alt="ANPR">
-                            </div>
-                        </div>
-                        <div class="it-card-body">
-                            <p class="it-card-text">Verifica i dati anagrafici direttamente dall’Anagrafe Nazionale della Popolazione Residente.</p>
-                        </div>
-                    </article>
-                </div>
-                <!-- Card 3 -->
-                <div class="col">
-                    <article class="it-card it-card-image rounded shadow-lg border it-card-height-full">
-                        <h3 class="it-card-title">
-                            <a href="{% url 'app_io_singolo' %}">Comunicazioni App IO</a>
-                        </h3>
-                        <div class="it-card-image-wrapper">
-                            <div class="ratio ratio-16x9">
-                                <img src=" {% static "images/app_io.png" %} " class="card-img-top" alt="App IO">
-                            </div>
-                        </div>
-                        <div class="it-card-body">
-                            <p class="it-card-text">Invia comunicazioni direttamente tramite l’applicazione ufficiale della PA.</p>
-                        </div>
-                    </article>
-                </div>
-
-                <div class="col">
-                    <article class="it-card it-card-image rounded shadow-lg border it-card-height-full">
-                        <h3 class="it-card-title">
-                            <a href="{% url 'registro_imprese' %}">Registro Imprese</a>
-                        </h3>
-                        <div class="it-card-image-wrapper">
-                            <div class="ratio ratio-16x9">
-                                <img src=" {% static "images/registro_imprese.png" %} " class="card-img-top" alt="CCIAA">
-                            </div>
-                        </div>
-                        <div class="it-card-body">
-                            <p class="it-card-text">Consulta il Registro delle Imprese e ottieni informazioni aggiornate.</p>
-                        </div>
-                    </article>
-                </div>
-
-                <!-- Card 2: ANIS e ANIST -->
-                <div class="col">
-                    <article class="it-card it-card-image rounded shadow-lg border it-card-height-full">
-                        <h3 class="it-card-title">
-                            <a href="{% url 'anis_iscrizioni_singola' %}">ANIS e ANIST</a>
-                        </h3>
-                        <div class="it-card-image-wrapper">
-                            <div class="ratio ratio-16x9">
-                                <img src=" {% static "images/anis_anist.png" %} " alt="ANIS e ANIST">
-                            </div>
-                        </div>
-                        <div class="it-card-body">
-                            <p class="it-card-text">Interrogazione anagrafe istruzione.</p>
-                        </div>
-                    </article>
-                </div>
-                <!-- Card esempio -->
-                <div class="col">
-                    <article class="it-card it-card-image rounded shadow-lg border it-card-height-full">
-                        <h3 class="it-card-title">
-                            <a href="{% url 'inps_isee' %}">INPS</a>
-                        </h3>
-                        <div class="it-card-image-wrapper">
-                            <div class="ratio ratio-16x9">
-                                <img src=" {% static "images/inps.png" %} " class="card-img-top" alt="INPS">
-                            </div>
-                        </div>
-                        <div class="it-card-body">
-                            <p class="it-card-text">Accedi a ISEE, DURC e altri certificati erogati dall’INPS.</p>
-                        </div>
-                    </article>
-                </div>
-
+                {% endfor %}
                 <div class="col">
                     <article class="it-card it-card-image rounded shadow-lg border it-card-height-full">
                         <h3 class="it-card-title">
@@ -139,7 +62,7 @@
 
 
 {% if not user.is_authenticated %}
-  
+
 <p>
     <a href="{% url 'login' %}" class="btn btn-primary">
         <svg class="icon icon-sm icon-white" aria-hidden="true">

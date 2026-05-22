@@ -27,6 +27,47 @@ import openpyxl
 from decimal import Decimal, InvalidOperation
 
 
+TIPO_PRESTAZIONE_DA_EROGARE = [
+    ("A1.01", "Assegno per il nucleo familiare erogati dai comuni"),
+    ("A1.02", "Assegno Maternità erogato dai Comuni"),
+    ("A1.03", "Carta acquisti"),
+    ("A1.04", "Contributi economici a integrazione del reddito Familiare"),
+    ("A1.05", "Contributi economici per alloggio"),
+    ("A1.06", "Buoni spesa o buoni pasto"),
+    ("A1.07", "Contributi e integrazioni a rette per asili nido"),
+    ("A1.08", "Contributi e integrazioni a rette per servizi integrativi o innovativi per la prima infanzia"),
+    ("A1.09", "Contributi economici per i servizi scolastici"),
+    ("A1.10", "Contributi economici per cure o prestazioni sociali a rilevanza sanitaria"),
+    ("A1.11", "Assegnazioni economiche per il sostegno della domiciliarità e dell'autonomia personale"),
+    ("A1.12", "Contributi e integrazioni a rette per accesso a centri Diurni"),
+    ("A1.13", "Contributi e integrazioni a rette per accesso ai servizi semi-residenziali"),
+    ("A1.14", "Contributi e integrazioni a rette per accesso a servizi Residenziali"),
+    ("A1.15", "Contributi per servizi alla persona"),
+    ("A1.16", "Contributi economici per servizio trasporto e mobilità"),
+    ("A1.17", "Contributi economici erogati a titolo di prestito/prestiti d'onore"),
+    ("A1.18", "Contributi economici per l'inserimento lavorativo"),
+    ("A1.19", "Borse di studio"),
+    ("A1.20", "Buono vacanze"),
+    ("A2.01", "Mensa sociale"),
+    ("A2.02", "Sostegno socio-educativo territoriale o domiciliare"),
+    ("A2.03", "Prestazioni del diritto allo studio universitario"),
+    ("A2.04", "Agevolazioni per tasse universitarie"),
+    ("A2.05", "Agevolazioni per i servizi di pubblica utilità (telefono, luce, gas)"),
+    ("A2.06", "Agevolazioni tributarie comunali (nettezza urbana, ecc.)"),
+    ("A2.07", "Assistenza domiciliare socio-assistenziale"),
+    ("A2.08", "A.D.I.- Assistenza domiciliare integrata con servizi Sanitari"),
+    ("A2.09", "Supporto all'inserimento lavorativo"),
+    ("A2.10", "Servizi integrativi per la prima infanzia"),
+    ("A2.11", "Sostegno socio-educativo scolastico"),
+    ("A2.12", "Mensa scolastica"),
+    ("A3.01", "Strutture semiresidenziali"),
+    ("A3.02", "Strutture residenziali"),
+    ("A3.03", "Asilo Nido"),
+    ("Z9.99", "Altro"),
+]
+
+TIPO_PRESTAZIONE_DA_EROGARE_MAP = dict(TIPO_PRESTAZIONE_DA_EROGARE)
+
 def _get_node_by_suffix(data, suffix):
     if not isinstance(data, dict):
         return {}
@@ -174,7 +215,7 @@ def _get_inps_token(parametri):
     delta = datetime.timedelta(minutes=43200)
     expire_in = issued + delta
     jti = uuid.uuid4()
-    
+
     headers_rsa = {
         "kid": parametri.kid,
         "alg": parametri.alg,
@@ -211,14 +252,14 @@ def _get_inps_token(parametri):
         voucher = data.get('access_token', '')
     except json.JSONDecodeError:
         voucher = ""
-    
+
     # Estrae il token_id (jti) dal voucher
     try:
         decoded_token = jwt.decode(voucher, options={"verify_signature": False})
         token_id = decoded_token.get('jti')
     except:
         token_id = None
-        
+
     return voucher, token_id
 
 
@@ -226,14 +267,19 @@ def inps_isee(request):
     if request.user.id:
         utente_sessione = UtentiParametri.objects.get(id=request.user.id)
         utente_abilitato = utente_sessione.inps_isee
+        selected_prestazione = ''
         if request.method == 'POST':
             data = []
-            cf = request.POST.get('input_CF')
+            cf = request.POST.get('input_CF', '').strip()
+            selected_prestazione = request.POST.get('tipo_prestazione_da_erogare', '').strip()
             data.append(cf)
-            correttezza_cf = verifica_cf(cf)
-            if correttezza_cf == 1 or correttezza_cf == 2:
+            correttezza_cf = verifica_cf(cf) if cf else 0
+            if not selected_prestazione:
+                data.append("Prestazione da erogare non selezionata")
+                salva_log(request.user, "Verifica INPS - ISEE", "Tentativo verifica senza prestazione per utente " + cf)
+            elif correttezza_cf == 1 or correttezza_cf == 2:
                 bearer, tok_id = inps_isee_get_bearer()
-                res_data, status, purp_id = RichiestaIsee(cf, bearer)
+                res_data, status, purp_id = RichiestaIsee(cf, bearer, selected_prestazione)
                 data.append(res_data)
                 data = converti_data(data)
                 salva_log(request.user, "Verifica INPS - ISEE", "Verificato utente " + cf, purposeid=purp_id, resp_status=status, token_id=tok_id)
@@ -241,10 +287,19 @@ def inps_isee(request):
                 data.append("Codice fiscale non corretto")
                 salva_log(request.user, "Verifica INPS - ISEE", "Verificato utente " + cf)
 
-            return render(request, 'inps_isee.html', {'data': data, 'utente_abilitato': utente_abilitato })
+            return render(request, 'inps_isee.html', {
+                'data': data,
+                'utente_abilitato': utente_abilitato,
+                'tipo_prestazione_da_erogare': TIPO_PRESTAZIONE_DA_EROGARE,
+                'selected_prestazione': selected_prestazione,
+            })
     else:
         utente_abilitato = False
-    return render(request, 'inps_isee.html', { 'utente_abilitato': utente_abilitato })
+    return render(request, 'inps_isee.html', {
+        'utente_abilitato': utente_abilitato,
+        'tipo_prestazione_da_erogare': TIPO_PRESTAZIONE_DA_EROGARE if request.user.id else [],
+        'selected_prestazione': selected_prestazione if request.user.id else '',
+    })
 
 
 def inps_isee_get_bearer():
@@ -252,7 +307,7 @@ def inps_isee_get_bearer():
     return _get_inps_token(parametri_inps_isee)
 
 
-def RichiestaIsee(cf, bearer):
+def RichiestaIsee(cf, bearer, prestazione_da_erogare="A1.01"):
     parametri_inps_isee = InpsIseeParametri.objects.get(id=1)
     url = parametri_inps_isee.target
     dati_ente = DatiEnte.objects.first()
@@ -283,7 +338,7 @@ def RichiestaIsee(cf, bearer):
             <con:RicercaCF>
                <con:CodiceFiscale>{cf}</con:CodiceFiscale>
                <con:DataValidita>{data_validita}</con:DataValidita>
-               <con:PrestazioneDaErogare>A1.01</con:PrestazioneDaErogare>
+               <con:PrestazioneDaErogare>{prestazione_da_erogare}</con:PrestazioneDaErogare>
                <con:ProtocolloDomandaEnteErogatore>OpenMSP-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}</con:ProtocolloDomandaEnteErogatore>
                <con:StatodomandaPrestazione>Da Erogare</con:StatodomandaPrestazione>
             </con:RicercaCF>
@@ -311,9 +366,13 @@ def RichiestaIsee(cf, bearer):
                     return {
                         "error": "Risposta SOAP priva del nodo ConsultazioneAttestazioneResidentiResult",
                         "raw_response": response.text[:1000],
+                        "PrestazioneDaErogareCodice": prestazione_da_erogare,
+                        "PrestazioneDaErogareMotivo": TIPO_PRESTAZIONE_DA_EROGARE_MAP.get(prestazione_da_erogare, ""),
                     }, status_code, purposeid
 
                 result['DataValiditaRichiesta'] = _format_date(data_validita)
+                result['PrestazioneDaErogareCodice'] = prestazione_da_erogare
+                result['PrestazioneDaErogareMotivo'] = TIPO_PRESTAZIONE_DA_EROGARE_MAP.get(prestazione_da_erogare, '')
 
                 # Decodifica dell'XML base64 se presente (contiene i dati reali dell'attestazione)
                 xml_base64 = result.get('XmlEsitoAttestazione')
@@ -385,7 +444,7 @@ def RichiestaIsee(cf, bearer):
                         result['RicercaSezioni'] = ricerca_sezioni
                         result['AttestazioneJson'] = json.dumps(att, indent=2, ensure_ascii=False)
                         result['RicercaJson'] = json.dumps(ricerca, indent=2, ensure_ascii=False) if ricerca else ""
-                        
+
                     except Exception as e:
                         result['error_parsing_attestazione'] = str(e)
                 else:
@@ -393,11 +452,19 @@ def RichiestaIsee(cf, bearer):
 
                 return result, status_code, purposeid
             except Exception as e:
-                return {"error": f"Errore nel parsing XML: {str(e)}"}, status_code, purposeid
+                return {
+                    "error": f"Errore nel parsing XML: {str(e)}",
+                    "PrestazioneDaErogareCodice": prestazione_da_erogare,
+                    "PrestazioneDaErogareMotivo": TIPO_PRESTAZIONE_DA_EROGARE_MAP.get(prestazione_da_erogare, ''),
+                }, status_code, purposeid
         else:
             return False, status_code, purposeid
     except Exception as e:
-        return {"error": f"Errore nella richiesta: {str(e)}"}, 500, parametri_inps_isee.purposeid
+        return {
+            "error": f"Errore nella richiesta: {str(e)}",
+            "PrestazioneDaErogareCodice": prestazione_da_erogare,
+            "PrestazioneDaErogareMotivo": TIPO_PRESTAZIONE_DA_EROGARE_MAP.get(prestazione_da_erogare, ''),
+        }, 500, parametri_inps_isee.purposeid
 
 
 def inps_durc_get_bearer():
@@ -413,7 +480,7 @@ def inps_durc_singolo(request):
             data = []
             cf = request.POST.get('input_CF')
             data.append(cf)
-            
+
             if len(cf) == 11:
                 correttezza_cf = verifica_cf_azienda(cf)
             else:
@@ -451,7 +518,7 @@ def inps_durc_massivo(request):
             csv_file = request.FILES['cf_csv']
             data = []
             cfs = []
-            
+
             # Lettura CF dal file
             if csv_file.name.lower().endswith('.csv'):
                 try:
@@ -471,7 +538,7 @@ def inps_durc_massivo(request):
                             cfs.append(str(row[0]).strip().upper())
                 except Exception as e:
                     return render(request, 'inps_durc_massivo.html', {'error': f"Errore lettura Excel: {str(e)}", 'utente_abilitato': utente_abilitato})
-            
+
             if cfs:
                 bearer, tok_id = inps_durc_get_bearer()
                 for cf in cfs:
@@ -479,9 +546,9 @@ def inps_durc_massivo(request):
                         correttezza_cf = verifica_cf_azienda(cf)
                     else:
                         correttezza_cf = verifica_cf(cf)
-                    
+
                     item = {'cf': cf, 'correttezza_cf': correttezza_cf}
-                    
+
                     if correttezza_cf == 1 or correttezza_cf == 2:
                         res_data, status, purp_id = inps_durc_verifica_impresa(cf, bearer)
                         if res_data:
@@ -500,9 +567,9 @@ def inps_durc_massivo(request):
                             item['error'] = "Dati non disponibili o errore API"
                     else:
                         item['error'] = "Codice fiscale non corretto"
-                    
+
                     data.append(item)
-                
+
             return render(request, 'inps_durc_massivo.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
@@ -564,32 +631,32 @@ def inps_durc_download(request, protocollo):
             bearer, tok_id = inps_durc_get_bearer()
             inps_durc_parametri = InpsDurcParametri.objects.get(id=1)
             dati_ente = DatiEnte.objects.first()
-            
+
             # Costruzione URL per il download secondo specifica YAML
             safe_protocollo = urllib.parse.quote(protocollo)
             url = f"{inps_durc_parametri.target}/downloadDURC/{safe_protocollo}/ITA"
-            
+
             headers = {
                 "Authorization": f"Bearer {bearer}",
                 "INPS-Identity-UserId": dati_ente.cf,
                 "INPS-Identity-CodiceUfficio": "001"
             }
-            
+
             try:
                 response = requests.get(url, headers=headers)
-                
+
                 if response.status_code == 200:
                     res_json = response.json()
                     base64_data = res_json.get('base64')
-                    
+
                     if base64_data:
                         # Decodifica dei dati base64 in binario
                         pdf_content = base64.b64decode(base64_data)
-                        
+
                         file_name = f"DURC_{protocollo}.pdf"
                         django_response = HttpResponse(pdf_content, content_type='application/pdf')
                         django_response['Content-Disposition'] = f'attachment; filename="{file_name}"'
-                        
+
                         salva_log(request.user, "Download DURC", f"Scaricato PDF per protocollo {protocollo}", purposeid=inps_durc_parametri.purposeid, resp_status=response.status_code, token_id=tok_id)
                         return django_response
                     else:
@@ -598,5 +665,5 @@ def inps_durc_download(request, protocollo):
                     return HttpResponse(f"Errore API INPS: {response.status_code}", status=response.status_code)
             except Exception as e:
                 return HttpResponse(f"Eccezione durante il download: {str(e)}", status=500)
-    
+
     return HttpResponse("Non autorizzato", status=403)

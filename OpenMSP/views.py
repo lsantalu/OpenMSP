@@ -72,6 +72,98 @@ from rest_framework import status
 from django.contrib.auth.views import LoginView
 from two_factor.views import LoginView as TwoFactorLoginView
 
+
+def home(request):
+    service_status = {
+        servizio.codice_servizio: bool(servizio.attivo)
+        for servizio in ServiziParametri.objects.all()
+    }
+
+    user_permissions = None
+    if request.user.is_authenticated:
+        user_permissions = UtentiParametri.objects.filter(id=request.user.id).first()
+
+    home_cards = [
+        {
+            'title': 'Domicili Digitali',
+            'service_links': [
+                ('ipa', 'ipa_singola', ('ipa_singolo',)),
+                ('inad', 'inad_singola', ('inad_singolo',)),
+                ('registro_imprese', 'registro_imprese', ('registro_imprese',)),
+            ],
+            'image': 'images/domicio_digitale.png',
+            'alt': 'Domicili Digitali',
+            'description': 'Accedi ai domicili digitali iPA, INAD e INI-PEC in modo semplice e veloce.',
+        },
+        {
+            'title': 'Interrogazioni ANPR',
+            'service_links': [
+                ('anpr_c001', 'anpr_notifica', ('anpr_C001',)),
+                ('anpr_c007', 'anpr_esistenza_in_vita', ('anpr_C007',)),
+                ('anpr_c015', 'anpr_generalita', ('anpr_C015',)),
+                ('anpr_c017', 'anpr_matrimonio', ('anpr_C017',)),
+                ('anpr_c018', 'anpr_cittadinanza', ('anpr_C018',)),
+                ('anpr_c020', 'anpr_residenza', ('anpr_C020',)),
+                ('anpr_c021', 'anpr_stato_famiglia', ('anpr_C021',)),
+                ('anpr_c030', 'anpr_notifica', ('anpr_C030',)),
+            ],
+            'image': 'images/anpr.png',
+            'alt': 'ANPR',
+            'description': 'Verifica i dati anagrafici direttamente dall’Anagrafe Nazionale della Popolazione Residente.',
+        },
+        {
+            'title': 'Comunicazioni App IO',
+            'service_links': [('app_io', 'app_io_singolo', ('app_io_singolo',))],
+            'image': 'images/app_io.png',
+            'alt': 'App IO',
+            'description': 'Invia comunicazioni direttamente tramite l’applicazione ufficiale della PA.',
+        },
+        {
+            'title': 'Registro Imprese',
+            'service_links': [('registro_imprese', 'registro_imprese', ('registro_imprese',))],
+            'image': 'images/registro_imprese.png',
+            'alt': 'CCIAA',
+            'description': 'Consulta il Registro delle Imprese e ottieni informazioni aggiornate.',
+        },
+        {
+            'title': 'ANIS e ANIST',
+            'service_links': [
+                ('anis_IFS02', 'anis_iscrizioni_singola', ('anis_IFS02_singolo',)),
+                ('anis_IFS03', 'anis_titoli_singola', ('anis_IFS03_singolo',)),
+                ('anist_frequenze', 'anist_frequenze_singola', ('anist_frequenze_singolo',)),
+                ('anist_titoli', 'anist_titoli_singola', ('anist_titoli_singolo',)),
+            ],
+            'image': 'images/anis_anist.png',
+            'alt': 'ANIS e ANIST',
+            'description': 'Interrogazione anagrafe istruzione.',
+        },
+        {
+            'title': 'INPS',
+            'service_links': [
+                ('inps_isee', 'inps_isee', ('inps_isee',)),
+                ('inps_durc', 'inps_durc_singolo', ('inps_durc_singolo',)),
+            ],
+            'image': 'images/inps.png',
+            'alt': 'INPS',
+            'description': 'Accedi a ISEE, DURC e altri certificati erogati dall’INPS.',
+        },
+    ]
+
+    for card in home_cards:
+        active_link = ''
+        for service_code, url_name, permission_fields in card['service_links']:
+            if not service_status.get(service_code, False):
+                continue
+            if user_permissions and not any(getattr(user_permissions, field, False) for field in permission_fields):
+                continue
+            active_link = url_name
+            break
+        card['url_name'] = active_link
+        card['enabled'] = bool(active_link)
+
+    return render(request, 'home.html', {'home_cards': home_cards})
+
+
 class login_2fa(TwoFactorLoginView):
     template_name = 'registration/login_2fa.html'
 
@@ -194,7 +286,7 @@ def logout(request):
         messages.error(request, 'L\'utente è disabilitato. Contatta l\'amministratore di sistema')
     auth_logout(request)
     return redirect('home')
-    
+
 
 def debug_openmsp(request):
     servizi_impostazioni = ServiziParametri.objects.all()

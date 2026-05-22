@@ -191,4 +191,10 @@ fi
 sqlite3 "$DB_PATH" "CREATE UNIQUE INDEX IF NOT EXISTS servizi_parametri_codice_servizio_uniq ON servizi_parametri(codice_servizio);"
 
 echo "Servizi MIT normalizzati correttamente."
+
+echo "Pulizia e reset dell'array app_io_catalogo_servizi..."
+sqlite3 "$DB_PATH" <<'SQL'
+DELETE FROM app_io_catalogo_servizi;
+SQL
+
 echo "Upgrade struttura e dati DB alla versione 1.4 completato."
