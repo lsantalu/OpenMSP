@@ -493,7 +493,7 @@ def app_io_singolo(request):
                         id_messaggio = data
 
                     app_io_salva_messaggio(request.user, servizioScelto, cf, titolo, messaggio, dataScadenza, input_IUV, mezzo1, testobottone1, comandobottone1, mezzo2, testobottone2, comandobottone2, id_messaggio)
-                
+
                 status_code = response.status_code if 'response' in locals() else None
                 salva_log(request.user, "App IO singolo", "Invio messaggio del servizio " + servizioScelto.servizio + " a " + cf, resp_status=status_code)
                 return render(request, 'app_io_singolo.html', {'data': data, 'utente_abilitato': utente_abilitato })
@@ -727,7 +727,7 @@ def app_io_composer(request):
 
                     # controlla se la prima_riga ha i seguenti campi (CF,Scadenza,IUV,Mezzo1,TestoBottone1,Comando1,Mezzo2,TestoBottone2,Comando2)
                     expected_headers = ["CF", "SCADENZA", "IUV", "MEZZO1", "TESTOBOTTONE1", "COMANDO1", "MEZZO2", "TESTOBOTTONE2", "COMANDO2"]
-                    
+
                     # Verifica headers
                     if len(prima_riga) < 9:
                          context.update({
@@ -735,7 +735,7 @@ def app_io_composer(request):
                                 'error_colonne': True,
                             })
                          return render(request, 'app_io_composer.html', context)
-                    
+
                     for i, header in enumerate(expected_headers):
                         if prima_riga[i].strip().upper() != header:
                              context.update({
@@ -758,15 +758,15 @@ def app_io_composer(request):
                                 })
                                 return render(request, 'app_io_composer.html', context)
                             normalizzati.add(titolo_lower)
-                    
+
                     rows = list(csv_reader)
                     elencoMessaggi = []
-                    
+
                     for row_idx, row in enumerate(rows, start=2): # start=2 perchè riga 1 è header
                         # Normalizza lunghezza riga
                         while len(row) < len(prima_riga):
                             row.append("")
-                            
+
                         # Verifica IUV (col 3 -> indice 2)
                         if len(row) > 2 and row[2]:
                             iuv = "".join(row[2].split())
@@ -781,9 +781,9 @@ def app_io_composer(request):
                         mezzo1 = row[3].strip().lower() if len(row) > 3 and row[3] else ""
                         testo1 = row[4].strip() if len(row) > 4 and row[4] else ""
                         comando1 = row[5].strip() if len(row) > 5 and row[5] else ""
-                        
+
                         valid_mezzi = ["web", "mail", "sms", "tel"]
-                        
+
                         if mezzo1:
                             if mezzo1 not in valid_mezzi:
                                 context.update({
@@ -803,7 +803,7 @@ def app_io_composer(request):
                             mezzo2 = row[6].strip() if len(row) > 6 and row[6] else ""
                             testo2 = row[7].strip() if len(row) > 7 and row[7] else ""
                             comando2 = row[8].strip() if len(row) > 8 and row[8] else ""
-                            
+
                             if mezzo2 or testo2 or comando2:
                                 context.update({
                                     'upload_csv': False,
@@ -815,7 +815,7 @@ def app_io_composer(request):
                         mezzo2 = row[6].strip().lower() if len(row) > 6 and row[6] else ""
                         testo2 = row[7].strip() if len(row) > 7 and row[7] else ""
                         comando2 = row[8].strip() if len(row) > 8 and row[8] else ""
-                        
+
                         if mezzo2:
                             if mezzo2 not in valid_mezzi:
                                 context.update({
@@ -823,7 +823,7 @@ def app_io_composer(request):
                                     'error_validation_msg': f"Errore alla riga {row_idx}: Mezzo2 ha un valore non valido ({mezzo2}). Valori ammessi: web, mail, sms, tel.",
                                 })
                                 return render(request, 'app_io_composer.html', context)
-                            
+
                             if not testo2 or not comando2:
                                  context.update({
                                     'upload_csv': False,
@@ -852,10 +852,10 @@ def app_io_composer(request):
                     wb = openpyxl.load_workbook(csv_file)
                     sheet = wb.active
                     prima_riga = [cell.value for cell in sheet[1]]
-                    
+
                     # controlla se la prima_riga ha i seguenti campi (CF,Scadenza,IUV,Mezzo1,TestoBottone1,Comando1,Mezzo2,TestoBottone2,Comando2)
                     expected_headers = ["CF", "SCADENZA", "IUV", "MEZZO1", "TESTOBOTTONE1", "COMANDO1", "MEZZO2", "TESTOBOTTONE2", "COMANDO2"]
-                    
+
                     if len(prima_riga) < 9:
                          context.update({
                                 'upload_csv': False,
@@ -887,16 +887,16 @@ def app_io_composer(request):
                                 })
                                 return render(request, 'app_io_composer.html', context)
                             normalizzati.add(titolo_lower)
-                    
+
                     rows = list(sheet.iter_rows(min_row=2, values_only=True))
                     elencoMessaggi = []
-                    
+
                     for row_idx, row in enumerate(rows, start=2):
                         # Convert tuple to list for mutability and padding
                         row_list = list(row)
                         while len(row_list) < len(prima_riga):
                             row_list.append(None)
-                            
+
                         # Verifica IUV (col 3 -> indice 2)
                         if len(row_list) > 2 and row_list[2]:
                             iuv = "".join(str(row_list[2]).split())
@@ -906,14 +906,14 @@ def app_io_composer(request):
                                     'error_validation_msg': f"Errore alla riga {row_idx}: IUV deve essere di 18 cifre numeriche.",
                                 })
                                 return render(request, 'app_io_composer.html', context)
-                                
+
                         # Verifica Mezzo1 (col 4 -> indice 3)
                         mezzo1 = str(row_list[3]).strip().lower() if len(row_list) > 3 and row_list[3] else ""
                         testo1 = str(row_list[4]).strip() if len(row_list) > 4 and row_list[4] else ""
                         comando1 = str(row_list[5]).strip() if len(row_list) > 5 and row_list[5] else ""
-                        
+
                         valid_mezzi = ["web", "mail", "sms", "tel"]
-                        
+
                         if mezzo1:
                             if mezzo1 not in valid_mezzi:
                                 context.update({
@@ -932,7 +932,7 @@ def app_io_composer(request):
                             mezzo2 = str(row_list[6]).strip() if len(row_list) > 6 and row_list[6] else ""
                             testo2 = str(row_list[7]).strip() if len(row_list) > 7 and row_list[7] else ""
                             comando2 = str(row_list[8]).strip() if len(row_list) > 8 and row_list[8] else ""
-                            
+
                             if mezzo2 or testo2 or comando2:
                                 context.update({
                                     'upload_csv': False,
@@ -944,7 +944,7 @@ def app_io_composer(request):
                         mezzo2 = str(row_list[6]).strip().lower() if len(row_list) > 6 and row_list[6] else ""
                         testo2 = str(row_list[7]).strip() if len(row_list) > 7 and row_list[7] else ""
                         comando2 = str(row_list[8]).strip() if len(row_list) > 8 and row_list[8] else ""
-                        
+
                         if mezzo2:
                             if mezzo2 not in valid_mezzi:
                                 context.update({
@@ -952,7 +952,7 @@ def app_io_composer(request):
                                     'error_validation_msg': f"Errore alla riga {row_idx}: Mezzo2 ha un valore non valido ({mezzo2}). Valori ammessi: web, mail, sms, tel.",
                                 })
                                 return render(request, 'app_io_composer.html', context)
-                            
+
                             if not testo2 or not comando2:
                                  context.update({
                                     'upload_csv': False,
@@ -1455,8 +1455,8 @@ def impostazioni_app_io_default_db():
         ('14', 'Bandi di concorso', 'C016001'),
         ('14', 'Cedolino per dipendenti', 'C016002'),
         ('14', 'Mensa e buoni pasto per dipendenti', 'C016003'),
-        ('15', 'Avvocatura civica', 'C007001'),
         ('15', 'Protezione civile', 'C013001'),
+        ('16', 'Avvocatura civica', 'C007001'),
         ('16', 'Giudici popolari', 'C007002'),
         ('16', 'Provvedimenti giudiziari', 'C007003'),
         ('16', 'Sanzioni amministrative', 'C007004')

@@ -6,6 +6,7 @@ from django.views.generic.base import TemplateView, RedirectView
 from django.conf import settings
 
 from .views import profilo_utente
+from .views import home
 from .views import login_2fa
 from .views import logout
 from .views import pdnd_gateway_service
@@ -128,7 +129,7 @@ urlpatterns = [
 
     path('pdnd_gateway/', pdnd_gateway_service, name='pdnd_gateway'),
 
-    path("", TemplateView.as_view(template_name="home.html"), name="home"),
+    path("", home, name="home"),
     path('logout/', logout, name='logout'),
     path("profilo_utente/", profilo_utente, name="profilo_utente"),
 
