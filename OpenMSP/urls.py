@@ -112,6 +112,7 @@ from .impostazioni import impostazioni_clone_user
 from .views import register
 from .views import debug_openmsp
 from .views import login_2fa
+from . import views
 
 urlpatterns = [
     path("console_openmsp/", admin.site.urls),
@@ -238,7 +239,8 @@ urlpatterns = [
     path("impostazioni_parametri/", impostazioni_parametri, name="impostazioni_parametri"),
     path('impostazioni_upload_stemma/', impostazioni_upload_stemma, name='impostazioni_upload_stemma'),
     path('impostazioni_logs/', impostazioni_logs, name='impostazioni_logs'),
-    path('debug_openmsp/', debug_openmsp, name='debug_openmsp'),
+    path('debug_openmsp/', views.debug_openmsp, name='debug_openmsp'),
+    path('domicili_digitali/', views.domicili_digitali_view, name='domicili_digitali'),
 ]
 
 if settings.AUTH_2FA:

@@ -423,3 +423,100 @@ class CustomUserCreationForm(UserCreationForm):
         if User.objects.filter(email=email).exists():
             raise forms.ValidationError("Questo indirizzo email è già in uso.")
         return email
+
+def domicili_digitali_view(request):
+    results = None
+    utente_abilitato = False
+    allowed_searches = {
+        'ipa': {'singola': False, 'massiva': False},
+        'inad': {'singola': False, 'massiva': False},
+        'inipec': {'singola': False, 'massiva': False},
+    }
+
+    if request.user.is_authenticated:
+        utente_sessione = UtentiParametri.objects.filter(id=request.user.id).first()
+        if utente_sessione:
+            allowed_searches = {
+                'ipa': {
+                    'singola': bool(utente_sessione.ipa_singolo),
+                    'massiva': bool(utente_sessione.ipa_massivo),
+                },
+                'inad': {
+                    'singola': bool(utente_sessione.inad_singolo),
+                    'massiva': bool(utente_sessione.inad_massivo),
+                },
+                'inipec': {
+                    'singola': bool(utente_sessione.inipec_singolo),
+                    'massiva': bool(utente_sessione.inipec_massivo),
+                },
+            }
+            utente_abilitato = any(
+                mode_enabled
+                for service_modes in allowed_searches.values()
+                for mode_enabled in service_modes.values()
+            )
+
+    if request.method == 'POST':
+        if not utente_abilitato:
+            return render(request, 'domicili_digitali.html', {
+                'results': results,
+                'utente_abilitato': utente_abilitato,
+                'allowed_searches': allowed_searches,
+                    'allowed_searches_json': json.dumps(allowed_searches),
+            })
+
+        tipo = request.POST.get('tipo_domicilio')
+        modalita = request.POST.get('modalita')
+        api_key = "DEFAULT_KEY"
+
+        if tipo not in allowed_searches or modalita not in allowed_searches[tipo] or not allowed_searches[tipo][modalita]:
+            return render(request, 'domicili_digitali.html', {
+                'results': results,
+                'utente_abilitato': utente_abilitato,
+                'allowed_searches': allowed_searches,
+                    'allowed_searches_json': json.dumps(allowed_searches),
+                'error': "Non sei abilitato per questa tipologia di ricerca.",
+            })
+
+        results = []
+
+        if modalita == 'singola':
+            cf = request.POST.get('cf_singolo')
+            if cf:
+                dato = None
+                if tipo == 'ipa': dato = Api_ipa(cf, api_key)
+                elif tipo == 'inad': dato = Api_inad(cf, api_key)
+                elif tipo == 'inipec': dato = Api_ini_pec(cf, api_key)
+                results.append({'cf': cf, 'dato': dato})
+
+        elif modalita == 'massiva':
+            file_obj = request.FILES.get('file_massivo')
+            if file_obj:
+                cf_list = []
+                filename = file_obj.name
+                if filename.endswith('.csv'):
+                    decoded_file = file_obj.read().decode('utf-8').splitlines()
+                    reader = csv.reader(decoded_file)
+                    for row in reader:
+                        if row:
+                            cf_list.append(row[0])
+                elif filename.endswith('.xlsx') or filename.endswith('.xls'):
+                    wb = openpyxl.load_workbook(file_obj, data_only=True)
+                    sheet = wb.active
+                    for row in sheet.iter_rows(values_only=True):
+                        if row[0]:
+                            cf_list.append(str(row[0]))
+
+                for cf in cf_list:
+                    dato = None
+                    if tipo == 'ipa': dato = Api_ipa(cf, api_key)
+                    elif tipo == 'inad': dato = Api_inad(cf, api_key)
+                    elif tipo == 'inipec': dato = Api_ini_pec(cf, api_key)
+                    results.append({'cf': cf, 'dato': dato})
+
+    return render(request, 'domicili_digitali.html', {
+        'results': results,
+        'utente_abilitato': utente_abilitato,
+        'allowed_searches': allowed_searches,
+                    'allowed_searches_json': json.dumps(allowed_searches),
+    })

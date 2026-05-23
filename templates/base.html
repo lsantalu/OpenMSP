@@ -380,6 +380,10 @@ OpenMSP - Multi Services Portal
                         <a class="list-item dropdown-item{% if not user_perms.inipec_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'inipec_massiva' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inipec_massivo %} class="text-muted"{% endif %}>INI-PEC Ricerca massiva</span></a>
                       </li>
                       {% endif %}
+                      <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div>
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.ipa_singolo and not user_perms.ipa_massivo and not user_perms.inad_singolo and not user_perms.inad_massivo and not user_perms.inipec_singolo and not user_perms.inipec_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'domicili_digitali' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.ipa_singolo and not user_perms.ipa_massivo and not user_perms.inad_singolo and not user_perms.inad_massivo and not user_perms.inipec_singolo and not user_perms.inipec_massivo %} class="text-muted"{% endif %}>TEST - Cerca domicilio</span></a>
+                      </li>
                     </ul>
                   </div>
                 </div>

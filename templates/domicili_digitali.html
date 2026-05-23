@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block page_title %}
+Domicili Digitali - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Ricerca domicilio digitale</h3>
+<h4>Servizio unificato per iPA, INAD e INI-PEC</h4>
+<br />
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+<div class="col-8 shadow-lg white-bg p-4">
+  <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
+    {% if error %}
+    <div class="alert alert-danger" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <form class="needs-validation" id="domicili_digitali_form" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="form-group mb-4">
+        <div class="select-wrapper">
+          <label for="tipo_domicilio_select">Tipo di domicilio</label>
+          <select name="tipo_domicilio" id="tipo_domicilio_select" required>
+            {% if allowed_searches.ipa.singola or allowed_searches.ipa.massiva %}
+            <option value="ipa">Indice PA</option>
+            {% endif %}
+            {% if allowed_searches.inad.singola or allowed_searches.inad.massiva %}
+            <option value="inad">INAD</option>
+            {% endif %}
+            {% if allowed_searches.inipec.singola or allowed_searches.inipec.massiva %}
+            <option value="inipec">INI-PEC</option>
+            {% endif %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group mb-4">
+        <label class="active d-block mb-2">Modalita di ricerca</label>
+        <div class="d-flex flex-wrap gap-4">
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="modalita" id="modalita_singola" value="singola">
+            <label class="form-check-label" for="modalita_singola">Ricerca singola</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="modalita" id="modalita_massiva" value="massiva">
+            <label class="form-check-label" for="modalita_massiva">Ricerca massiva</label>
+          </div>
+        </div>
+      </div>
+
+      <div id="input_singola" class="form-group mb-3">
+        <label for="cf_singolo">Codice Fiscale</label>
+        <input type="text" name="cf_singolo" id="cf_singolo" class="form-control" maxlength="16" oninput="this.value = this.value.toUpperCase();">
+      </div>
+
+      <div id="input_massiva" class="form-group mb-3" style="display: none;">
+        <div class="it-card rounded border shadow-lg mb-4 p-4">
+          <div class="p-3" id="uploadSection">
+            <div id="dropZone">
+              <p class="text-center mb-0">Trascina file qui o<br>
+                <label for="file_massivo" class="btn btn-sm btn-primary mt-2"><svg class="icon icon-sm" style="fill: white;" aria-hidden="true">
+                  <use href="{% static 'svg/sprites.svg' %}#it-upload"></use>
+                </svg> Seleziona file</label>
+              </p>
+              <input type="file" id="file_massivo" name="file_massivo" class="d-none" accept=".csv,.xlsx,.xls">
+            </div>
+            <div id="filePreview" style="display: none;">
+              <div class="d-flex justify-content-between align-items-center fw-bold col-md-8 offset-md-2 border border-danger rounded p-2">
+                <span id="fileName" class="text-truncate"></span>
+                <button type="button" class="btn btn-sm btn-danger delete-file" id="deleteFileBtn" title="Elimina">
+                  <svg class="icon icon-sm icon-light" aria-hidden="true">
+                    <use href="{% static 'svg/sprites.svg' %}#it-delete"></use>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <small class="form-text text-muted">Il file deve contenere i codici fiscali nella prima colonna.</small>
+      </div>
+
+      <div>
+        <button class="btn btn-primary" id="executeSearchBtn" type="submit">
+          <svg class="icon icon-sm icon-white" aria-hidden="true">
+            <use href="{% static 'svg/sprites.svg' %}#it-search"></use>
+          </svg>Avvia ricerca
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if results %}
+<br />
+<div class="row">
+  {% for res in results %}
+  <div class="col-6 mb-4">
+    <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
+      <h5 class="it-card-title it-card-title-icon">Domicilio digitale di {{ res.cf }}</h5>
+      {% if '@' in res.dato|default:'' %}
+      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;"></div>
+      {% else %}
+      <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;"></div>
+      {% endif %}
+      <div class="it-card-body">
+        <p class="it-card-subtitle"><b>{{ res.dato }}</b></p>
+      </div>
+    </article>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% else %}
+<div class="col-6">
+  <h4>Utente non abilitato</h4>
+  <p>L'utente non e abilitato all'utilizzo di questo servizio</p>
+  <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+  <div class="p-3 text-end">
+    <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+  </div>
+</div>
+{% endif %}
+{% else %}
+<h4>Utente non loggato</h4>
+<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const allowedSearches = {{ allowed_searches_json|safe }}
+  const tipoSelect = document.getElementById('tipo_domicilio_select')
+  const singolaRadio = document.getElementById('modalita_singola')
+  const massivaRadio = document.getElementById('modalita_massiva')
+  const singolaInput = document.getElementById('input_singola')
+  const massivaInput = document.getElementById('input_massiva')
+  const cfInput = document.getElementById('cf_singolo')
+  const fileInput = document.getElementById('file_massivo')
+  const uploadSection = document.getElementById('uploadSection')
+  const dropZone = document.getElementById('dropZone')
+  const filePreview = document.getElementById('filePreview')
+  const fileName = document.getElementById('fileName')
+  const deleteBtn = document.getElementById('deleteFileBtn')
+  const executeBtn = document.getElementById('executeSearchBtn')
+
+  if (!tipoSelect || !singolaRadio || !massivaRadio) {
+    return
+  }
+
+  function updateFormState() {
+    const tipo = tipoSelect.value
+    const config = allowedSearches[tipo] || { singola: false, massiva: false }
+
+    let selectedMode = massivaRadio.checked ? 'massiva' : (singolaRadio.checked ? 'singola' : null)
+
+    singolaRadio.disabled = !config.singola
+    massivaRadio.disabled = !config.massiva
+
+    if (selectedMode === 'massiva' && !config.massiva) {
+      selectedMode = config.singola ? 'singola' : null
+    }
+
+    if (selectedMode === 'singola' && !config.singola) {
+      selectedMode = config.massiva ? 'massiva' : null
+    }
+
+    if (!selectedMode) {
+      selectedMode = config.singola ? 'singola' : (config.massiva ? 'massiva' : null)
+    }
+
+    singolaRadio.checked = selectedMode === 'singola'
+    massivaRadio.checked = selectedMode === 'massiva'
+
+    const isSingola = selectedMode === 'singola'
+    singolaInput.style.display = isSingola ? 'block' : 'none'
+    massivaInput.style.display = isSingola ? 'none' : 'block'
+    cfInput.required = isSingola
+    fileInput.required = !isSingola
+    executeBtn.disabled = !isSingola && !fileInput.files.length
+  }
+
+  function preventDefaults(e) {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  function showFilePreview(file) {
+    if (!filePreview || !dropZone || !fileName) {
+      return
+    }
+    fileName.textContent = file.name
+    filePreview.style.display = 'block'
+    dropZone.style.display = 'none'
+    executeBtn.disabled = false
+  }
+
+  function resetUpload() {
+    if (!filePreview || !dropZone) {
+      return
+    }
+    filePreview.style.display = 'none'
+    dropZone.style.display = 'block'
+    fileName.textContent = ''
+    fileInput.value = ''
+    updateFormState()
+  }
+
+  function isValidFile(file) {
+    const lowerName = file.name.toLowerCase()
+    return lowerName.endsWith('.csv') || lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')
+  }
+
+  function handleFiles(files) {
+    if (!files || !files.length) {
+      resetUpload()
+      return
+    }
+
+    const file = files[0]
+    if (!isValidFile(file)) {
+      alert('Formato file non consentito! Puoi caricare solo CSV o Excel.')
+      resetUpload()
+      return
+    }
+
+    if (typeof DataTransfer !== 'undefined') {
+      const dataTransfer = new DataTransfer()
+      dataTransfer.items.add(file)
+      fileInput.files = dataTransfer.files
+    }
+
+    showFilePreview(file)
+  }
+
+  if (uploadSection) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((eventName) => {
+      uploadSection.addEventListener(eventName, preventDefaults, false)
+    })
+
+    ['dragenter', 'dragover'].forEach((eventName) => {
+      uploadSection.addEventListener(eventName, () => {
+        uploadSection.classList.add('dragover')
+      }, false)
+    })
+
+    ['dragleave', 'drop'].forEach((eventName) => {
+      uploadSection.addEventListener(eventName, () => {
+        uploadSection.classList.remove('dragover')
+      }, false)
+    })
+
+    uploadSection.addEventListener('drop', (e) => {
+      handleFiles(e.dataTransfer.files)
+    }, false)
+  }
+
+  if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      handleFiles(e.target.files)
+    }, false)
+  }
+
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', resetUpload)
+  }
+
+  tipoSelect.addEventListener('change', updateFormState)
+  singolaRadio.addEventListener('change', updateFormState)
+  massivaRadio.addEventListener('change', updateFormState)
+  updateFormState()
+})
+</script>
+{% endblock %}
