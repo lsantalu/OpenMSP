@@ -241,6 +241,7 @@ urlpatterns = [
     path('impostazioni_logs/', impostazioni_logs, name='impostazioni_logs'),
     path('debug_openmsp/', views.debug_openmsp, name='debug_openmsp'),
     path('domicili_digitali/', views.domicili_digitali_view, name='domicili_digitali'),
+    path('anpr/', views.anpr, name='anpr'),
 ]
 
 if settings.AUTH_2FA:
