@@ -456,6 +456,10 @@ OpenMSP - Multi Services Portal
                         <a class="list-item dropdown-item{% if not user_perms.anpr_C021 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr_stato_famiglia' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C021 %} class="text-muted"{% endif %}>Stato famiglia</span></a>
                       </li>
                       {% endif %}
+                      <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div>
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anpr_C001 and not user_perms.anpr_C007 and not user_perms.anpr_C015 and not user_perms.anpr_C017 and not user_perms.anpr_C018 and not user_perms.anpr_C020 and not user_perms.anpr_C021 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C001 and not user_perms.anpr_C007 and not user_perms.anpr_C015 and not user_perms.anpr_C017 and not user_perms.anpr_C018 and not user_perms.anpr_C020 and not user_perms.anpr_C021 %} class="text-muted"{% endif %}>TEST - Interroga ANPR</span></a>
+                      </li>
                     </ul>
                   </div>
                 </div>

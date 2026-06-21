@@ -301,6 +301,120 @@ def logout(request):
     return redirect('home')
 
 
+def anpr(request):
+    utente_abilitato = False
+    data = None
+    error = None
+    service_options = [
+        {'value': 'C001', 'label': 'C001 - Servizio notifica'},
+        {'value': 'C007', 'label': 'C007 - Esistenza in vita'},
+        {'value': 'C015', 'label': 'C015 - Generalita'},
+        {'value': 'C017', 'label': 'C017 - Matrimonio'},
+        {'value': 'C018', 'label': 'C018 - Cittadinanza'},
+        {'value': 'C020', 'label': 'C020 - Residenza'},
+        {'value': 'C021', 'label': 'C021 - Stato di famiglia'},
+    ]
+
+    utente_sessione = None
+    if request.user.is_authenticated:
+        utente_sessione = UtentiParametri.objects.filter(id=request.user.id).first()
+        if utente_sessione:
+            utente_abilitato = any([
+                utente_sessione.anpr_C001,
+                utente_sessione.anpr_C007,
+                utente_sessione.anpr_C015,
+                utente_sessione.anpr_C017,
+                utente_sessione.anpr_C018,
+                utente_sessione.anpr_C020,
+                utente_sessione.anpr_C021,
+                utente_sessione.anpr_C030,
+            ])
+
+    servizio_scelto = None
+    cessazione_matrimonio_choices = [
+        ('1', 'Cessazione effetti civili'),
+        ('2', 'Annullamento'),
+        ('3', 'Scioglimento'),
+        ('4', 'Nullità'),
+        ('5', 'Separazione'),
+        ('6', 'Cessazione effetti civili - D.L. 12 settembre 2014'),
+        ('7', 'Scioglimento D.L. 12 settembre 2014, n. 132'),
+        ('8', 'Separazione - D.L. 12 settembre 2014, n. 132'),
+        ('9', 'Delibazione (estero)'),
+        ('10', 'Notaio (estero)'),
+        ('22', 'Altro tipo di cessazione / scioglimento'),
+    ]
+    parentela_choices = [
+        ('1', 'Intestatario Scheda'), ('2', 'Marito / Moglie'), ('3', 'Figlio / Figlia'),
+        ('4', 'Nipote (discendente)'), ('5', 'Pronipote (discendente)'), ('6', 'Padre / Madre'),
+        ('7', 'Nonno / Nonna'), ('8', 'Bisnonno / Bisnonna'), ('9', 'Fratello / Sorella'),
+        ('10', 'Nipote (collaterale)'), ('11', 'Zio / Zia (Collaterale)'), ('12', 'Cugino / Cugina'),
+        ('13', 'Altro Parente'), ('14', 'Figliastro / Figliastra'), ('15', 'Patrigno / Matrigna'),
+        ('16', 'Genero / Nuora'), ('17', 'Suocero / Suocera'), ('18', 'Cognato / Cognata'),
+        ('19', 'Fratellastro / Sorellastra'), ('20', 'Nipote (Affine)'), ('21', 'Zio / Zia (Affine)'),
+        ('22', 'Altro Affine'), ('23', 'Convivente (con vincoli di adozione o affettivi)'),
+        ('24', 'Responsabile della convivenza non affettiva'), ('25', 'Convivente in convivenza non affettiva'),
+        ('26', 'Tutore'), ('28', 'Unito civilmente'), ('80', 'Adottato'), ('81', 'Nipote'),
+        ('99', 'Non definito/comunicato'),
+    ]
+
+    if request.method == 'POST':
+        cf = request.POST.get('input_CF', '').strip().upper()
+        servizio = request.POST.get('servizio_anpr')
+        servizio_scelto = servizio
+        service_map = {
+            'C001': ('anpr_C001', 1, True),
+            'C007': ('anpr_C007', 2, True),
+            'C015': ('anpr_C015', 3, True),
+            'C017': ('anpr_C017', 4, True),
+            'C018': ('anpr_C018', 5, True),
+            'C020': ('anpr_C020', 6, True),
+            'C021': ('anpr_C021', 7, True),
+            'C030': ('anpr_C030', 9, False),
+        }
+
+        if servizio not in service_map:
+            error = 'Servizio ANPR non valido.'
+        elif not utente_abilitato:
+            error = 'Non sei abilitato per questa tipologia di ricerca.'
+        elif not cf:
+            error = 'Inserisci un codice fiscale.'
+        else:
+            perm_attr, service_id, needs_idanpr = service_map[servizio]
+            if not getattr(utente_sessione, perm_attr, False):
+                error = 'Non sei abilitato per questa tipologia di ricerca.'
+            else:
+                correttezza_cf = verifica_cf(cf)
+                data = []
+                data.append(cf)
+                if correttezza_cf in (1, 2):
+                    if needs_idanpr:
+                        id_anpr, status_id_anpr, purp_id_anpr, tok_id_anpr = anpr_get_request(request.user.username, cf, 8)
+                        result = anpr_get_request(request.user.username, id_anpr, service_id)
+                    else:
+                        result = anpr_get_request(request.user.username, cf, service_id)
+
+                    if isinstance(result, tuple) and result:
+                        res_data = result[0]
+                    else:
+                        res_data = result
+
+                    data.append(res_data)
+                    data = converti_data(data)
+                else:
+                    data.append("Codice fiscale non corretto")
+
+    return render(request, 'anpr.html', {
+        'utente_abilitato': utente_abilitato,
+        'service_options': service_options,
+        'data': data,
+        'error': error,
+        'servizio_scelto': servizio_scelto,
+        'cessazione': cessazione_matrimonio_choices,
+        'parentela': parentela_choices,
+    })
+
+
 def debug_openmsp(request):
     servizi_impostazioni = ServiziParametri.objects.all()
     gruppi_parametri = GruppiParametri.objects.all()
