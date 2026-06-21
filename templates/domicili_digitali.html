@@ -2,278 +2,716 @@
 {% load static %}
 
 {% block page_title %}
-Domicili Digitali - OpenMSP - Multi Services Portal
+  Domicili Digitali - OpenMSP - Multi Services Portal
 {% endblock %}
 
 {% block centered_container %}
-<h3>Ricerca domicilio digitale</h3>
-<h4>Servizio unificato per iPA, INAD e INI-PEC</h4>
-<br />
-{% if user.is_authenticated %}
-{% if utente_abilitato %}
-<div class="col-8 shadow-lg white-bg p-4">
-  <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
-    {% if error %}
-    <div class="alert alert-danger" role="alert">{{ error }}</div>
-    {% endif %}
-
-    <form class="needs-validation" id="domicili_digitali_form" method="post" enctype="multipart/form-data">
-      {% csrf_token %}
-      <div class="form-group mb-4">
-        <div class="select-wrapper">
-          <label for="tipo_domicilio_select">Tipo di domicilio</label>
-          <select name="tipo_domicilio" id="tipo_domicilio_select" required>
-            {% if allowed_searches.ipa.singola or allowed_searches.ipa.massiva %}
-            <option value="ipa">Indice PA</option>
-            {% endif %}
-            {% if allowed_searches.inad.singola or allowed_searches.inad.massiva %}
-            <option value="inad">INAD</option>
-            {% endif %}
-            {% if allowed_searches.inipec.singola or allowed_searches.inipec.massiva %}
-            <option value="inipec">INI-PEC</option>
-            {% endif %}
-          </select>
-        </div>
+  <h3>Ricerca domicilio digitale</h3>
+  <h4>Servizio unificato per ricerca iPA, INAD e INI-PEC</h4>
+  <br />
+  {% if user.is_authenticated %}
+    {% if utente_abilitato %}
+      <div id="loadingOverlay">
+        <div class="spinner"></div>
       </div>
 
-      <div class="form-group mb-4">
-        <label class="active d-block mb-2">Modalita di ricerca</label>
-        <div class="d-flex flex-wrap gap-4">
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="modalita" id="modalita_singola" value="singola">
-            <label class="form-check-label" for="modalita_singola">Ricerca singola</label>
-          </div>
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="modalita" id="modalita_massiva" value="massiva">
-            <label class="form-check-label" for="modalita_massiva">Ricerca massiva</label>
-          </div>
-        </div>
-      </div>
+      <div class="col-8 shadow-lg white-bg p-4">
+        <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
+          {% if error %}
+            <div class="alert alert-danger" role="alert">{{ error }}</div>
+          {% endif %}
 
-      <div id="input_singola" class="form-group mb-3">
-        <label for="cf_singolo">Codice Fiscale</label>
-        <input type="text" name="cf_singolo" id="cf_singolo" class="form-control" maxlength="16" oninput="this.value = this.value.toUpperCase();">
-      </div>
-
-      <div id="input_massiva" class="form-group mb-3" style="display: none;">
-        <div class="it-card rounded border shadow-lg mb-4 p-4">
-          <div class="p-3" id="uploadSection">
-            <div id="dropZone">
-              <p class="text-center mb-0">Trascina file qui o<br>
-                <label for="file_massivo" class="btn btn-sm btn-primary mt-2"><svg class="icon icon-sm" style="fill: white;" aria-hidden="true">
-                  <use href="{% static 'svg/sprites.svg' %}#it-upload"></use>
-                </svg> Seleziona file</label>
-              </p>
-              <input type="file" id="file_massivo" name="file_massivo" class="d-none" accept=".csv,.xlsx,.xls">
+          <form class="needs-validation" id="domicili_digitali_form" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-group my-3">
+              <div class="select-wrapper">
+                <label for="tipo_domicilio_select">Tipo di domicilio</label>
+                <select name="tipo_domicilio" id="tipo_domicilio_select" required>
+                  <option value="" selected>Scegli tipo di domicilio</option>
+                  {% if allowed_searches.ipa.singola or allowed_searches.ipa.massiva %}
+                    <option value="ipa">Indice Pubbliche Amministrazioni (iPA)</option>
+                  {% endif %}
+                  {% if allowed_searches.inad.singola or allowed_searches.inad.massiva %}
+                    <option value="inad">Domicilio Persone Fisiche (INAD)</option>
+                  {% endif %}
+                  {% if allowed_searches.inipec.singola or allowed_searches.inipec.massiva %}
+                    <option value="inipec">Domicilio Persone Giuridiche (INI-PEC)</option>
+                  {% endif %}
+                </select>
+              </div>
             </div>
-            <div id="filePreview" style="display: none;">
-              <div class="d-flex justify-content-between align-items-center fw-bold col-md-8 offset-md-2 border border-danger rounded p-2">
-                <span id="fileName" class="text-truncate"></span>
-                <button type="button" class="btn btn-sm btn-danger delete-file" id="deleteFileBtn" title="Elimina">
-                  <svg class="icon icon-sm icon-light" aria-hidden="true">
-                    <use href="{% static 'svg/sprites.svg' %}#it-delete"></use>
-                  </svg>
-                </button>
+            <br />
+            <div class="form-group mt-3 mb-5">
+              <label class="active d-block mb-2">Modalita di ricerca</label>
+              <div class="row">
+                <div class="col-6">
+                  <div class="form-check m-0">
+                    <input class="form-check-input" type="radio" name="modalita" id="modalita_singola" value="singola" />
+                    <label class="form-check-label" for="modalita_singola">Ricerca singola</label>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="form-check m-0">
+                    <input class="form-check-input" type="radio" name="modalita" id="modalita_massiva" value="massiva" />
+                    <label class="form-check-label" for="modalita_massiva">Ricerca massiva</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="input_singola_default" class="form-group mb-3 d-none">
+              <label for="cf_singolo">Codice Fiscale</label>
+              <input type="text" name="cf_singolo" id="cf_singolo" class="form-control" maxlength="16" oninput="this.value = this.value.toUpperCase();" />
+            </div>
+
+            <div id="input_singola_ipa" class="d-none ">
+              <div class="form-group mb-4">
+                <label for="input_descrizione_ente">Ricerca libera</label>
+                <input type="text" class="form-control ipa-input" id="input_descrizione_ente" name="input_descrizione_ente" />
+              </div>
+
+              <div class="form-group mb-4">
+                <label for="input_CF">Inserisci il Codice Fiscale</label>
+                <input type="text" class="form-control ipa-input" id="input_CF" name="input_CF" maxlength="11" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '');" />
+              </div>
+              <div class="form-group mb-4">
+                <label for="input_codice_ente">Codice iPA</label>
+                <input type="text" class="form-control ipa-input" id="input_codice_ente" name="input_codice_ente" />
+              </div>
+            </div>
+
+            <div id="input_massiva" class="form-group mb-3 d-none">
+              <div class="alert alert-info fs-5" role="alert">Il servizio accetta solo file formato <b>Excel (xlsx)</b> e <b>Libreoffice CSV</b></div>
+
+              <div class="row">
+                <div class="col-12">
+                  <div class="callout callout-highlight success h-100">
+                    <div class="callout-title">
+                      <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check-circle"></use></svg>
+                      Campi Obbligatori
+                    </div>
+                    <p>Questi dati sono necessari per la ricerca.</p>
+                    <ul class="list-unstyled">
+                      <li><strong>Colonna (A)</strong> - <span id="massivaColumnHint">Codici fiscali (scritti in carattere MAIUSCOLO)</span></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <p class="text-muted">
+                  <svg class="icon icon-sm me-1"><use href="{% static 'svg/sprites.svg' %}#it-info-circle"></use></svg>
+                  Le informazioni presenti nel file dalla colonna (B) in poi verranno automaticamente scartate.
+                </p>
+              </div>
+
+              <div class="it-card rounded border shadow-lg mb-4 p-4">
+                <div class="p-3" id="uploadSection">
+                  <div id="dropZone">
+                    <p class="text-center mb-0">
+                      Trascina file qui o<br />
+                      <button type="button" id="selectFileBtn" class="btn btn-sm btn-primary mt-2">
+                        <svg class="icon icon-sm" style="fill: white;" aria-hidden="true">
+                          <use href="{% static 'svg/sprites.svg' %}#it-upload"></use>
+                        </svg> Seleziona file
+                      </button>
+                    </p>
+                    <input type="file" id="file_massivo" name="file_massivo" class="d-none" accept=".csv,.xlsx,.xls" />
+                  </div>
+                  <div id="filePreview" class="d-none">
+                    <div class="d-flex justify-content-between align-items-center fw-bold col-md-8 offset-md-2 border border-danger rounded p-2">
+                      <span id="fileName" class="text-truncate"></span>
+                      <button type="button" class="btn btn-sm btn-danger delete-file" id="deleteFileBtn" title="Elimina">
+                        <svg class="icon icon-sm icon-light" aria-hidden="true" style="fill: white;">
+                          <use href="{% static 'svg/sprites.svg' %}#it-delete"></use>
+                        </svg> Elimina
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <button class="btn btn-primary" id="executeSearchBtn" type="submit" disabled>
+                <svg class="icon icon-sm icon-white" aria-hidden="true">
+                  <use href="{% static 'svg/sprites.svg' %}#it-search"></use>
+                </svg>Avvia ricerca
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {% if results %}
+        <br />
+        {% if search_context.tipo == 'ipa' and search_context.modalita == 'massiva' %}
+          <div class="col-10 shadow-lg white-bg p-5 mt-4">
+            <table id="dataTable" class="table align-middle table-hover table-primary">
+              <thead class="text-center">
+                <tr>
+                  <th scope="col">#</th>
+                  <th scope="col">Ente</th>
+                  <th scope="col">Verifica</th>
+                  <th scope="col">Domicilio digitale</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for res in results %}
+                  {% if res.tipo == 'ipa' %}
+                    {% with ente=res.raw %}
+                      {% if ente.result.num_items == 1 %}
+                        {% if '@' in ente.data.pec %}
+                          <tr class="table-success">
+                            <td class="text-center">{{ forloop.counter }}</td>
+                            <td>{{ ente.data.denominazione }}</td>
+                            <td class="text-center"><svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check">1</use></svg></td>
+                            <td>{{ ente.data.pec }}</td>
+                          </tr>
+                        {% else %}
+                          <tr class="table-danger">
+                            <td class="text-center">{{ forloop.counter }}</td>
+                            <td>{{ res.cf }}</td>
+                            <td class="text-center"><svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big ">-1</use></svg></td>
+                            <td>Domicilio digitale non trovato</td>
+                          </tr>
+                        {% endif %}
+                      {% elif ente.result.num_items > 1 %}
+                        <tr class="table-success">
+                          <td class="text-center">{{ forloop.counter }}</td>
+                          <td>{{ ente.data.0.denominazione }}</td>
+                          <td class="text-center"><svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check">1</use></svg></td>
+                          <td>
+                            {% for dd_singolo in ente.data %}
+                              {{ dd_singolo.pec }}<br />
+                            {% endfor %}
+                          </td>
+                        </tr>
+                      {% else %}
+                        <tr class="table-danger">
+                          <td class="text-center">{{ forloop.counter }}</td>
+                          <td>{{ res.cf }}</td>
+                          <td class="text-center"><svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big ">-1</use></svg></td>
+                          <td>Domicilio digitale non trovato</td>
+                        </tr>
+                      {% endif %}
+                    {% endwith %}
+                  {% else %}
+                    <tr class="table-danger">
+                      <td class="text-center">{{ forloop.counter }}</td>
+                      <td>{{ res.cf }}</td>
+                      <td class="text-center"><svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big ">-1</use></svg></td>
+                      <td>{{ res.dato }}</td>
+                    </tr>
+                  {% endif %}
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% elif search_context.modalita == 'massiva' %}
+          <div class="col-10 shadow-lg white-bg p-5 mt-4">
+            <table id="dataTable" class="table align-middle table-hover table-primary">
+              <thead class="text-center">
+                <tr>
+                  <th scope="col">#</th>
+                  <th scope="col">CF</th>
+                  <th scope="col">Verifica</th>
+                  <th scope="col">Domicilio digitale</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for res in results %}
+                  <tr {% if '@' in res.dato|default:'' %}class="table-success"{% elif res.dato == 'Codice fiscale non corretto' %}class="table-warning"{% else %}class="table-danger"{% endif %}>
+                    <td class="text-center">{{ forloop.counter }}</td>
+                    <td>{{ res.cf }}</td>
+                    <td class="text-center">
+                      {% if '@' in res.dato|default:'' %}
+                        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check">1</use></svg>
+                      {% elif res.dato == 'Codice fiscale non corretto' %}
+                        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-warning-circle">2</use></svg>
+                      {% else %}
+                        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big ">-1</use></svg>
+                      {% endif %}
+                    </td>
+                    <td>{{ res.dato }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="row">
+            {% for res in results %}
+              {% if res.tipo == 'ipa' %}
+                {% with ente=res.raw %}
+                <div class="col-4 mb-4">
+                  <article class="it-card rounded shadow-lg border it-card-height-full">
+                    {% if ente.result.num_items == 1 %}
+                    <h5 class="it-card-title it-card-title-icon"><b>{{ ente.data.denominazione }}</b></h5>
+                    {% else %}
+                    <h5 class="it-card-title it-card-title-icon"><b>{{ ente.data.0.denominazione }}</b></h5>
+                    {% endif %}
+
+                    <div class="it-card-body">
+                      <p class="it-card-text">
+                        {% if ente.result.num_items == 1 %}
+                        PEC: <b>{{ ente.data.pec }}</b><br />
+                        {% else %}
+                        {% for dd_singolo in ente.data %}
+                        PEC: <b>{{ dd_singolo.pec }}</b><br />
+                        {% endfor %}
+                        {% endif %}
+                        {% if ente.result.num_items == 1 %}
+                        Denominazione: <b>{{ ente.data.denominazione }}</b><br />
+                        Indirizzo: <b>{{ ente.data.indirizzo }}</b><br />
+                        Cap: <b>{{ ente.data.cap }}</b><br />
+                        Comune: <b>{{ ente.data.comune }} ({{ ente.data.provincia }})</b><br />
+                        Regione: <b>{{ ente.data.regione }}</b><br />
+                        Codice amministrazione: <b>{{ ente.data.cod_amm }}</b><br />
+                        {% else %}
+                        Denominazione: <b>{{ ente.data.0.denominazione }}</b><br />
+                        Indirizzo: <b>{{ ente.data.0.indirizzo }}</b><br />
+                        Cap: <b>{{ ente.data.0.cap }}</b><br />
+                        Comune: <b>{{ ente.data.0.comune }} ({{ ente.data.0.provincia }})</b><br />
+                        Regione: <b>{{ ente.data.0.regione }}</b><br />
+                        Codice amministrazione: <b>{{ ente.data.0.cod_amm }}</b>
+                        {% endif %}
+                      </p>
+                    </div>
+                  </article>
+                </div>
+                {% endwith %}
+              {% else %}
+                <div class="col-6 mb-4">
+                  <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
+                    <h5 class="it-card-title it-card-title-icon">Domicilio digitale di {{ res.cf }}</h5>
+                    {% if '@' in res.dato|default:'' %}
+                      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;"></div>
+                    {% else %}
+                      <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;"></div>
+                    {% endif %}
+                    <div class="it-card-body">
+                      <p class="it-card-subtitle" style="text-transform: none;">
+                        <b>{{ res.dato }}</b>
+                      </p>
+                    </div>
+                  </article>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% endif %}
+        
+        <br />
+        {% if search_context.modalita == 'massiva' %}
+          <div class="d-flex justify-content">
+            <button type="button" id="exportCsvBtn" class="m-1 btn btn-secondary" data-filename="{% if search_context.tipo == 'ipa' %}EsitoDomiciliDigitaliPA.csv{% elif search_context.tipo == 'inad' %}EsitoDomiciliDigitaliPF.csv{% else %}EsitoDomiciliDigitaliAziende.csv{% endif %}">
+              <svg class="icon icon-sm icon-light" aria-hidden="true">
+                <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+              </svg><span>Esporta CSV</span>
+            </button>
+            {% if search_context.tipo == 'ipa' %}
+              <a href="{% url 'ipa_export_excel' %}" class="m-1 btn btn-success">
+            {% elif search_context.tipo == 'inad' %}
+              <a href="{% url 'inad_export_excel' %}" class="m-1 btn btn-success">
+            {% else %}
+              <a href="{% url 'inipec_export_excel' %}" class="m-1 btn btn-success">
+            {% endif %}
+              <svg class="icon icon-sm icon-light" aria-hidden="true">
+                <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+              </svg><span>Esporta Excel</span>
+            </a>
+          </div>
+        {% else %}
+          <div class="row">
+            <div class="col-6 mb-4">
+              <button id="printButton" class="btn btn-secondary">
+                <svg class="icon icon-sm icon-white" aria-hidden="true">
+                  <use href="{% static 'svg/sprites.svg' %}#it-print"></use>
+                </svg>Stampa ricerca
+              </button>
+            </div>
+          </div>
+        {% endif %}
+
+        {% if user.is_superuser and search_context.modalita != 'massiva' %}
+        <div class="row mt-4">
+          <div class="col-10 shadow-lg white-bg">
+            <div class="accordion p-3 accordion-background-active" id="accordionExampleHa">
+              <div class="accordion-item">
+                <h2 class="accordion-header" id="heading">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse" aria-expanded="false" aria-controls="collapse">Dettaglio interrogazione</button>
+                </h2>
+                <div id="collapse" class="accordion-collapse collapse" data-bs-parent="#accordionExampleHa" role="region" aria-labelledby="heading">
+                  <div class="accordion-body">
+                    <div class="link-list-wrapper">
+                      <pre id="json-display"></pre>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-        <small class="form-text text-muted">Il file deve contenere i codici fiscali nella prima colonna.</small>
-      </div>
-
-      <div>
-        <button class="btn btn-primary" id="executeSearchBtn" type="submit">
-          <svg class="icon icon-sm icon-white" aria-hidden="true">
-            <use href="{% static 'svg/sprites.svg' %}#it-search"></use>
-          </svg>Avvia ricerca
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
-{% if results %}
-<br />
-<div class="row">
-  {% for res in results %}
-  <div class="col-6 mb-4">
-    <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
-      <h5 class="it-card-title it-card-title-icon">Domicilio digitale di {{ res.cf }}</h5>
-      {% if '@' in res.dato|default:'' %}
-      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;"></div>
-      {% else %}
-      <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;"></div>
+        <script>
+          document.addEventListener('DOMContentLoaded', function () {
+            let rawData = `{{ results|safe }}`.trim();
+            let validJsonString = rawData.replace(/'/g, '"').replace(/None/g, 'null').replace(/True/g, 'true').replace(/False/g, 'false');
+            try {
+              let jsonData = JSON.parse(validJsonString);
+              let formattedJson = JSON.stringify(jsonData, null, 4);
+              const display = document.getElementById('json-display');
+              if (display) display.textContent = formattedJson;
+            } catch (e) {
+              console.error("Errore nel parsing del JSON:", e);
+              const display = document.getElementById('json-display');
+              if (display) display.textContent = rawData;
+            }
+          });
+        </script>
+        {% endif %}
       {% endif %}
-      <div class="it-card-body">
-        <p class="it-card-subtitle"><b>{{ res.dato }}</b></p>
+    {% else %}
+      <div class="col-6">
+        <h4>Utente non abilitato</h4>
+        <p>L'utente non e abilitato all'utilizzo di questo servizio</p>
+        <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+        <div class="p-3 text-end">
+          <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+        </div>
       </div>
-    </article>
-  </div>
-  {% endfor %}
-</div>
-{% endif %}
-{% else %}
-<div class="col-6">
-  <h4>Utente non abilitato</h4>
-  <p>L'utente non e abilitato all'utilizzo di questo servizio</p>
-  <p>Per maggiori informazioni contatti l'amministratore del portale</p>
-  <div class="p-3 text-end">
-    <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
-  </div>
-</div>
-{% endif %}
-{% else %}
-<h4>Utente non loggato</h4>
-<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
-<a href="{% url 'login' %}" class="btn btn-primary">
-  <svg class="icon icon-sm icon-white" aria-hidden="true">
-    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
-  </svg>Accedi
-</a>
-{% endif %}
+    {% endif %}
+  {% else %}
+    <h4>Utente non loggato</h4>
+    <p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+    <a href="{% url 'login' %}" class="btn btn-primary">
+      <svg class="icon icon-sm icon-white" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+      </svg>Accedi
+    </a>
+  {% endif %}
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  const allowedSearches = {{ allowed_searches_json|safe }}
-  const tipoSelect = document.getElementById('tipo_domicilio_select')
-  const singolaRadio = document.getElementById('modalita_singola')
-  const massivaRadio = document.getElementById('modalita_massiva')
-  const singolaInput = document.getElementById('input_singola')
-  const massivaInput = document.getElementById('input_massiva')
-  const cfInput = document.getElementById('cf_singolo')
-  const fileInput = document.getElementById('file_massivo')
-  const uploadSection = document.getElementById('uploadSection')
-  const dropZone = document.getElementById('dropZone')
-  const filePreview = document.getElementById('filePreview')
-  const fileName = document.getElementById('fileName')
-  const deleteBtn = document.getElementById('deleteFileBtn')
-  const executeBtn = document.getElementById('executeSearchBtn')
+  <script>
+    (function() {
+      const form = document.getElementById("domicili_digitali_form");
+      if (!form) {
+        return;
+      }
 
-  if (!tipoSelect || !singolaRadio || !massivaRadio) {
-    return
-  }
+      const tipoDomicilioSelect = document.getElementById("tipo_domicilio_select");
+      const modalitaSingola = document.getElementById("modalita_singola");
+      const modalitaMassiva = document.getElementById("modalita_massiva");
+      const inputSingolaDefaultWrapper = document.getElementById("input_singola_default");
+      const inputSingolaIpaWrapper = document.getElementById("input_singola_ipa");
+      const inputMassivaWrapper = document.getElementById("input_massiva");
+      const cfSingoloInput = document.getElementById("cf_singolo");
+      const ipaInputs = document.querySelectorAll(".ipa-input");
+      const fileInput = document.getElementById("file_massivo");
+      const selectFileBtn = document.getElementById("selectFileBtn");
+      const uploadSection = document.getElementById("uploadSection");
+      const dropZone = document.getElementById("dropZone");
+      const filePreview = document.getElementById("filePreview");
+      const fileName = document.getElementById("fileName");
+      const deleteFileBtn = document.getElementById("deleteFileBtn");
+      const executeSearchBtn = document.getElementById("executeSearchBtn");
+      const loadingOverlay = document.getElementById("loadingOverlay");
 
-  function updateFormState() {
-    const tipo = tipoSelect.value
-    const config = allowedSearches[tipo] || { singola: false, massiva: false }
+      modalitaSingola.checked = false;
+      modalitaMassiva.checked = false;
 
-    let selectedMode = massivaRadio.checked ? 'massiva' : (singolaRadio.checked ? 'singola' : null)
+      const allowedExtensions = [".csv", ".xlsx", ".xls"];
 
-    singolaRadio.disabled = !config.singola
-    massivaRadio.disabled = !config.massiva
+      function showOverlay() {
+        if (loadingOverlay) {
+          loadingOverlay.classList.add("show");
+        }
+      }
 
-    if (selectedMode === 'massiva' && !config.massiva) {
-      selectedMode = config.singola ? 'singola' : null
-    }
+      form.addEventListener("submit", function() {
+        showOverlay();
+      });
 
-    if (selectedMode === 'singola' && !config.singola) {
-      selectedMode = config.massiva ? 'massiva' : null
-    }
+      function updateVisibleSection() {
+        const isSingola = modalitaSingola.checked;
+        const isMassiva = modalitaMassiva.checked;
+        const tipoDomicilio = tipoDomicilioSelect.value;
 
-    if (!selectedMode) {
-      selectedMode = config.singola ? 'singola' : (config.massiva ? 'massiva' : null)
-    }
+        if (isSingola) {
+          if (tipoDomicilio === 'ipa') {
+            inputSingolaDefaultWrapper.classList.add("d-none");
+            inputSingolaIpaWrapper.classList.remove("d-none");
+            cfSingoloInput.required = false;
+            cfSingoloInput.value = "";
+          } else {
+            inputSingolaDefaultWrapper.classList.remove("d-none");
+            inputSingolaIpaWrapper.classList.add("d-none");
+            cfSingoloInput.required = true;
+            ipaInputs.forEach(input => {
+              input.value = "";
+              input.disabled = false;
+            });
+          }
+        } else {
+          inputSingolaDefaultWrapper.classList.add("d-none");
+          inputSingolaIpaWrapper.classList.add("d-none");
+          cfSingoloInput.required = false;
+          cfSingoloInput.value = "";
+          ipaInputs.forEach(input => {
+            input.value = "";
+            input.disabled = false;
+          });
+        }
 
-    singolaRadio.checked = selectedMode === 'singola'
-    massivaRadio.checked = selectedMode === 'massiva'
+        inputMassivaWrapper.classList.toggle("d-none", !isMassiva);
+        if (massivaColumnHint) {
+          massivaColumnHint.textContent = tipoDomicilio === "ipa" ? "Nome dell\'ente" : "Codici fiscali (scritti in carattere MAIUSCOLO)";
+        }
+        fileInput.required = isMassiva;
 
-    const isSingola = selectedMode === 'singola'
-    singolaInput.style.display = isSingola ? 'block' : 'none'
-    massivaInput.style.display = isSingola ? 'none' : 'block'
-    cfInput.required = isSingola
-    fileInput.required = !isSingola
-    executeBtn.disabled = !isSingola && !fileInput.files.length
-  }
+        if (!isMassiva) {
+          resetUpload();
+        }
+      }
 
-  function preventDefaults(e) {
-    e.preventDefault()
-    e.stopPropagation()
-  }
+      function updateSubmitButton() {
+        const tipoDomicilio = tipoDomicilioSelect.value;
+        const hasTipoDomicilio = tipoDomicilio !== "";
+        const isSingola = modalitaSingola.checked;
+        const isMassiva = modalitaMassiva.checked;
+        const hasModalita = isSingola || isMassiva;
+        const hasFile = fileInput.files && fileInput.files.length > 0;
+        
+        let isSearchReady = false;
+        
+        if (hasTipoDomicilio && hasModalita) {
+          if (isMassiva) {
+            isSearchReady = hasFile;
+          } else if (isSingola) {
+            if (tipoDomicilio === 'ipa') {
+              let isAnyIpaFilled = false;
+              ipaInputs.forEach(input => {
+                if (input.value.trim() !== '') {
+                  isAnyIpaFilled = true;
+                }
+              });
+              isSearchReady = isAnyIpaFilled;
+            } else {
+              isSearchReady = true;
+            }
+          }
+        }
 
-  function showFilePreview(file) {
-    if (!filePreview || !dropZone || !fileName) {
-      return
-    }
-    fileName.textContent = file.name
-    filePreview.style.display = 'block'
-    dropZone.style.display = 'none'
-    executeBtn.disabled = false
-  }
+        executeSearchBtn.disabled = !isSearchReady;
+      }
 
-  function resetUpload() {
-    if (!filePreview || !dropZone) {
-      return
-    }
-    filePreview.style.display = 'none'
-    dropZone.style.display = 'block'
-    fileName.textContent = ''
-    fileInput.value = ''
-    updateFormState()
-  }
+      function isValidFile(file) {
+        const currentFileName = file.name.toLowerCase();
+        return allowedExtensions.some(ext => currentFileName.endsWith(ext));
+      }
 
-  function isValidFile(file) {
-    const lowerName = file.name.toLowerCase()
-    return lowerName.endsWith('.csv') || lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')
-  }
+      function showFilePreview(file) {
+        fileName.textContent = file.name;
+        filePreview.classList.remove("d-none");
+        filePreview.style.display = "block";
+        dropZone.classList.add("d-none");
+        updateSubmitButton();
+      }
 
-  function handleFiles(files) {
-    if (!files || !files.length) {
-      resetUpload()
-      return
-    }
+      function resetUpload() {
+        fileInput.value = "";
+        fileName.textContent = "";
+        filePreview.classList.add("d-none");
+        filePreview.style.display = "none";
+        dropZone.classList.remove("d-none");
+        updateSubmitButton();
+      }
 
-    const file = files[0]
-    if (!isValidFile(file)) {
-      alert('Formato file non consentito! Puoi caricare solo CSV o Excel.')
-      resetUpload()
-      return
-    }
+      function handleFiles(files) {
+        if (!files || files.length === 0) {
+          resetUpload();
+          return;
+        }
 
-    if (typeof DataTransfer !== 'undefined') {
-      const dataTransfer = new DataTransfer()
-      dataTransfer.items.add(file)
-      fileInput.files = dataTransfer.files
-    }
+        const file = files[0];
+        if (!isValidFile(file)) {
+          alert("Formato file non consentito! Puoi caricare solo CSV o Excel (.xlsx)");
+          resetUpload();
+          return;
+        }
 
-    showFilePreview(file)
-  }
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+        showFilePreview(file);
+      }
 
-  if (uploadSection) {
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((eventName) => {
-      uploadSection.addEventListener(eventName, preventDefaults, false)
-    })
+      function preventDefaults(event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
 
-    ['dragenter', 'dragover'].forEach((eventName) => {
-      uploadSection.addEventListener(eventName, () => {
-        uploadSection.classList.add('dragover')
-      }, false)
-    })
+      ["dragenter", "dragover", "dragleave", "drop"].forEach(eventName => {
+        uploadSection.addEventListener(eventName, preventDefaults, false);
+      });
 
-    ['dragleave', 'drop'].forEach((eventName) => {
-      uploadSection.addEventListener(eventName, () => {
-        uploadSection.classList.remove('dragover')
-      }, false)
-    })
+      ["dragenter", "dragover"].forEach(eventName => {
+        uploadSection.addEventListener(eventName, function() {
+          uploadSection.classList.add("dragover");
+        }, false);
+      });
 
-    uploadSection.addEventListener('drop', (e) => {
-      handleFiles(e.dataTransfer.files)
-    }, false)
-  }
+      ["dragleave", "drop"].forEach(eventName => {
+        uploadSection.addEventListener(eventName, function() {
+          uploadSection.classList.remove("dragover");
+        }, false);
+      });
 
-  if (fileInput) {
-    fileInput.addEventListener('change', (e) => {
-      handleFiles(e.target.files)
-    }, false)
-  }
+      uploadSection.addEventListener("drop", function(event) {
+        handleFiles(event.dataTransfer.files);
+      }, false);
 
-  if (deleteBtn) {
-    deleteBtn.addEventListener('click', resetUpload)
-  }
+      fileInput.addEventListener("change", function(event) {
+        handleFiles(event.target.files);
+      }, false);
 
-  tipoSelect.addEventListener('change', updateFormState)
-  singolaRadio.addEventListener('change', updateFormState)
-  massivaRadio.addEventListener('change', updateFormState)
-  updateFormState()
-})
-</script>
+      selectFileBtn.addEventListener("click", function() {
+        fileInput.click();
+      });
+
+      deleteFileBtn.addEventListener("click", resetUpload);
+      tipoDomicilioSelect.addEventListener("change", function() {
+        updateVisibleSection();
+        updateSubmitButton();
+      });
+      modalitaSingola.addEventListener("change", function() {
+        updateVisibleSection();
+        updateSubmitButton();
+      });
+      modalitaMassiva.addEventListener("change", function() {
+        updateVisibleSection();
+        updateSubmitButton();
+      });
+
+      ipaInputs.forEach(input => {
+        input.addEventListener("input", function() {
+          const hasValue = this.value.trim() !== '';
+          ipaInputs.forEach(otherInput => {
+            if (otherInput !== this) {
+              otherInput.disabled = hasValue;
+            }
+          });
+          updateSubmitButton();
+        });
+      });
+
+      updateVisibleSection();
+      updateSubmitButton();
+    })();
+
+    (function() {
+      function exportTableToCSV(filename) {
+        const table = document.getElementById('dataTable');
+        if (!table) return;
+        const rows = table.querySelectorAll('tr');
+        const csv = [];
+        for (let i = 0; i < rows.length; i++) {
+          const row = [];
+          const cols = rows[i].querySelectorAll('td, th');
+          for (let j = 0; j < cols.length; j++) {
+            let cellText = cols[j].textContent.trim();
+            if (j === 3) {
+              const lines = cellText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+              cellText = '"' + lines.join('\n').replace(/"/g, '""') + '"';
+            } else {
+              cellText = cellText.replace(/\s+/g, ' ').replace(/"/g, '""');
+              if (/[;"\n]/.test(cellText)) {
+                cellText = '"' + cellText + '"';
+              }
+            }
+            row.push(cellText);
+          }
+          csv.push(row.join(';'));
+        }
+        const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        if (navigator.msSaveBlob) {
+          navigator.msSaveBlob(blob, filename);
+        } else {
+          const url = URL.createObjectURL(blob);
+          link.setAttribute('href', url);
+          link.setAttribute('download', filename);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
+      }
+
+      document.addEventListener('click', function(event) {
+        const button = event.target.closest && event.target.closest('#exportCsvBtn');
+        if (!button) return;
+        event.preventDefault();
+        exportTableToCSV(button.dataset.filename || 'EsitoDomiciliDigitali.csv');
+      }, false);
+    })();
+
+    document.addEventListener('DOMContentLoaded', function () {
+      const printButton = document.getElementById('printButton');
+      if (printButton) {
+        printButton.addEventListener('click', function () {
+          const user = '{{ user.username }}';
+          const pageTitle = document.title;
+          const currentDate = new Date();
+          const formattedDate = currentDate.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+          const formattedTime = currentDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+          const printWindow = window.open('', '', 'height=600,width=800');
+
+          let printContent = '<html><head><title>Ricerca Domicili Digitali</title>';
+
+          printContent += '<style>';
+          printContent += '.it-card { border: 1px solid black; margin-bottom: 20px; padding: 10px; }';
+          printContent += 'body { font-family: Arial, sans-serif; }';
+          printContent += '.header { margin-bottom: 20px; }';
+          printContent += '.header h3 { margin: 0; text-decoration: underline; }';
+          printContent += 'h5 { margin: 0; text-decoration: underline; font-size: 1.225em; }';
+          printContent += '.header p { margin: 0; }';
+          printContent += 'hr { border: none; border-top: 1px solid black; margin: 10px 0; }';
+          printContent += '</style>';
+
+          printContent += '</head><body>';
+
+          printContent += '<div class="header">';
+          printContent += `<h3>${pageTitle}</h3>`;
+          printContent += `<p>Richiesta effettuata da: <b>${user}</b></p>`;
+          printContent += `<p>Data: <b>${formattedDate}</b> Ora: <b>${formattedTime}</b></p>`;
+          printContent += '<hr>';
+          printContent += '</div>';
+
+          const cardWrappers = document.querySelectorAll('.it-card');
+
+          cardWrappers.forEach((wrapper) => {
+            if (wrapper.tagName.toLowerCase() === 'div') {
+              return;
+            }
+            const cardClone = wrapper.cloneNode(true);
+            const topIcon = cardClone.querySelector('.it-card-image-wrapper');
+            if (topIcon) {
+              topIcon.remove();
+            }
+            printContent += cardClone.outerHTML;
+          });
+
+          printContent += '</body></html>';
+
+          printWindow.document.write(printContent);
+          printWindow.document.close();
+          printWindow.focus();
+          printWindow.print();
+          printWindow.close();
+        });
+      }
+    });
+  </script>
+
 {% endblock %}
