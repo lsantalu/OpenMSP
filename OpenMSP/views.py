@@ -43,7 +43,7 @@ from django.contrib.auth.models import User
 
 from .ipa import ipa_codice
 from .anpr import anpr_get_request
-###from .inad import inad_get_bearer, inad_verifica_utente
+from .inad import inad_get_bearer, inad_verifica_utente, estrai_mail
 from .verifica_cf import verifica_cf, verifica_cf_azienda
 from .registro_imprese import registro_imprese_get_bearer, registro_imprese_verifica_utente
 ###from .anis import anis_get_bearer, anis_verifica_utente
@@ -187,17 +187,18 @@ def Api_C021(codice_fiscale, api_key):
     return anpr_get_request(api_key, anpr_get_request(api_key, codice_fiscale,7), 6)
 
 def Api_inad(codice_fiscale, api_key):
-    bearer = inad_get_bearer()
+    bearer, token_id = inad_get_bearer()
     correttezza_cf = verifica_cf(codice_fiscale)
     if correttezza_cf == 1:
         ###salva_log(api_key,"Verifica INAD singolo", "Verificato domicilio utente " + codice_fiscale )
-        return inad_verifica_utente(codice_fiscale, bearer)
+        parsed_output, status, purp_id = inad_verifica_utente(codice_fiscale, bearer)
+        return estrai_mail(json.dumps(parsed_output))
+    return "Codice fiscale non corretto"
 
 def Api_ipa(codice_fiscale, api_key):
     ipa_parametri = IpaParametri.objects.get(id=1)
     auth_id = ipa_parametri.auth_id
 
-    testo_log = codice_fiscale
     verifica_cf_ipa = verifica_cf_azienda(codice_fiscale)
     if verifica_cf_ipa == 1:
         url = "https://www.indicepa.gov.it:443/ws/WS23DOMDIGCFServices/api/WS23_DOM_DIG_CF"
@@ -210,18 +211,30 @@ def Api_ipa(codice_fiscale, api_key):
             }
         response = requests.post(url, data=payload, headers=headers)
         if response.status_code == 200:
-            content_str = response.content.decode('utf-8')
-            ###salva_log(api_key,"Verifica IndicePA", "Verificato domicilio ente " + testo_log )
-            return json.loads(content_str)
+            temp_data = json.loads(response.content.decode('utf-8'))
+            if 'data' in temp_data and temp_data['data']:
+                codice_ipa = temp_data['data'][0]['cod_amm']
+                response_pec = ipa_codice(auth_id, codice_ipa)
+                if response_pec.status_code == 200:
+                    risultato = response_pec.json()
+                    if 'data' in risultato and isinstance(risultato['data'], list) and len(risultato['data']) > 0:
+                        return risultato['data'][0].get('pec', 'Domicilio non trovato').lower()
+                    elif 'data' in risultato and isinstance(risultato['data'], dict):
+                        return risultato['data'].get('pec', 'Domicilio non trovato').lower()
+            return "Domicilio digitale non trovato"
+    return "Codice fiscale non corretto"
 
 def Api_ini_pec(codice_fiscale, api_key):
-    bearer = registro_imprese_get_bearer()
+    bearer, token_id = registro_imprese_get_bearer()
     correttezza_cf_azienda = verifica_cf_azienda(codice_fiscale)
     if correttezza_cf_azienda == 1:
-        elenco_dati_registro =  registro_imprese_verifica_utente(codice_fiscale, bearer)
-        dd = elenco_dati_registro.get('blocchi_impresa').get('dati_identificativi').get('indirizzo_posta_certificata')
+        elenco_dati_registro, status_code, purp_id, tok_id = registro_imprese_verifica_utente(codice_fiscale, bearer, token_id)
+        if elenco_dati_registro:
+            dd = elenco_dati_registro.get('blocchi_impresa', {}).get('dati_identificativi', {}).get('indirizzo_posta_certificata', 'Dato non disponibile')
+        else:
+            dd = "Ditta non presente nel Registro Imprese"
         ###salva_log(api_key,"Verifica INI-PEC singolo", "Verificato domicilio impresa " + codice_fiscale )
-        return dd
+        return dd.lower()
 
 
 @csrf_exempt
@@ -426,6 +439,7 @@ class CustomUserCreationForm(UserCreationForm):
 
 def domicili_digitali_view(request):
     results = None
+    search_context = {}
     utente_abilitato = False
     allowed_searches = {
         'ipa': {'singola': False, 'massiva': False},
@@ -460,6 +474,7 @@ def domicili_digitali_view(request):
         if not utente_abilitato:
             return render(request, 'domicili_digitali.html', {
                 'results': results,
+                'search_context': search_context,
                 'utente_abilitato': utente_abilitato,
                 'allowed_searches': allowed_searches,
                     'allowed_searches_json': json.dumps(allowed_searches),
@@ -472,6 +487,7 @@ def domicili_digitali_view(request):
         if tipo not in allowed_searches or modalita not in allowed_searches[tipo] or not allowed_searches[tipo][modalita]:
             return render(request, 'domicili_digitali.html', {
                 'results': results,
+                'search_context': {'tipo': tipo, 'modalita': modalita},
                 'utente_abilitato': utente_abilitato,
                 'allowed_searches': allowed_searches,
                     'allowed_searches_json': json.dumps(allowed_searches),
@@ -479,15 +495,60 @@ def domicili_digitali_view(request):
             })
 
         results = []
+        search_context = {'tipo': tipo, 'modalita': modalita}
 
         if modalita == 'singola':
-            cf = request.POST.get('cf_singolo')
-            if cf:
-                dato = None
-                if tipo == 'ipa': dato = Api_ipa(cf, api_key)
-                elif tipo == 'inad': dato = Api_inad(cf, api_key)
-                elif tipo == 'inipec': dato = Api_ini_pec(cf, api_key)
-                results.append({'cf': cf, 'dato': dato})
+            if tipo == 'ipa':
+                descrizione = request.POST.get('input_descrizione_ente')
+                cf_ipa = request.POST.get('input_CF')
+                codice_ipa = request.POST.get('input_codice_ente')
+                
+                ipa_parametri = IpaParametri.objects.get(id=1)
+                auth_id = ipa_parametri.auth_id
+                
+                codici_amm = []
+                cf_display = ""
+                
+                if descrizione:
+                    cf_display = descrizione
+                    url = "https://www.indicepa.gov.it:443/ws/WS16DESAMMServices/api/WS16_DES_AMM"
+                    response = requests.post(url, data={"AUTH_ID": auth_id, "DESCR": descrizione}, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+                    if response.status_code == 200:
+                        temp_data = json.loads(response.content.decode('utf-8'))
+                        occorrenze = temp_data.get('result', {}).get('num_items', 0)
+                        if occorrenze:
+                            for idx in range(occorrenze):
+                                codici_amm.append(temp_data['data'][idx]['cod_amm'])
+                elif cf_ipa:
+                    cf_display = cf_ipa
+                    if verifica_cf_azienda(cf_ipa) == 1:
+                        url = "https://www.indicepa.gov.it:443/ws/WS23DOMDIGCFServices/api/WS23_DOM_DIG_CF"
+                        response = requests.post(url, data={"AUTH_ID": auth_id, "CF": cf_ipa}, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+                        if response.status_code == 200:
+                            temp_data = json.loads(response.content.decode('utf-8'))
+                            if 'data' in temp_data and temp_data['data']:
+                                codici_amm.append(temp_data['data'][0]['cod_amm'])
+                elif codice_ipa:
+                    cf_display = codice_ipa
+                    codici_amm.append(codice_ipa)
+
+                if not codici_amm:
+                    results.append({'cf': cf_display, 'dato': "Nessun ente trovato"})
+                else:
+                    for cod in codici_amm:
+                        response = ipa_codice(auth_id, cod)
+                        if response.status_code == 200:
+                            risultato = response.json()
+                            results.append({'tipo': 'ipa', 'raw': risultato})
+                        else:
+                            results.append({'tipo': 'error', 'cf': cod, 'dato': 'Errore interrogazione iPA'})
+            else:
+                cf = request.POST.get('cf_singolo')
+                if cf:
+                    dato = None
+                    if tipo == 'inad': dato = Api_inad(cf, api_key)
+                    elif tipo == 'inipec': dato = Api_ini_pec(cf, api_key)
+                    results.append({'tipo': 'standard', 'cf': cf, 'dato': dato})
 
         elif modalita == 'massiva':
             file_obj = request.FILES.get('file_massivo')
@@ -507,15 +568,51 @@ def domicili_digitali_view(request):
                         if row[0]:
                             cf_list.append(str(row[0]))
 
+                ipa_auth_id = None
+                ipa_search_url = "https://www.indicepa.gov.it:443/ws/WS16DESAMMServices/api/WS16_DES_AMM"
+                headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+                export_data = []
+                if tipo == 'ipa':
+                    ipa_auth_id = IpaParametri.objects.get(id=1).auth_id
+
                 for cf in cf_list:
                     dato = None
-                    if tipo == 'ipa': dato = Api_ipa(cf, api_key)
-                    elif tipo == 'inad': dato = Api_inad(cf, api_key)
-                    elif tipo == 'inipec': dato = Api_ini_pec(cf, api_key)
-                    results.append({'cf': cf, 'dato': dato})
+                    if tipo == 'ipa':
+                        ente = cf.strip().upper()
+                        response = requests.post(ipa_search_url, data={"AUTH_ID": ipa_auth_id, "DESCR": ente}, headers=headers)
+                        if response.status_code == 200:
+                            temp_data = json.loads(response.content.decode('utf-8'))
+                            occorrenze = temp_data.get('result', {}).get('num_items', 0)
+                            if occorrenze:
+                                for indice in range(0, occorrenze):
+                                    codice_ipa = temp_data['data'][indice]['cod_amm']
+                                    response_pec = ipa_codice(ipa_auth_id, codice_ipa)
+                                    if response_pec.status_code == 200:
+                                        risultato = response_pec.json()
+                                        export_data.append(risultato)
+                                        results.append({'tipo': 'ipa', 'cf': ente, 'raw': risultato})
+                                    else:
+                                        export_data.append(ente)
+                                        results.append({'tipo': 'standard', 'cf': ente, 'dato': 'Errore interrogazione iPA'})
+                                continue
+                        dato = "Domicilio digitale non trovato"
+                        export_data.append(ente)
+                    elif tipo == 'inad':
+                        dato = Api_inad(cf, api_key)
+                        stato = verifica_cf(cf)
+                        export_data.append(f"{cf.strip().upper()} {stato} {dato}")
+                    elif tipo == 'inipec':
+                        dato = Api_ini_pec(cf, api_key)
+                        stato = verifica_cf_azienda(cf)
+                        export_data.append(f"{cf.strip().upper()} {stato} {dato}")
+                    results.append({'tipo': 'standard', 'cf': cf, 'dato': dato})
+
+                if tipo in ['ipa', 'inad', 'inipec']:
+                    request.session['multi_data'] = export_data
 
     return render(request, 'domicili_digitali.html', {
         'results': results,
+        'search_context': search_context,
         'utente_abilitato': utente_abilitato,
         'allowed_searches': allowed_searches,
                     'allowed_searches_json': json.dumps(allowed_searches),
