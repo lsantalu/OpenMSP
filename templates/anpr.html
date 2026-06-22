@@ -23,15 +23,19 @@
 
           <form class="needs-validation" id="anpr_form" method="post" enctype="multipart/form-data">
             {% csrf_token %}
+            
+            <!-- Radio buttons for ANPR service selection -->
             <div class="form-group mt-3 mb-5">
-              <div class="select-wrapper">
-                <label for="servizio_anpr">Servizio ANPR</label>
-                <select name="servizio_anpr" id="servizio_anpr" required>
-                  <option value="" selected>Scegli interrogazione</option>
-                  {% for option in service_options %}
-                    <option value="{{ option.value }}">{{ option.label }}</option>
-                  {% endfor %}
-                </select>
+              <label class="active d-block mb-2">Servizio ANPR</label>
+              <div class="row">
+                {% for option in service_options %}
+                  <div class="col-6 col-md-4">
+                    <div class="form-check m-0">
+                      <input class="form-check-input servizio-anpr-radio" type="radio" name="servizio_anpr" id="servizio_{{ option.value }}" value="{{ option.value }}" />
+                      <label class="form-check-label" for="servizio_{{ option.value }}">{{ option.label }}</label>
+                    </div>
+                  </div>
+                {% endfor %}
               </div>
             </div>
             
@@ -41,7 +45,7 @@
             </div>
 
             <div class="mt-4">
-              <button class="btn btn-primary" id="executeSearchBtn" type="submit">
+              <button class="btn btn-primary" id="executeSearchBtn" type="submit" disabled>
                 <svg class="icon icon-sm icon-white" aria-hidden="true">
                   <use href="{% static 'svg/sprites.svg' %}#it-search"></use>
                 </svg>Avvia ricerca
@@ -710,23 +714,34 @@
   document.addEventListener('DOMContentLoaded', function () {
     const executeSearchBtn = document.getElementById('executeSearchBtn');
     const inputCF = document.getElementById('input_CF');
-    const selectServizio = document.getElementById('servizio_anpr');
+    const servizioRadios = document.querySelectorAll('.servizio-anpr-radio');
 
     function checkFormValidity() {
-      if (executeSearchBtn && inputCF && selectServizio) {
-        if (inputCF.value.trim().length === 16 && selectServizio.value !== "") {
-          executeSearchBtn.disabled = false;
-        } else {
-          executeSearchBtn.disabled = true;
-        }
+      if (executeSearchBtn && inputCF) {
+        // Check if CF is valid and at least one radio button is selected
+        const cfValid = inputCF.value.trim().length === 16;
+        let servizioSelected = false;
+        
+        servizioRadios.forEach(radio => {
+          if (radio.checked) {
+            servizioSelected = true;
+          }
+        });
+
+        executeSearchBtn.disabled = !(cfValid && servizioSelected);
       }
     }
 
-    if (inputCF && selectServizio) {
+    // Event listeners for CF input and radio buttons
+    if (inputCF) {
       inputCF.addEventListener('input', checkFormValidity);
-      selectServizio.addEventListener('change', checkFormValidity);
-      checkFormValidity(); // Initial check
     }
+
+    servizioRadios.forEach(radio => {
+      radio.addEventListener('change', checkFormValidity);
+    });
+
+    checkFormValidity(); // Initial check
 
     const printButton = document.getElementById('printButton');
     if (printButton) {
