@@ -23,24 +23,33 @@
 
           <form class="needs-validation" id="domicili_digitali_form" method="post" enctype="multipart/form-data">
             {% csrf_token %}
+            
+            <!-- Radio buttons for domicile type -->
             <div class="form-group my-3">
-              <div class="select-wrapper">
-                <label for="tipo_domicilio_select">Tipo di domicilio</label>
-                <select name="tipo_domicilio" id="tipo_domicilio_select" required>
-                  <option value="" selected>Scegli tipo di domicilio</option>
-                  {% if allowed_searches.ipa.singola or allowed_searches.ipa.massiva %}
-                    <option value="ipa">Indice Pubbliche Amministrazioni (iPA)</option>
-                  {% endif %}
-                  {% if allowed_searches.inad.singola or allowed_searches.inad.massiva %}
-                    <option value="inad">Domicilio Persone Fisiche (INAD)</option>
-                  {% endif %}
-                  {% if allowed_searches.inipec.singola or allowed_searches.inipec.massiva %}
-                    <option value="inipec">Domicilio Persone Giuridiche (INI-PEC)</option>
-                  {% endif %}
-                </select>
+              <label class="active d-block mb-2">Tipo di domicilio</label>
+              <div class="row">
+                <div class="col-4">
+                  <div class="form-check m-0">
+                    <input class="form-check-input tipo-domicilio-radio" type="radio" name="tipo_domicilio" id="tipo_ipa" value="ipa" />
+                    <label class="form-check-label" for="tipo_ipa">iPA (Amministrazioni)</label>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="form-check m-0">
+                    <input class="form-check-input tipo-domicilio-radio" type="radio" name="tipo_domicilio" id="tipo_inad" value="inad" />
+                    <label class="form-check-label" for="tipo_inad">INAD (Persone Fisiche)</label>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="form-check m-0">
+                    <input class="form-check-input tipo-domicilio-radio" type="radio" name="tipo_domicilio" id="tipo_inipec" value="inipec" />
+                    <label class="form-check-label" for="tipo_inipec">INI-PEC (Persone Giuridiche)</label>
+                  </div>
+                </div>
               </div>
             </div>
-            <br />
+
+            <!-- Mode selection -->
             <div class="form-group mt-3 mb-5">
               <label class="active d-block mb-2">Modalita di ricerca</label>
               <div class="row">
@@ -59,12 +68,13 @@
               </div>
             </div>
 
+            <!-- Singola inputs -->
             <div id="input_singola_default" class="form-group mb-3 d-none">
               <label for="cf_singolo">Codice Fiscale</label>
               <input type="text" name="cf_singolo" id="cf_singolo" class="form-control" maxlength="16" oninput="this.value = this.value.toUpperCase();" />
             </div>
 
-            <div id="input_singola_ipa" class="d-none ">
+            <div id="input_singola_ipa" class="d-none">
               <div class="form-group mb-4">
                 <label for="input_descrizione_ente">Ricerca libera</label>
                 <input type="text" class="form-control ipa-input" id="input_descrizione_ente" name="input_descrizione_ente" />
@@ -80,6 +90,7 @@
               </div>
             </div>
 
+            <!-- Massiva inputs -->
             <div id="input_massiva" class="form-group mb-3 d-none">
               <div class="alert alert-info fs-5" role="alert">Il servizio accetta solo file formato <b>Excel (xlsx)</b> e <b>Libreoffice CSV</b></div>
 
@@ -398,7 +409,8 @@
         return;
       }
 
-      const tipoDomicilioSelect = document.getElementById("tipo_domicilio_select");
+      // Radio buttons for tipo_domicilio
+      const tipoDomicilioRadios = document.querySelectorAll(".tipo-domicilio-radio");
       const modalitaSingola = document.getElementById("modalita_singola");
       const modalitaMassiva = document.getElementById("modalita_massiva");
       const inputSingolaDefaultWrapper = document.getElementById("input_singola_default");
@@ -416,6 +428,7 @@
       const executeSearchBtn = document.getElementById("executeSearchBtn");
       const loadingOverlay = document.getElementById("loadingOverlay");
 
+      // Default state
       modalitaSingola.checked = false;
       modalitaMassiva.checked = false;
 
@@ -431,10 +444,23 @@
         showOverlay();
       });
 
+      // Helper to get selected tipo_domicilio value
+      function getTipoDomicilioValue() {
+        const checked = document.querySelector('.tipo-domicilio-radio:checked');
+        return checked ? checked.value : '';
+      }
+
       function updateVisibleSection() {
         const isSingola = modalitaSingola.checked;
         const isMassiva = modalitaMassiva.checked;
-        const tipoDomicilio = tipoDomicilioSelect.value;
+        const tipoDomicilio = getTipoDomicilioValue();
+
+        // Reset all inputs first
+        cfSingoloInput.required = false;
+        ipaInputs.forEach(input => {
+          input.value = "";
+          input.disabled = false;
+        });
 
         if (isSingola) {
           if (tipoDomicilio === 'ipa') {
@@ -446,26 +472,24 @@
             inputSingolaDefaultWrapper.classList.remove("d-none");
             inputSingolaIpaWrapper.classList.add("d-none");
             cfSingoloInput.required = true;
-            ipaInputs.forEach(input => {
-              input.value = "";
-              input.disabled = false;
-            });
           }
-        } else {
+        } else if (isMassiva) {
           inputSingolaDefaultWrapper.classList.add("d-none");
           inputSingolaIpaWrapper.classList.add("d-none");
           cfSingoloInput.required = false;
           cfSingoloInput.value = "";
-          ipaInputs.forEach(input => {
-            input.value = "";
-            input.disabled = false;
-          });
         }
 
+        // Show/hide massiva section
         inputMassivaWrapper.classList.toggle("d-none", !isMassiva);
+
+        // Update column hint based on tipo_domicilio
+        const massivaColumnHint = document.getElementById("massivaColumnHint");
         if (massivaColumnHint) {
           massivaColumnHint.textContent = tipoDomicilio === "ipa" ? "Nome dell\'ente" : "Codici fiscali (scritti in carattere MAIUSCOLO)";
         }
+
+        // Set required on file input only for massiva
         fileInput.required = isMassiva;
 
         if (!isMassiva) {
@@ -474,7 +498,7 @@
       }
 
       function updateSubmitButton() {
-        const tipoDomicilio = tipoDomicilioSelect.value;
+        const tipoDomicilio = getTipoDomicilioValue();
         const hasTipoDomicilio = tipoDomicilio !== "";
         const isSingola = modalitaSingola.checked;
         const isMassiva = modalitaMassiva.checked;
@@ -496,7 +520,8 @@
               });
               isSearchReady = isAnyIpaFilled;
             } else {
-              isSearchReady = true;
+              // For INAD/INI-PEC, just need the CF field
+              isSearchReady = cfSingoloInput.value.trim().length > 0;
             }
           }
         }
@@ -579,10 +604,15 @@
       });
 
       deleteFileBtn.addEventListener("click", resetUpload);
-      tipoDomicilioSelect.addEventListener("change", function() {
-        updateVisibleSection();
-        updateSubmitButton();
+
+      // Event listeners for tipo_domicilio radios
+      tipoDomicilioRadios.forEach(radio => {
+        radio.addEventListener("change", function() {
+          updateVisibleSection();
+          updateSubmitButton();
+        });
       });
+
       modalitaSingola.addEventListener("change", function() {
         updateVisibleSection();
         updateSubmitButton();
@@ -604,6 +634,9 @@
         });
       });
 
+      cfSingoloInput.addEventListener("input", () => updateSubmitButton());
+
+      // Initialize
       updateVisibleSection();
       updateSubmitButton();
     })();
