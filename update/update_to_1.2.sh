@@ -44,6 +44,14 @@ prompt_with_default() {
 DB_PATH="${1:-}"
 ENV_TARGET_PATH="${2:-}"
 
+if [[ ! -f "$PROJECT_ROOT/db.sqlite3" ]] && [[ ! -f "./db.sqlite3" ]]; then
+  echo "Attenzione: nessun file db.sqlite3 trovato nel progetto."
+fi
+
+if [[ ! -f "$PROJECT_ROOT/.env" ]] && [[ ! -f "./.env" ]]; then
+  echo "Attenzione: nessun file .env trovato nel progetto."
+fi
+
 default_db_target="$(suggest_first_existing_path "db.sqlite3")"
 
 if [[ -z "$DB_PATH" ]]; then
@@ -56,7 +64,7 @@ fi
 
 if ! command -v sqlite3 >/dev/null 2>&1; then
   echo "INFO: sqlite3 non trovato nel PATH. Installazione in corso..."
-  apt update && apt install -y sqlite3
+  sudo apt update && apt install -y sqlite3
   if ! command -v sqlite3 >/dev/null 2>&1; then
     echo "Errore: installazione di sqlite3 fallita."
     exit 1
@@ -210,7 +218,7 @@ BEGIN TRANSACTION;
 -- Shifting IDs for servizi_parametri
 UPDATE servizi_parametri SET id = id + 1000 WHERE id >= 4;
 UPDATE servizi_parametri SET id = id - 999 WHERE id >= 1004;
-INSERT INTO servizi_parametri (id, codice_servizio, descrizione, gruppo_id, attivo, url) 
+INSERT INTO servizi_parametri (id, codice_servizio, descrizione, gruppo_id, attivo, url)
 VALUES (4, 'anpr_c007', 'Anagrafe Nazionale Popolazione Residente - Esistenza in vita (C007)', 2, 1, 'impostazioni_anpr/#tab2');
 
 -- Shift tab numbering for ANPR services to accommodate C007 at #tab2
@@ -254,8 +262,8 @@ UPDATE anpr_parametri SET id = id + 1000, servizio_id = servizio_id + 1000 WHERE
 UPDATE anpr_parametri SET id = id - 999, servizio_id = servizio_id - 999 WHERE id >= 1002;
 
 -- Insert parameters for C007 taking C001 as reference (id=1) but injecting the correct C007 audience, target and ver_eservice
-INSERT INTO anpr_parametri (id, servizio_id, kid, alg, typ, iss, sub, aud, purposeid, audience, baseurlauth, target, clientid, private_key, ver_eservice) 
-SELECT 2, 2, kid, alg, typ, iss, sub, aud, purposeid, 'https://modipa.anpr.interno.it/govway/rest/in/MinInternoPortaANPR/C007-servizioVerificaDichEsistenzaVita/v1', baseurlauth, 'https://modipa.anpr.interno.it/govway/rest/in/MinInternoPortaANPR-PDND/C007-servizioVerificaDichEsistenzaVita/v1/anpr-service-e002', clientid, private_key, '3' 
+INSERT INTO anpr_parametri (id, servizio_id, kid, alg, typ, iss, sub, aud, purposeid, audience, baseurlauth, target, clientid, private_key, ver_eservice)
+SELECT 2, 2, kid, alg, typ, iss, sub, aud, purposeid, 'https://modipa.anpr.interno.it/govway/rest/in/MinInternoPortaANPR/C007-servizioVerificaDichEsistenzaVita/v1', baseurlauth, 'https://modipa.anpr.interno.it/govway/rest/in/MinInternoPortaANPR-PDND/C007-servizioVerificaDichEsistenzaVita/v1/anpr-service-e002', clientid, private_key, '3'
 FROM anpr_parametri WHERE id = 1;
 
 COMMIT;
@@ -358,28 +366,28 @@ SQL
 # Aggiornamento mit_parametri: allinea endpoint e versioni (dati generali)
 echo "Aggiornamento parametri generali mit_parametri..."
 sqlite3 "$DB_PATH" <<'SQL'
-UPDATE mit_parametri SET 
-    audience='https://gw.servizidt.it/rest/in/MCTC/DettaglioCude/v1', 
-    target='https://gw.servizidt.it/rest/in/MCTC/DettaglioCude/v1/cude/', 
-    ver_eservice='1' 
+UPDATE mit_parametri SET
+    audience='https://gw.servizidt.it/rest/in/MCTC/DettaglioCude/v1',
+    target='https://gw.servizidt.it/rest/in/MCTC/DettaglioCude/v1/cude/',
+    ver_eservice='1'
 WHERE id=1 AND (audience LIKE 'https://1111%' OR audience IS NULL OR audience = '');
 
-UPDATE mit_parametri SET 
-    audience='https://gw.servizidt.it/rest/in/MCTC/ListaVeicoliCude/v1', 
-    target='https://gw.servizidt.it/rest/in/MCTC/ListaVeicoliCude/v1/cude/listaVeicoli', 
-    ver_eservice='2' 
+UPDATE mit_parametri SET
+    audience='https://gw.servizidt.it/rest/in/MCTC/ListaVeicoliCude/v1',
+    target='https://gw.servizidt.it/rest/in/MCTC/ListaVeicoliCude/v1/cude/listaVeicoli',
+    ver_eservice='2'
 WHERE id=2 AND (audience LIKE 'https://2222%' OR audience IS NULL OR audience = '');
 
-UPDATE mit_parametri SET 
-    audience='https://gw.servizidt.it/rest/in/MCTC/WhiteListCompletaCude/v1', 
-    target='https://gw.servizidt.it/rest/in/MCTC/WhiteListCompletaCude/v1/cude/whitelist/completa/recupera', 
-    ver_eservice='2' 
+UPDATE mit_parametri SET
+    audience='https://gw.servizidt.it/rest/in/MCTC/WhiteListCompletaCude/v1',
+    target='https://gw.servizidt.it/rest/in/MCTC/WhiteListCompletaCude/v1/cude/whitelist/completa/recupera',
+    ver_eservice='2'
 WHERE id=3 AND (audience LIKE 'https://3333%' OR audience IS NULL OR audience = '');
 
-UPDATE mit_parametri SET 
-    audience='https://gw.servizidt.it/rest/in/MCTC/VerificaTargaCude/v1', 
-    target='https://gw.servizidt.it/rest/in/MCTC/VerificaTargaCude/v1/cude/verificaTarga', 
-    ver_eservice='2' 
+UPDATE mit_parametri SET
+    audience='https://gw.servizidt.it/rest/in/MCTC/VerificaTargaCude/v1',
+    target='https://gw.servizidt.it/rest/in/MCTC/VerificaTargaCude/v1/cude/verificaTarga',
+    ver_eservice='2'
 WHERE id=4 AND (audience LIKE 'https://4444%' OR audience IS NULL OR audience = '');
 SQL
 

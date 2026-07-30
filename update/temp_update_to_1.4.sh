@@ -45,6 +45,14 @@ prompt_with_default() {
 DB_PATH="${1:-}"
 ENV_TARGET_PATH="${2:-}"
 
+if [[ ! -f "$PROJECT_ROOT/db.sqlite3" ]] && [[ ! -f "./db.sqlite3" ]]; then
+  echo "Attenzione: nessun file db.sqlite3 trovato nel progetto."
+fi
+
+if [[ ! -f "$PROJECT_ROOT/.env" ]] && [[ ! -f "./.env" ]]; then
+  echo "Attenzione: nessun file .env trovato nel progetto."
+fi
+
 default_db_target="$(suggest_first_existing_path "db.sqlite3")"
 if [[ -z "$DB_PATH" ]]; then
   prompt_with_default DB_PATH "Percorso file db.sqlite3 da aggiornare" "$default_db_target"
@@ -54,6 +62,8 @@ default_env_target="$(suggest_first_existing_path ".env")"
 if [[ -z "$ENV_TARGET_PATH" ]]; then
   prompt_with_default ENV_TARGET_PATH "Percorso file .env da aggiornare" "$default_env_target"
 fi
+
+SETTINGS_FILE="${PROJECT_ROOT}/OpenMSP/settings.py"
 
 if ! command -v sqlite3 >/dev/null 2>&1; then
   echo "INFO: sqlite3 non trovato nel PATH. Installazione in corso..."
@@ -196,5 +206,66 @@ echo "Pulizia e reset dell'array app_io_catalogo_servizi..."
 sqlite3 "$DB_PATH" <<'SQL'
 DELETE FROM app_io_catalogo_servizi;
 SQL
+
+echo "Aggiornamento configurazione .env per versione 1.4..."
+
+if [[ -f "$ENV_TARGET_PATH" ]]; then
+    BACKUP_ENV_PATH="${ENV_TARGET_PATH}.bak.${RUN_TS}"
+    cp -a "$ENV_TARGET_PATH" "$BACKUP_ENV_PATH"
+    echo "Backup .env creato: $BACKUP_ENV_PATH"
+
+    ENV_CONTENT=$(cat "$ENV_TARGET_PATH")
+
+    if [[ ! "$ENV_CONTENT" =~ "ALLOWED_HOSTS.*=" ]]; then
+        echo "Aggiornamento ALLOWED_HOSTS in .env..."
+        sed -i 's/^\(ALLOWED_HOSTS\s*=\s*\).*$/ALLOWED_HOSTS = openmsp.example.local,localhost,127.0.0.1/' "$ENV_TARGET_PATH" 2>/dev/null || true
+    fi
+
+    if [[ ! "$ENV_CONTENT" =~ "CSRF_TRUSTED_ORIGINS.*=" ]]; then
+        echo "Aggiunta CSRF_TRUSTED_ORIGINS in .env..."
+        echo "CSRF_TRUSTED_ORIGINS = https://openmsp.example.local,http://localhost:8000" >> "$ENV_TARGET_PATH"
+    fi
+
+    if [[ ! "$ENV_CONTENT" =~ "SECURE_PROXY_SSL_HEADER.*=" ]]; then
+        echo "Aggiunta SECURE_PROXY_SSL_HEADER in .env..."
+        echo "SECURE_PROXY_SSL_HEADER = HTTP_X_FORWARDED_PROTO,https" >> "$ENV_TARGET_PATH"
+    fi
+
+    if [[ ! "$ENV_CONTENT" =~ "USE_X_FORWARDED_HOST.*=" ]]; then
+        echo "Aggiunta USE_X_FORWARDED_HOST in .env..."
+        echo "USE_X_FORWARDED_HOST = True" >> "$ENV_TARGET_PATH"
+    fi
+
+    echo "Aggiornamento bootstrap-italia-cdn in .env..."
+    sed -i 's|bootstrap-italia@[0-9]*\.[0-9]*\.[0-9]*/dist|bootstrap-italia@2.18.2/dist|' "$ENV_TARGET_PATH" 2>/dev/null || true
+
+    if [[ -f "$SETTINGS_FILE" ]]; then
+        echo "Aggiornamento di settings.py per supportare reverse proxy..."
+
+        if ! grep -q "from decouple import AutoConfig, Csv" "$SETTINGS_FILE"; then
+            sed -i 's/^from decouple import AutoConfig$/from decouple import AutoConfig, Csv/' "$SETTINGS_FILE"
+        fi
+
+        sed -i 's/^ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=list)/ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=Csv())/' "$SETTINGS_FILE"
+
+        if ! grep -q "^CSRF_TRUSTED_ORIGINS" "$SETTINGS_FILE"; then
+            sed -i '/^ALLOWED_HOSTS =/a\CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="", cast=Csv())' "$SETTINGS_FILE"
+        fi
+
+        if ! grep -q "^SECURE_PROXY_SSL_HEADER" "$SETTINGS_FILE"; then
+            sed -i '/^CSRF_TRUSTED_ORIGINS =/a\SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")' "$SETTINGS_FILE"
+        fi
+
+        if ! grep -q "^USE_X_FORWARDED_HOST" "$SETTINGS_FILE"; then
+            sed -i '/^SECURE_PROXY_SSL_HEADER =/a\USE_X_FORWARDED_HOST = True' "$SETTINGS_FILE"
+        fi
+    fi
+fi
+
+if [[ -f "$PROJECT_ROOT/manage.py" ]]; then
+    echo "Esecuzione migrazioni Django..."
+    python3 "$PROJECT_ROOT/manage.py" collectstatic --noinput
+    python3 "$PROJECT_ROOT/manage.py" migrate
+fi
 
 echo "Upgrade struttura e dati DB alla versione 1.4 completato."

@@ -112,11 +112,13 @@ ANIST Titoli primarie e secondarie Multipla - OpenMSP - Multi Services Portal
       {% elif studente.0.presenzaTitoli == False %}
       <h5 class="it-card-title it-card-title-icon">Titoli conseguiti da {{ studente.0 }}</h5>
       {% else %}
-      <h5 class="it-card-title it-card-title-icon">Titoli conseguiti da {{ studente.0 }}</h5>
+      <h5 class="it-card-title it-card-title-icon"> Titoli conseguiti da {{ studente.0 }}</h5>
       {% endif %}
       {% if 'Codice fiscale non corretto' in studente or studente.1.presenzaTitoli == False %}
       <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
-        {% else %}
+        {% elif studente.1.esito %}
+        <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+          {% else %}
         <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
           {% endif %}
         </div>
@@ -131,6 +133,14 @@ ANIST Titoli primarie e secondarie Multipla - OpenMSP - Multi Services Portal
           {% elif studente.1.presenzaTitoli == False %}
           <p class="it-card-text">
             <b>La richiesta effettuata non produce alcun risultato</b>
+          </p>
+          {% elif studente.1.esito %}
+          <p class="it-card-subtitle">
+            <b>Errore tecnico</b>
+          </p>
+          <p class="it-card-text">
+            Codice: <b>{{ studente.1.esito.codice }}</b><br />
+            Dettaglio: <b>{{ studente.1.esito.descrizione }}</b>
           </p>
           {% else %}
           <div>

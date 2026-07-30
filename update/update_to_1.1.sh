@@ -50,6 +50,14 @@ ENV_REF_V11_PATH="$PROJECT_ROOT/.env"
 default_db_target="$(suggest_first_existing_path "db.sqlite3")"
 default_env_target="$(suggest_first_existing_path ".env")"
 
+if [[ ! -f "$PROJECT_ROOT/db.sqlite3" ]] && [[ ! -f "./db.sqlite3" ]]; then
+  echo "Attenzione: nessun file db.sqlite3 trovato nel progetto."
+fi
+
+if [[ ! -f "$PROJECT_ROOT/.env" ]] && [[ ! -f "./.env" ]]; then
+  echo "Attenzione: nessun file .env trovato nel progetto."
+fi
+
 if [[ -z "$DB_PATH" ]]; then
   prompt_with_default DB_PATH "Percorso file db.sqlite3 da aggiornare" "$default_db_target"
 fi
@@ -59,7 +67,7 @@ fi
 
 if ! command -v sqlite3 >/dev/null 2>&1; then
   echo "INFO: sqlite3 non trovato nel PATH. Installazione in corso..."
-  apt update && apt install -y sqlite3
+  sudo apt update && sudo apt install -y sqlite3
   if ! command -v sqlite3 >/dev/null 2>&1; then
     echo "Errore: installazione di sqlite3 fallita."
     exit 1
