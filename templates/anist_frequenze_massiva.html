@@ -113,6 +113,8 @@ ANIST Frequenze primarie e secondarie Multipla - OpenMSP - Multi Services Portal
 
       {% if 'Codice fiscale non corretto' in studente or studente.1.frequentante == False or 'Errore di comunicazione con la API' in studente.1 or 'La richiesta effettuata non produce alcun risultato' in studente.1 %}
       <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+      {% elif studente.1.esito %}
+      <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
       {% else %}
       <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
       {% endif %}
@@ -128,6 +130,14 @@ ANIST Frequenze primarie e secondarie Multipla - OpenMSP - Multi Services Portal
       {% elif studente.1.frequentante == False %}
         <p class="it-card-text">
           <b>La richiesta effettuata non produce alcun risultato</b>
+        </p>
+      {% elif studente.1.esito %}
+        <p class="it-card-subtitle">
+          <b>Errore tecnico</b>
+        </p>
+        <p class="it-card-text">
+          Codice: <b>{{ studente.1.esito.codice }}</b><br />
+          Dettaglio: <b>{{ studente.1.esito.descrizione }}</b>
         </p>
       {% elif 'Errore di comunicazione con la API' in studente.1 or 'La richiesta effettuata non produce alcun risultato' in studente.1 %}
         {% with parts=studente.1.split %}

@@ -887,8 +887,6 @@ def anis_verifica_utente(user_ID, cf, id_caso):
         response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
         status_code = response.status_code
         if response.status_code != 200:
-            if response.status_code == 500 and id_caso == 3:
-                return {"frequentante": False}, status_code, purposeid, token_id
             try:
                 payload = response.json()
                 if isinstance(payload, dict) and (
@@ -907,8 +905,6 @@ def anis_verifica_utente(user_ID, cf, id_caso):
             }, status_code, purposeid, token_id
         return response.json(), status_code, purposeid, token_id
     except json.JSONDecodeError:
-        if id_caso == 3:
-            return {"frequentante": False}, 500, purposeid, token_id
         return {
             "esito": {
                 "codice": "JSON_ERR",
@@ -916,8 +912,6 @@ def anis_verifica_utente(user_ID, cf, id_caso):
             }
         }, 500, purposeid, token_id
     except Exception as e:
-        if id_caso == 3:
-            return {"frequentante": False}, 500, purposeid, token_id
         return {
             "esito": {
                 "codice": "network_error",
@@ -937,9 +931,23 @@ def impostazioni_anis(request):
         i_serv += 1
 
     if request.method == 'POST':
-        posizione_servizio = ServiziParametri.objects.filter(gruppo_id=6).values_list('id', flat=True)
-        for i in range(1, AnisParametri.objects.count()+1):
-            if service_desc[posizione_servizio[i-1]-1]:
+        active_tab = request.POST.get("active_tab", "").replace("tab", "")
+
+        try:
+            active_id = int(active_tab)
+        except ValueError:
+            active_id = None
+
+        posizione_servizio = list(
+            ServiziParametri.objects.filter(gruppo_id=6)
+            .order_by('id')
+            .values_list('attivo', flat=True)
+        )
+
+        ids_to_save = [active_id] if active_id else range(1, AnisParametri.objects.count() + 1)
+
+        for i in ids_to_save:
+            if i and i <= len(posizione_servizio) and posizione_servizio[i - 1]:
                 kid = request.POST.get('kid' + str(i))
                 alg = request.POST.get('alg' + str(i))
                 typ = request.POST.get('typ' + str(i))
@@ -956,5 +964,9 @@ def impostazioni_anis(request):
                 dati = AnisParametri(i, i, kid, alg, typ, iss, sub, aud, purposeid, audience, baseurlauth, target, clientid, private_key, ver_eservice)
                 dati.save()
         salva_log(request.user,"Impostazioni ANIS", "modifica parametri")
+
+        if active_id:
+            return redirect(f"{request.path}#tab{active_id}")
+        return redirect(request.path)
 
     return render(request, 'impostazioni_anis.html', { 'servizi_anis': servizi_anis, 'parametri_anis': parametri_anis })

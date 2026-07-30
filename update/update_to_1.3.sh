@@ -44,6 +44,14 @@ prompt_with_default() {
 DB_PATH="${1:-}"
 ENV_TARGET_PATH="${2:-}"
 
+if [[ ! -f "$PROJECT_ROOT/db.sqlite3" ]] && [[ ! -f "./db.sqlite3" ]]; then
+  echo "Attenzione: nessun file db.sqlite3 trovato nel progetto."
+fi
+
+if [[ ! -f "$PROJECT_ROOT/.env" ]] && [[ ! -f "./.env" ]]; then
+  echo "Attenzione:nessun file .env trovato nel progetto."
+fi
+
 default_db_target="$(suggest_first_existing_path "db.sqlite3")"
 
 if [[ -z "$DB_PATH" ]]; then

@@ -51,9 +51,9 @@ ANIST Titoli primarie e secondarie Singola - OpenMSP - Multi Services Portal
 
     {% if data.1.presenzaTitoli == True %}
     <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
-      {% else %}
+      {% elif data.1.esito %}
       <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
-        {% endif %}
+        {% else %}
       </div>
       <div class="it-card-body">
 
@@ -70,6 +70,14 @@ ANIST Titoli primarie e secondarie Singola - OpenMSP - Multi Services Portal
         {% elif data.1.presenzaTitoli == False %}
         <p class="it-card-subtitle">
           <b>La richiesta effettuata non produce alcun risultato</b>
+        </p>
+        {% elif data.1.esito %}
+        <p class="it-card-subtitle">
+          <b>Errore tecnico</b>
+        </p>
+        <p class="it-card-text">
+          Codice: <b>{{ data.1.esito.codice }}</b><br />
+          Dettaglio: <b>{{ data.1.esito.descrizione }}</b>
         </p>
         {% else %}
         {% for titolo in data.1.listaTitoli %}

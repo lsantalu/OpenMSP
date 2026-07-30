@@ -14,6 +14,7 @@ Impostazioni MIT - OpenMSP - Multi Services Portal
 
 <form class="needs-validation shadow-lg col-10 white-bg p-3 pt-5"id="parametri_mit" method="post">
   {% csrf_token %}
+  <input type="hidden" name="active_tab" id="active_tab" value="tab1">
   <div class="container">
     <ul class="nav nav-tabs nav-tabs-cards   neutral-2-bg p-4 shadow" id="sceltaMit" role="tablist">
       {% for servizio_mit in servizi_mit %}
@@ -138,6 +139,12 @@ Impostazioni MIT - OpenMSP - Multi Services Portal
         }, 50);
       }
     }
+
+    document.querySelectorAll('#sceltaMit a[data-bs-toggle="tab"]').forEach((tabLink) => {
+      tabLink.addEventListener('shown.bs.tab', (event) => {
+        document.getElementById('active_tab').value = event.target.getAttribute('href').replace('#', '');
+      });
+    });
   });
 </script>
 

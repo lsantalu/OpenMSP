@@ -411,9 +411,23 @@ def impostazioni_anpr(request):
         i_serv += 1
 
     if request.method == 'POST':
-        posizione_servizio = ServiziParametri.objects.filter(gruppo_id=2).values_list('id', flat=True)
-        for i in range(1, AnprParametri.objects.count()+1):
-            if service_desc[posizione_servizio[i-1]-1]:
+        active_tab = request.POST.get("active_tab", "").replace("tab", "")
+
+        try:
+            active_id = int(active_tab)
+        except ValueError:
+            active_id = None
+
+        posizione_servizio = list(
+            ServiziParametri.objects.filter(gruppo_id=2)
+            .order_by('id')
+            .values_list('attivo', flat=True)
+        )
+
+        ids_to_save = [active_id] if active_id else range(1, AnprParametri.objects.count() + 1)
+
+        for i in ids_to_save:
+            if i and i <= len(posizione_servizio) and posizione_servizio[i - 1]:
                 kid = request.POST.get('kid' + str(i))
                 alg = request.POST.get('alg' + str(i))
                 typ = request.POST.get('typ' + str(i))
@@ -431,5 +445,9 @@ def impostazioni_anpr(request):
                 dati = AnprParametri(i, i, kid, alg, typ, iss, sub, aud, purposeid, audience, baseurlauth, target, clientid, private_key, ver_eservice)
                 dati.save()
         salva_log(request.user,"Impostazioni ANPR", "modifica parametri")
+
+        if active_id:
+            return redirect(f"{request.path}#tab{active_id}")
+        return redirect(request.path)
 
     return render(request, 'impostazioni_anpr.html', { 'servizi_anpr': servizi_anpr, 'parametri_anpr': parametri_anpr })
