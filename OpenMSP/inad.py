@@ -1,3 +1,5 @@
+# pyright: reportAttributeAccessIssue=false
+# (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono)
 from django.shortcuts import render
 from impostazioni.models import InadParametri
 from impostazioni.models import UtentiParametri

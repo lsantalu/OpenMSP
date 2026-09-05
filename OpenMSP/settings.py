@@ -62,6 +62,7 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'OpenMSP.middleware.LoginRequiredMiddleware',
     'django_otp.middleware.OTPMiddleware',
     'OpenMSP.middleware.Force2FAMiddleware',
 ]
@@ -96,6 +97,12 @@ _raw_ldap_options = config(
     cast=json.loads,
     default="{}",
 )
+
+if not _raw_ldap_options:
+    _raw_ldap_options = {}
+elif not isinstance(_raw_ldap_options, dict):
+    # un JSON che non e' un oggetto (true, [], "x") esploderebbe all'avvio con un errore incomprensibile
+    raise ValueError('AUTH_LDAP_CONNECTION_OPTIONS deve essere un oggetto JSON, es. {"ldap.OPT_X_REFERRAL": 0}')
 
 AUTH_LDAP_CONNECTION_OPTIONS = {
     getattr(ldap, key): value

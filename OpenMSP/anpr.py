@@ -1,4 +1,6 @@
-from django.shortcuts import render
+# pyright: reportAttributeAccessIssue=false
+# (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono)
+from django.shortcuts import render, redirect
 
 from impostazioni.models import UtentiParametri
 from impostazioni.models import ServiziParametri
@@ -6,6 +8,7 @@ from impostazioni.models import AnprServizi
 from impostazioni.models import AnprParametri
 
 from .utils import salva_log
+from .utils import svuota_none
 from .utils import converti_data
 from .verifica_cf import verifica_cf
 
@@ -128,7 +131,11 @@ def anpr_get_request(user_ID, id_anpr, id_caso):
     conn = http.client.HTTPSConnection(re.sub(r'^https?://', '', baseurlauth))
     conn.request("POST", "/token.oauth2", params, headers)
     response = conn.getresponse()
-    voucher = json.loads(response.read())["access_token"]
+    try:
+        voucher = json.loads(response.read())["access_token"]
+    except (ValueError, KeyError, TypeError):
+        # authority di ANPR non utilizzabile: stesso sentinel usato per le risposte errate
+        return 'ZZZZZZZZZ', 502, purposeid, None
 
     # prepara il body per la richiesta e relativo digest
     body = richiesta
@@ -166,13 +173,13 @@ def anpr_get_request(user_ID, id_anpr, id_caso):
                 "Agid-JWT-Signature":signature
                 }
 
-    response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
+    response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False, timeout=30)
     
     # Estrae il token_id dal voucher (jti)
     try:
         decoded_token = jwt.decode(voucher, options={"verify_signature": False})
         token_id = decoded_token.get('jti')
-    except:
+    except jwt.PyJWTError:
         token_id = None
 
     if id_caso == 8:
@@ -402,6 +409,7 @@ def anpr_stato_famiglia(request):
 def impostazioni_anpr(request):
     servizi_anpr = AnprServizi.objects.all()
     parametri_anpr = AnprParametri.objects.all()
+    svuota_none(parametri_anpr)
 
     service_active = ServiziParametri.objects.all()
     i_serv=0

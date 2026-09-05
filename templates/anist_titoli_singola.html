@@ -128,6 +128,7 @@ ANIST Titoli primarie e secondarie Singola - OpenMSP - Multi Services Portal
   </div>
   {% endif %}
   {% endif %}
+  {% endif %}
   {% else %}
   <div class="col-6">
     <h4>Utente non abilitato</h4>
@@ -184,8 +185,8 @@ ANIST Titoli primarie e secondarie Singola - OpenMSP - Multi Services Portal
         document.forms['inad_singola'].submit()
       })
       .onFail((fields) => {
-        errorWrapper.innerHTML = ''
-        errorWrapper.innerHTML = errorMessage
+        errorWrapper.textContent = ''
+        errorWrapper.textContent = errorMessage
       })
     })
 

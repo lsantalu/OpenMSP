@@ -1,3 +1,5 @@
+# pyright: reportAttributeAccessIssue=false
+# (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono)
 from django.http import HttpResponse
 from django.contrib.auth.models import User
 from django.shortcuts import render
