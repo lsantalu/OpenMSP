@@ -1,3 +1,6 @@
+# pyright: reportAttributeAccessIssue=false
+# pyright: reportIncompatibleVariableOverride=false
+# (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono)
 ####INUTILI
 from django.http import HttpResponse
 from django.http import JsonResponse
@@ -46,7 +49,7 @@ from .anpr import anpr_get_request
 from .inad import inad_get_bearer, inad_verifica_utente, estrai_mail
 from .verifica_cf import verifica_cf, verifica_cf_azienda
 from .registro_imprese import registro_imprese_get_bearer, registro_imprese_verifica_utente
-###from .anis import anis_get_bearer, anis_verifica_utente
+from .anis import anis_verifica_utente
 
 
 from .utils import converti_data, salva_log
@@ -209,7 +212,7 @@ def Api_ipa(codice_fiscale, api_key):
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded'
             }
-        response = requests.post(url, data=payload, headers=headers)
+        response = requests.post(url, data=payload, headers=headers, timeout=30)
         if response.status_code == 200:
             temp_data = json.loads(response.content.decode('utf-8'))
             if 'data' in temp_data and temp_data['data']:
@@ -259,6 +262,7 @@ def pdnd_gateway_service(request):
         risultato = Api_C015(codice_fiscale, chiave_autenticazione)
     if tipo_servizio == "C017" :
         risultato = Api_C017(codice_fiscale, chiave_autenticazione)
+    risultato = None
     if tipo_servizio == "C018" :
         risultato = Api_C018(codice_fiscale, chiave_autenticazione)
     if tipo_servizio == "C020" :
@@ -272,6 +276,9 @@ def pdnd_gateway_service(request):
     if tipo_servizio == "ini_pec" :
         risultato = Api_ini_pec(codice_fiscale, chiave_autenticazione)
 
+    if risultato is None:
+        # nessun tipo_servizio riconosciuto: prima era un NameError (500) su un endpoint pubblico
+        return Response({"error": f"tipo_servizio non supportato: {tipo_servizio}"}, status=status.HTTP_400_BAD_REQUEST)
     return Response(risultato, status=status.HTTP_200_OK)
 
 
@@ -293,10 +300,11 @@ def register(request):
 
 def logout(request):
     ### trova id utente da request
-    user_id = request.user.id if request.user.is_authenticated else None
-    utente_attivo = get_object_or_404(User, id=user_id)
-    if not utente_attivo.is_active :
-        messages.error(request, 'L\'utente è disabilitato. Contatta l\'amministratore di sistema')
+    utente = request.user
+    if utente.is_authenticated:
+        utente_attivo = get_object_or_404(User, pk=utente.pk)
+        if not utente_attivo.is_active :
+            messages.error(request, 'L\'utente è disabilitato. Contatta l\'amministratore di sistema')
     auth_logout(request)
     return redirect('home')
 
@@ -434,7 +442,7 @@ def debug_openmsp(request):
             headers = {
                     'Content-Type': 'application/x-www-form-urlencoded'
                     }
-            response = requests.post(url, data=payload, headers=headers)
+            response = requests.post(url, data=payload, headers=headers, timeout=30)
             if response.status_code == 200:
                 content_str = response.content.decode('utf-8')
                 temp_data = json.loads(content_str)
@@ -485,8 +493,9 @@ def debug_openmsp(request):
             data = json.dumps(data_temp, indent=2)
         elif id_servizio == '10':  #OK registro imprese
             data_temp = []
-            bearer = registro_imprese_get_bearer()
-            elenco_dati_registro =  registro_imprese_verifica_utente(cf, bearer)
+            # get_bearer restituisce (bearer, token_id) e verifica_utente ne vuole entrambi
+            bearer, token_id = registro_imprese_get_bearer()
+            elenco_dati_registro, status_code, purp_id, tok_id = registro_imprese_verifica_utente(cf, bearer, token_id)
             data_temp.append(elenco_dati_registro)
             data = json.dumps(data_temp, indent=1)
         elif id_servizio == '11':  #mit patenti
@@ -499,13 +508,12 @@ def debug_openmsp(request):
             data = "Hai scelto il numero 14"
         elif id_servizio == '15':  #OK anis IFS02
             data_temp = []
-            bearer = anis_get_bearer(1)
-            data_temp.append(anis_verifica_utente(cf, bearer, 1))
+            # anis_verifica_utente prende (user_ID, cf, id_caso) e si prende il voucher da se'
+            data_temp.append(anis_verifica_utente(request.user.username, cf, 1))
             data = json.dumps(data_temp, indent=1)
         elif id_servizio == '16':  #OK anis IFS03
             data_temp = []
-            bearer = anis_get_bearer(2)
-            data_temp.append(anis_verifica_utente(cf, bearer, 2))
+            data_temp.append(anis_verifica_utente(request.user.username, cf, 2))
             data = json.dumps(data_temp, indent=1)
         elif id_servizio == '17':  #cassa forense
             data = "Hai scelto il numero 17"
@@ -626,7 +634,7 @@ def domicili_digitali_view(request):
                 if descrizione:
                     cf_display = descrizione
                     url = "https://www.indicepa.gov.it:443/ws/WS16DESAMMServices/api/WS16_DES_AMM"
-                    response = requests.post(url, data={"AUTH_ID": auth_id, "DESCR": descrizione}, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+                    response = requests.post(url, data={"AUTH_ID": auth_id, "DESCR": descrizione}, headers={'Content-Type': 'application/x-www-form-urlencoded'}, timeout=30)
                     if response.status_code == 200:
                         temp_data = json.loads(response.content.decode('utf-8'))
                         occorrenze = temp_data.get('result', {}).get('num_items', 0)
@@ -637,7 +645,7 @@ def domicili_digitali_view(request):
                     cf_display = cf_ipa
                     if verifica_cf_azienda(cf_ipa) == 1:
                         url = "https://www.indicepa.gov.it:443/ws/WS23DOMDIGCFServices/api/WS23_DOM_DIG_CF"
-                        response = requests.post(url, data={"AUTH_ID": auth_id, "CF": cf_ipa}, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+                        response = requests.post(url, data={"AUTH_ID": auth_id, "CF": cf_ipa}, headers={'Content-Type': 'application/x-www-form-urlencoded'}, timeout=30)
                         if response.status_code == 200:
                             temp_data = json.loads(response.content.decode('utf-8'))
                             if 'data' in temp_data and temp_data['data']:
@@ -693,7 +701,7 @@ def domicili_digitali_view(request):
                     dato = None
                     if tipo == 'ipa':
                         ente = cf.strip().upper()
-                        response = requests.post(ipa_search_url, data={"AUTH_ID": ipa_auth_id, "DESCR": ente}, headers=headers)
+                        response = requests.post(ipa_search_url, data={"AUTH_ID": ipa_auth_id, "DESCR": ente}, headers=headers, timeout=30)
                         if response.status_code == 200:
                             temp_data = json.loads(response.content.decode('utf-8'))
                             occorrenze = temp_data.get('result', {}).get('num_items', 0)

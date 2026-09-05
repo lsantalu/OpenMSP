@@ -1,4 +1,6 @@
-from django.shortcuts import render
+# pyright: reportAttributeAccessIssue=false
+# (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono)
+from django.shortcuts import render, redirect
 
 from impostazioni.models import UtentiParametri
 from impostazioni.models import ServiziParametri
@@ -6,6 +8,7 @@ from impostazioni.models import MitServizi
 from impostazioni.models import MitParametri
 
 from .utils import salva_log
+from .utils import svuota_none
 from .utils import converti_data
 from .verifica_cf import verifica_cf
 
@@ -294,6 +297,7 @@ def mit_verifica_targa(request):
 def impostazioni_mit(request):
     servizi_mit = MitServizi.objects.all()
     parametri_mit = MitParametri.objects.all()
+    svuota_none(parametri_mit)
 
     service_active = ServiziParametri.objects.all()
     i_serv=0

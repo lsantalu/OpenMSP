@@ -1,4 +1,6 @@
-from django.shortcuts import render
+# pyright: reportAttributeAccessIssue=false
+# (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono)
+from django.shortcuts import render, redirect
 
 from impostazioni.models import UtentiParametri
 from impostazioni.models import ServiziParametri
@@ -6,6 +8,7 @@ from impostazioni.models import AnisServizi
 from impostazioni.models import AnisParametri
 
 from .utils import salva_log
+from .utils import svuota_none
 from .utils import converti_data
 from .verifica_cf import verifica_cf
 
@@ -32,14 +35,40 @@ from openpyxl.utils import get_column_letter
 
 from django.http import HttpResponse
 
+def _riga_errore(row, colonne):
+    """Riga di esportazione per una verifica fallita: [cf, messaggio, 'N/A'...], o [] se e' ok.
+    Vale sia l'esito esplicito False sia il campo assente: una verifica fallita non lo
+    contiene affatto, e trattarla come riuscita farebbe poi IndexError su listaIscrizioni."""
+    dati = row[1] if isinstance(row, (list, tuple)) else row
+    if not isinstance(dati, dict):
+        return []
+    esito = dati.get("esito")
+    fallita = ("frequentante" not in dati) or (dati.get("frequentante") is False)
+    if not (fallita or isinstance(esito, dict)):
+        return []
+    if isinstance(esito, dict):
+        messaggio = f"Errore tecnico ({esito.get('codice')}): {str(esito.get('descrizione'))[:180]}"
+    elif dati.get("frequentante") is False:
+        messaggio = "Esito negativo della verifica"
+    else:
+        messaggio = "Verifica non eseguibile: risposta priva di esito"
+    if isinstance(row, (list, tuple)):
+        cf = row[0]
+    else:
+        # ponytail: IFS02/IFS03 massivo appenda il solo payload, quindi qui il CF non c'e'.
+        # Serve far appendere (cf, res) anche ai due view massivi IFS, poi cf = row[0] per tutti.
+        cf = (dati.get("personal_data") or {}).get("tax_code", "N/A")
+    return [cf, messaggio] + ["N/A"] * (colonne - 2)
+
+
 def anis_iscrizioni_export_excel(request):
     data = request.session.get("multi_data", [])  # Oppure recuperalo come preferisci
     wb = Workbook()
-    ws = wb.active
+    ws = wb.worksheets[0]   # openpyxl: stessa cosa di .active su un workbook nuovo, ma senza Optional
     ws.append(["Codice Fiscale", "Istituto", "Tipologia corso", "Nome corso", "Classe", "Anno accademico", "Durata corso"])
 
     # Dizionario per la larghezza massima di ogni colonna
-    max_lengths = [len(cell.value) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
+    max_lengths = [len(str(cell.value or "")) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
 
     if not data:
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
@@ -47,7 +76,11 @@ def anis_iscrizioni_export_excel(request):
     for i, row in enumerate(data, 1):
         color = "FFFFFF"  # default bianco
 
-        if isinstance(row, dict):
+        err = _riga_errore(row, 7)
+        if err:
+            color = "FFC7CE"
+            ws.append(err)
+        elif isinstance(row, dict):
             cf = row['personal_data']['tax_code']
             if len(row.get("enrollments")) == 0 :
                 color = "FFC7CE"
@@ -109,7 +142,10 @@ def anis_iscrizioni_export_csv(request):
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
 
     for row in data:
-        if isinstance(row, dict):
+        err = _riga_errore(row, 7)
+        if err:
+            writer.writerow(err)
+        elif isinstance(row, dict):
             cf = row['personal_data']['tax_code']
             if len(row.get("enrollments")) == 0:
                 writer.writerow([cf, "La richiesta effettuata non produce alcun risultato", "N/A", "N/A", "N/A", "N/A", "N/A"])
@@ -134,11 +170,11 @@ def anis_iscrizioni_export_csv(request):
 def anis_titoli_export_excel(request):
     data = request.session.get("multi_data", [])  # Oppure recuperalo come preferisci
     wb = Workbook()
-    ws = wb.active
+    ws = wb.worksheets[0]   # openpyxl: come .active su un workbook nuovo, ma senza Optional
     ws.append(["Codice Fiscale", "Istituto", "Qualifica", "Tipologia corso", "Nome corso", "Classe", "Data conseguimento", "Valutazione"])
 
     # Dizionario per la larghezza massima di ogni colonna
-    max_lengths = [len(cell.value) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
+    max_lengths = [len(str(cell.value or "")) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
 
     if not data:
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
@@ -146,7 +182,11 @@ def anis_titoli_export_excel(request):
     for i, row in enumerate(data, 1):
         color = "FFFFFF"  # default bianco
 
-        if isinstance(row, dict):
+        err = _riga_errore(row, 8)
+        if err:
+            color = "FFC7CE"
+            ws.append(err)
+        elif isinstance(row, dict):
             cf = row['personal_data']['tax_code']
             if len(row.get("qualifications")) == 0 :
                 color = "FFC7CE"
@@ -222,11 +262,11 @@ def anis_titoli_export_excel(request):
 def anist_frequenze_export_excel(request):
     data = request.session.get("multi_data", [])  # Oppure recuperalo come preferisci
     wb = Workbook()
-    ws = wb.active
+    ws = wb.worksheets[0]   # openpyxl: come .active su un workbook nuovo, ma senza Optional
     ws.append(["Codice Fiscale", "Istituto principale", "Plesso", "Tipologia corso", "Anno corso", "Esito frequenza"])
 
     # Dizionario per la larghezza massima di ogni colonna
-    max_lengths = [len(cell.value) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
+    max_lengths = [len(str(cell.value or "")) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
 
     if not data:
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
@@ -234,7 +274,11 @@ def anist_frequenze_export_excel(request):
     for i, row in enumerate(data, 1):
         color = "FFFFFF"  # default bianco
 
-        if isinstance(row, list):
+        err = _riga_errore(row, 6)
+        if err:
+            color = "FFC7CE"
+            ws.append(err)
+        elif isinstance(row, list):
             cf = row[0]
             if isinstance(row[1], dict):
                 if row[1]['frequentante'] == False :
@@ -299,7 +343,10 @@ def anist_frequenze_export_csv(request):
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
 
     for row in data:
-        if isinstance(row, list):
+        err = _riga_errore(row, 6)
+        if err:
+            writer.writerow(err)
+        elif isinstance(row, list):
             cf = row[0]
             if isinstance(row[1], dict):
                 if row[1]['frequentante'] == False:
@@ -326,11 +373,11 @@ def anist_frequenze_export_csv(request):
 def anist_titoli_export_excel(request):
     data = request.session.get("multi_data", [])  # Oppure recuperalo come preferisci
     wb = Workbook()
-    ws = wb.active
+    ws = wb.worksheets[0]   # openpyxl: come .active su un workbook nuovo, ma senza Optional
     ws.append(["Codice Fiscale", "Titolo", "Istituto principale", "Plesso", "Votazione"])
 
     # Dizionario per la larghezza massima di ogni colonna
-    max_lengths = [len(cell.value) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
+    max_lengths = [len(str(cell.value or "")) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
 
     if not data:
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
@@ -338,7 +385,11 @@ def anist_titoli_export_excel(request):
     for i, row in enumerate(data, 1):
         color = "FFFFFF"  # default bianco
 
-        if isinstance(row, list):
+        err = _riga_errore(row, 5)
+        if err:
+            color = "FFC7CE"
+            ws.append(err)
+        elif isinstance(row, list):
             cf = row[0]
             if row[1]['presenzaTitoli'] == False:
                 color = "FFC7CE"
@@ -404,7 +455,10 @@ def anist_titoli_export_csv(request):
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
 
     for row in data:
-        if isinstance(row, list):
+        err = _riga_errore(row, 5)
+        if err:
+            writer.writerow(err)
+        elif isinstance(row, list):
             cf = row[0]
             if row[1]['presenzaTitoli'] == False:
                 writer.writerow([cf, "La richiesta effettuata non produce alcun risultato", "N/A", "N/A", "N/A"])
@@ -756,7 +810,10 @@ def anis_get_voucher(clientid, baseurlauth, client_assertion):
     response = conn.getresponse()
     resp_data = response.read()
     voucher_json = json.loads(resp_data)
-    voucher = voucher_json["access_token"]
+    voucher = voucher_json.get("access_token")
+    if not voucher:
+        raise RuntimeError("Voucher non emesso da " + baseurlauth + ": "
+                           + str(voucher_json.get("error", resp_data))[:180])
     token_id = None
     try:
         decoded_token = jwt.decode(voucher, options={"verify_signature": False})
@@ -845,7 +902,10 @@ def anis_verifica_utente(user_ID, cf, id_caso):
 
     client_assertion = jwt.encode(payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
 
-    voucher, token_id = anis_get_voucher(clientid, baseurlauth, client_assertion)
+    try:
+        voucher, token_id = anis_get_voucher(clientid, baseurlauth, client_assertion)
+    except Exception as e:
+        return {"esito": {"codice": "voucher_error", "descrizione": str(e)[:200]}}, 500, purposeid, None
 
     # prepara il body per la richiesta e relativo digest
     body = richiesta
@@ -922,6 +982,7 @@ def anis_verifica_utente(user_ID, cf, id_caso):
 def impostazioni_anis(request):
     servizi_anis = AnisServizi.objects.all()
     parametri_anis = AnisParametri.objects.all()
+    svuota_none(parametri_anis)
 
     service_active = ServiziParametri.objects.all()
     i_serv=0
