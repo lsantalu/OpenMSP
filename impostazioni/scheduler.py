@@ -1,4 +1,6 @@
 import datetime
+from random import randint
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from django.core.mail import EmailMessage
 from django.conf import settings
@@ -6,15 +8,19 @@ from django.utils import timezone
 
 import pyzipper
 import os
-import pathlib
 
 from impostazioni.models import Logs
 
 
-
 def start():
     scheduler = BackgroundScheduler()
-    scheduler.add_job(delete_old_logs, 'interval', days=1)  # Esegui ogni giorno
+    # 'interval' conta le 24 ore dall'avvio del processo: con `restart: always`, i deploy e i
+    # 3 worker di gunicorn lo zero si ripreme ogni volta e il purge non partiva mai (608 righe
+    # oltre l'anno ancora a terra). 'date' garantisce un giro a ogni avvio, 'cron' lo tiene
+    # quotidiano quando il processo vive piu' di un giorno. Minuto sorteggiato perche' i 3
+    # worker non cancellino nello stesso istante sullo stesso SQLite.
+    scheduler.add_job(delete_old_logs, 'date', run_date=timezone.now() + datetime.timedelta(seconds=10))
+    scheduler.add_job(delete_old_logs, 'cron', hour=2, minute=randint(0, 59))
     scheduler.add_job(send_db_backup, 'cron', hour=1, minute=0)  # Esegui ogni notte alle 1:00
     scheduler.start()
 
@@ -22,6 +28,9 @@ def start():
 def delete_old_logs():
     cutoff = timezone.now() - datetime.timedelta(days=365)
     deleted_count, _ = Logs.objects.filter(timestamp__lt=cutoff).delete()
+    if deleted_count:
+        # solo metadati: niente dati anagrafici nei log (invariante 8)
+        print(f"Purge logs: rimosse {deleted_count} righe precedenti al {cutoff:%d-%m-%Y}")
     return deleted_count
 
 def send_db_backup():

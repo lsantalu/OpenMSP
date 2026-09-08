@@ -1,7 +1,6 @@
 <!-- templates/base.html -->
 {% extends 'base.html' %} {% load static %} {% block page_title %} Impostazioni
-MIT - OpenMSP - Multi Services Portal {% endblock %} {% block centered_container
-%}
+MIT - OpenMSP - Multi Services Portal {% endblock %} {% block centered_container %}
 <h3>Impostazioni Ministaro Infrastruutre e Trasporti</h3>
 <br />
 {% if user.is_authenticated %}
@@ -37,8 +36,7 @@ MIT - OpenMSP - Multi Services Portal {% endblock %} {% block centered_container
 
     <div class="tab-content" id="myTabContent">
       <br />
-      {% for servizio_mit in servizi_mit %} {% for parametro_mit in
-      parametri_mit %} {% if parametro_mit.id == forloop.parentloop.counter %}
+      {% for servizio_mit in servizi_mit %} {% for parametro_mit in parametri_mit %} {% if parametro_mit.id == forloop.parentloop.counter %}
       <div
         class="tab-pane p-4 fade {% if servizio_mit.id == 1 %}show active {% endif %}"
         id="tab{{ servizio_mit.id }}"

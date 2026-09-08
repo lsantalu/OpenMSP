@@ -639,6 +639,10 @@ OpenMSP - Multi Services Portal
                         <a class="list-item dropdown-item{% if not user_perms.anist_titoli_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'anist_titoli_massiva' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anist_titoli_massivo %} class="text-muted"{% endif %}>ANIST - Titoli massiva</span></a>
                       </li>
                       {% endif %}
+                      <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div>
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anis_IFS02_singolo and not user_perms.anis_IFS02_massivo and not user_perms.anis_IFS03_singolo and not user_perms.anis_IFS03_massivo and not user_perms.anist_frequenze_singolo and not user_perms.anist_frequenze_massivo and not user_perms.anist_titoli_singolo and not user_perms.anist_titoli_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'istruzione' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anis_IFS02_singolo and not user_perms.anis_IFS02_massivo and not user_perms.anis_IFS03_singolo and not user_perms.anis_IFS03_massivo and not user_perms.anist_frequenze_singolo and not user_perms.anist_frequenze_massivo and not user_perms.anist_titoli_singolo and not user_perms.anist_titoli_massivo %} class="text-muted"{% endif %}>TEST - Interroga ANIS/ANIST</span></a>
+                      </li>
                     </ul>
                   </div>
                 </div>

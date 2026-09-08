@@ -7,8 +7,8 @@
 
 ---
 
-<p align="center"> Il portale per accedere alla PDND e 
-inviare messaggi tramite la App IO<br> 
+<p align="center"> Il portale per accedere alla PDND e
+inviare messaggi tramite la App IO<br>
 </p>
 
 ![Python](https://img.shields.io/badge/Python-3.13%2B-blue)
@@ -16,7 +16,6 @@ inviare messaggi tramite la App IO<br>
 ![Version](https://img.shields.io/badge/Version-1.3.0-brightgreen)
 ![License](https://img.shields.io/badge/License-BSD_3--Clause-blue)
 ![Author](https://img.shields.io/badge/Author-OpenCED_di_Santalucia_Luca-orange)
-
 
 Il progetto è sviluppato per guidare la digitalizzazione dell'Ente. Il portale funge da gateway unificato per l'interoperabilità dei dati tramite la **PDND** (Piattaforma Digitale Nazionale Dati) e la gestione delle comunicazioni verso il cittadino tramite **App IO**.
 
@@ -37,12 +36,16 @@ Il progetto è sviluppato per guidare la digitalizzazione dell'Ente. Il portale 
 OpenMSP orchestra le chiamate verso diversi endpoint della PDND per centralizzare le informazioni:
 
 ### 1. Domicilio Digitale
+
 Consultazione e verifica dei domicili digitali con controlli formali sui Codici Fiscali e verifica minorenni.
+
 * **Soggetti:** Persone fisiche (INAD), Imprese e professionisti (INI-PEC), Pubblica Amministrazione (IPA).
 * **Modalità:** Ricerca singola o massiva (import da file XLSX/CSV) con stampa ed esportazione dei risultati.
 
 ### 2. ANPR (Anagrafe Nazionale Popolazione Residente)
+
 Interrogazione dettagliata della banca dati nazionale:
+
 * **Generalità:** Cognome, Nome, Sesso, Data/Luogo di nascita, Stato civile, C.I. e ID ANPR.
 * **Residenza:** Indirizzo completo e data di decorrenza.
 * **Stato di Famiglia:** Schede anagrafiche di tutti i componenti del nucleo familiare.
@@ -51,20 +54,27 @@ Interrogazione dettagliata della banca dati nazionale:
 * **Esistenza in vita:** Verifica dell'esistenza in vita del soggetto.
 
 ### 3. CCIAA (Registro Imprese)
+
 Restituzione di tutti i dati indicati nella visura camerale per soggetti iscritti:
+
 * Dettagli sedi, legali rappresentanti, domicilio digitale, codici ATECO, iscrizioni ad albi, statuti, soci, capitale sociale, ecc.
 
 ### 4. ANIS e ANIST
+
 Restituzione di tutti i dati indicanti la formazione dalla scuola primaria all'università:
+
 * **ANIS (Istruzione Superiore ed universitaria):** Consultazione iscrizioni e titoli conseguiti presso Istituti di Formazione Superiore ed Universitari (modalità singola o massiva).
 * **ANIST (Istruzione di primo e secondo grado):** Consultazione frequenza e titoli conseguiti presso Istituti di primo e secondo grado (modalità singola o massiva).
 
 ### 5. INPS
+
 Nuove integrazioni disponibili dalla versione 1.3.0:
+
 * **INPS - ISEE:** Richiesta attestazione ISEE per residenti.
 * **INPS - DURC:** Consultazione DURC in corso di validità in modalità singola e massiva, con possibilità di acquisizione del file PDF.
 
 ### 6. PROSSIME IMPLEMENTAZIONI
+
 * **MIT (Trasporti):** Consultazione patenti possedute e verifica contrassegni disabili/targhe (Piattaforma Unica Nazionale Informatica dei Contrassegni Unici).
 * **CNF (Forense):** Verifica iscrizione di un soggetto all'albo degli avvocati.
 
@@ -75,6 +85,7 @@ Nuove integrazioni disponibili dalla versione 1.3.0:
 Modulo completo per la gestione delle notifiche verso l'App dei servizi pubblici.
 
 ### Features
+
 * **Check Utente:** Verifica se il CF è attivo su App IO e se il servizio dell'Ente è attivo (include check formale CF e maggiore età). Disponibile anche in modalità massiva.
 * **Invio Messaggi:** Invio messaggi personalizzati attingendo dal catalogo servizi pagoPA (inclusi eventuali estremi di pagamento).
 * **Invio Massivo:** Caricamento file XLSX/CSV per invii multipli con informazioni personalizzate per ogni cittadino.
@@ -99,44 +110,51 @@ Modulo completo per la gestione delle notifiche verso l'App dei servizi pubblici
 
 ## 🚀 Installazione (locale)
 
-1.  **Clona il repository:**
+1. **Clona il repository:**
+
     ```bash
     git clone https://github.com/lsantalu/OpenMSP.git
     cd OpenMSP
     ```
 
-2.  **Crea un virtual environment e attivalo:**
+2. **Crea un virtual environment e attivalo:**
+
     ```bash
     python -m venv env
     source env/bin/activate  # Su Windows: env\Scripts\activate
     ```
 
-3.  **Installa le dipendenze:**
+3. **Installa le dipendenze:**
+
     ```bash
     pip install -r requirements.txt
     ```
 
-4.  **Copia il file `.env_example` in `.env` e configuralo:**
+4. **Copia il file `.env_example` in `.env` e configuralo:**
+
     ```bash
     cp .env_example .env
     ```
 
-5.  **Copia il database di esempio:**
+5. **Copia il database di esempio:**
+
     ```bash
     cp db_example.sqlite3 db.sqlite3
     ```
 
-6.  **Esegui le migrazioni del database:**
+6. **Esegui le migrazioni del database:**
+
     ```bash
     python manage.py migrate
     ```
 
-7.  **Avvia il server di sviluppo:**
+7. **Avvia il server di sviluppo:**
+
     ```bash
     python manage.py runserver
     ```
 
-L'accesso al sito avviene su http://localhost:8000
+L'accesso al sito avviene su <http://localhost:8000>
 
 * Utente: **admin**
 * Password: **Admin123+**
@@ -152,6 +170,7 @@ docker compose -f docker/docker-compose.yml up -d --build
 ```
 
 Dettagli principali:
+
 * `container_name`: `openmsp_container`
 * Porta esposta: `8000:8000`
 * Volume persistente: `sqlite_data:/app/db_data`
@@ -217,7 +236,12 @@ AUTH_LDAP_USER_ATTR_MAP = {"first_name": "givenName","last_name": "sn","email": 
 
 AUTH_LDAP_NO_NEW_USERS = True
 AUTH_LDAP_CONNECTION_OPTIONS = {"OPT_PROTOCOL_VERSION": 3, "OPT_REFERRALS": 0}
+
+### Opzioni globali ldap_set_option(), servono ad esempio per la verifica TLS su LDAPS
+AUTH_LDAP_GLOBAL_OPTIONS = {}
 ```
+
+Se il login via LDAPS fallisce con `certificate verify failed`, indica in `AUTH_LDAP_GLOBAL_OPTIONS` il file della CA che firma il certificato LDAP (`{"OPT_X_TLS_CACERTFILE": "/app/ca/ca-ente.pem"}`, con il file montato nel container) invece di disattivare la verifica (`{"OPT_X_TLS_REQUIRE_CERT": 0}`, ammissibile solo in staging o rete interna controllata).
 
 Nota: usa **una sola** coppia `AUTH_LDAP_USER_SEARCH_FILTER` e `AUTH_LDAP_USER_ATTR_MAP` in base al tuo provider LDAP (OpenLDAP o Active Directory).
 
@@ -226,77 +250,85 @@ Nota: usa **una sola** coppia `AUTH_LDAP_USER_SEARCH_FILTER` e `AUTH_LDAP_USER_A
 Per aggiornare la struttura del database e, quando previsto, il file `.env` tra le diverse versioni, utilizza gli script presenti nella directory `update/`. Gli script sono progettati per essere eseguiti in modo incrementale.
 
 ### Logica di Aggiornamento Incrementale
+
 Se desideri aggiornare alla versione più recente (es. 1.3), puoi eseguire direttamente l'ultimo script disponibile. Se il database è fermo a più versioni precedenti, lo script rileverà automaticamente la situazione e invocherà i passaggi intermedi necessari.
 
 Esempio: eseguendo `update_to_1.3.sh` su un database 1.1.0, verrà automaticamente chiamato prima `update_to_1.2.sh`.
 
 ### Script Disponibili
-*   `update/update_to_1.1.sh`: Aggiornamento alla versione 1.1.0.
-*   `update/update_to_1.2.sh`: Aggiornamento alla versione 1.2.0 (include logica incrementale).
-*   `update/update_to_1.3.sh`: Aggiornamento alla versione 1.3.0 (include logica incrementale).
+
+* `update/update_to_1.1.sh`: Aggiornamento alla versione 1.1.0.
+* `update/update_to_1.2.sh`: Aggiornamento alla versione 1.2.0 (include logica incrementale).
+* `update/update_to_1.3.sh`: Aggiornamento alla versione 1.3.0 (include logica incrementale).
 
 ### Uso (Esempio per v1.3)
 
 Uso (non interattivo):
+
 ```bash
 ./update/update_to_1.3.sh [path/to/db.sqlite3] [path/to/.env]
 ```
 
 Uso (interattivo):
+
 ```bash
 chmod +x update/update_to_1.3.sh
 ./update/update_to_1.3.sh
 ```
 
 ### Funzionalità degli Script
-*   **Verifica Versione**: Ogni script verifica la versione attuale del DB prima di procedere.
-*   **Backup Automatico**: Viene creato un backup `.bak` del database prima di ogni modifica; il backup del file `.env` dipende dallo script eseguito e dalle sincronizzazioni previste per quella versione.
-*   **Migrazioni Django**: Gli script eseguono automaticamente `makemigrations` e `migrate` al termine della procedura.
-*   **Sincronizzazione Parametri**: Alcuni script sincronizzano parametri applicativi e variabili `.env` se previsti per quella versione.
 
+* **Verifica Versione**: Ogni script verifica la versione attuale del DB prima di procedere.
+* **Backup Automatico**: Viene creato un backup `.bak` del database prima di ogni modifica; il backup del file `.env` dipende dallo script eseguito e dalle sincronizzazioni previste per quella versione.
+* **Migrazioni Django**: Gli script eseguono automaticamente `makemigrations` e `migrate` al termine della procedura.
+* **Sincronizzazione Parametri**: Alcuni script sincronizzano parametri applicativi e variabili `.env` se previsti per quella versione.
 
 ## 📄 Licenze di Terze Parti
 
 Questo progetto utilizza librerie e componenti di terze parti. Di seguito l'elenco delle licenze per i pacchetti presenti in `requirements.txt`:
 
 ### MIT License
-*   **[apscheduler](https://github.com/agronholm/apscheduler/blob/master/LICENSE.txt)**
-*   **[django-compressor](https://github.com/django-compressor/django-compressor/blob/master/LICENSE)**
-*   **[django-extensions](https://github.com/django-extensions/django-extensions/blob/main/LICENSE)**
-*   **[django-sass-processor](https://github.com/jrief/django-sass-processor/blob/master/LICENSE-MIT)**
-*   **[gunicorn](https://github.com/benoitc/gunicorn/blob/master/LICENSE)**
-*   **[libsass](https://github.com/sass/libsass-python/blob/main/LICENSE)**
-*   **[markdown-it-py](https://github.com/executablebooks/markdown-it-py/blob/master/LICENSE)**
-*   **[openpyxl](https://github.com/fluidware/openpyxl/blob/master/LICENCE)**
-*   **[python-decouple](https://github.com/HBNetwork/python-decouple/blob/master/LICENSE)**
-*   **[python-jose](https://github.com/mpdavis/python-jose/blob/master/LICENSE)**
-*   **[PyJWT](https://github.com/jpadilla/pyjwt/blob/master/LICENSE)**
-*   **[pytz](https://github.com/stub42/pytz/blob/master/LICENSE.txt)**
-*   **[pyzipper](https://github.com/danifus/pyzipper/blob/master/LICENSE)**
-*   **[whitenoise](https://github.com/evansd/whitenoise/blob/main/LICENSE)**
-*   **[xmltodict](https://github.com/martinblech/xmltodict/blob/master/LICENSE)**
+
+* **[apscheduler](https://github.com/agronholm/apscheduler/blob/master/LICENSE.txt)**
+* **[django-compressor](https://github.com/django-compressor/django-compressor/blob/master/LICENSE)**
+* **[django-extensions](https://github.com/django-extensions/django-extensions/blob/main/LICENSE)**
+* **[django-sass-processor](https://github.com/jrief/django-sass-processor/blob/master/LICENSE-MIT)**
+* **[gunicorn](https://github.com/benoitc/gunicorn/blob/master/LICENSE)**
+* **[libsass](https://github.com/sass/libsass-python/blob/main/LICENSE)**
+* **[markdown-it-py](https://github.com/executablebooks/markdown-it-py/blob/master/LICENSE)**
+* **[openpyxl](https://github.com/fluidware/openpyxl/blob/master/LICENCE)**
+* **[python-decouple](https://github.com/HBNetwork/python-decouple/blob/master/LICENSE)**
+* **[python-jose](https://github.com/mpdavis/python-jose/blob/master/LICENSE)**
+* **[PyJWT](https://github.com/jpadilla/pyjwt/blob/master/LICENSE)**
+* **[pytz](https://github.com/stub42/pytz/blob/master/LICENSE.txt)**
+* **[pyzipper](https://github.com/danifus/pyzipper/blob/master/LICENSE)**
+* **[whitenoise](https://github.com/evansd/whitenoise/blob/main/LICENSE)**
+* **[xmltodict](https://github.com/martinblech/xmltodict/blob/master/LICENSE)**
 
 ### BSD (3-Clause) License
-*   **[asgiref](https://github.com/django/asgiref/blob/main/LICENSE)**
-*   **[design-django-theme](https://github.com/italia/design-django-theme/blob/master/LICENSE)**
-*   **[Django](https://github.com/django/django/blob/main/LICENSE)**
-*   **[djangorestframework](https://github.com/encode/django-rest-framework/blob/master/LICENSE.md)**
-*   **[sqlparse](https://github.com/andialbrecht/sqlparse/blob/master/LICENSE)**
+
+* **[asgiref](https://github.com/django/asgiref/blob/main/LICENSE)**
+* **[design-django-theme](https://github.com/italia/design-django-theme/blob/master/LICENSE)**
+* **[Django](https://github.com/django/django/blob/main/LICENSE)**
+* **[djangorestframework](https://github.com/encode/django-rest-framework/blob/master/LICENSE.md)**
+* **[sqlparse](https://github.com/andialbrecht/sqlparse/blob/master/LICENSE)**
 
 ### Apache License 2.0
-*   **[cryptography](https://github.com/pyca/cryptography/blob/main/LICENSE.APACHE)** (o BSD)
-*   **[pyOpenSSL](https://github.com/pyca/pyopenssl/blob/main/LICENSE)**
-*   **[requests](https://github.com/psf/requests/blob/main/LICENSE)**
+
+* **[cryptography](https://github.com/pyca/cryptography/blob/main/LICENSE.APACHE)** (o BSD)
+* **[pyOpenSSL](https://github.com/pyca/pyopenssl/blob/main/LICENSE)**
+* **[requests](https://github.com/psf/requests/blob/main/LICENSE)**
 
 ### Altre Licenze
-*   **[html2text](https://github.com/Alir3z4/html2text/blob/master/COPYING)**: GPLv3
-*   **[Pillow](https://github.com/python-pillow/Pillow/blob/main/LICENSE)**: HPND (Historical Permission Notice and Disclaimer)
-*   **[typing-extensions](https://github.com/python/typing_extensions/blob/main/LICENSE)**: PSF (Python Software Foundation License)
+
+* **[html2text](https://github.com/Alir3z4/html2text/blob/master/COPYING)**: GPLv3
+* **[Pillow](https://github.com/python-pillow/Pillow/blob/main/LICENSE)**: HPND (Historical Permission Notice and Disclaimer)
+* **[typing-extensions](https://github.com/python/typing_extensions/blob/main/LICENSE)**: PSF (Python Software Foundation License)
 
 Tutti i marchi riportati appartengono ai legittimi proprietari; marchi di terzi, nomi di prodotti, nomi commerciali, nomi corporativi e società citati possono essere marchi di proprietà dei rispettivi titolari o marchi registrati di altre società e sono stati utilizzati a puro scopo esplicativo per favorire l’integrazione, senza alcun fine di violazione dei diritti di Copyright vigenti.
 
-
 ## ℹ️ Credits
+
 Sviluppato da **OpenCED di Santalucia Luca** - [openced.it](https://openced.it).
 
 ---
@@ -306,4 +338,3 @@ Sviluppato da **OpenCED di Santalucia Luca** - [openced.it](https://openced.it).
 [![Downloads](https://img.shields.io/github/downloads/lsantalu/OpenMSP/total.svg)](https://github.com/lsantalu/OpenMSP/releases)
 
 [![Star History Chart](https://api.star-history.com/svg?repos=lsantalu/OpenMSP&type=Date)](https://star-history.com/#lsantalu/OpenMSP&Date)
-

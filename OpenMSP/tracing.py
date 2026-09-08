@@ -7,6 +7,7 @@ from .utils import salva_log
 from django.db.models import Count
 
 import datetime
+from django.conf import settings
 from jose.constants import Algorithms
 import http.client, urllib.parse
 import hashlib
@@ -83,12 +84,31 @@ def get_tracing_bearer(parametri_tracing, user_id):
         'grant_type': 'client_credentials'
     })
     headers = {"Content-type": "application/x-www-form-urlencoded"}
-    conn = http.client.HTTPSConnection(re.sub(r'^https?://', '', baseurlauth))
+    conn = http.client.HTTPSConnection(re.sub(r'^https?://', '', baseurlauth), timeout=30)
     conn.request("POST", "/token.oauth2", params, headers)
-    response = conn.getresponse()
-    voucher = json.loads(response.read())["access_token"]
+    corpo = conn.getresponse().read()
+    conn.close()
+    try:
+        voucher = json.loads(corpo)["access_token"]
+    except Exception as e:
+        # authority guasta: un errore leggibile qui evita un 500 nudo chiamante
+        raise RuntimeError(f"Authority tracing non ha rilasciato un voucher: {corpo[:200]!r}") from e
 
     return voucher, audit
+
+
+def confronta_identificatori(claims, parametri_tracing):
+    """Confronta gli identificatori timbrati dall'Authorization Server con quelli
+    configurati. L'AS meticol l'audience dell'e-service a cui la finalita' punta: se
+    non e' l'URL dell'API di tracing l'e-service risponde 401 'Invalid token' e dal
+    codice non e' correggibile. Ritorna la lista dei disallineamenti (vuota = ok)."""
+    difetti = []
+    if claims.get("purposeId") and parametri_tracing.purposeid and claims["purposeId"] != parametri_tracing.purposeid:
+        difetti.append(f"purposeId del voucher {claims['purposeId']} != configurato {parametri_tracing.purposeid}")
+    atteso = getattr(parametri_tracing, "eservice_id", "") or ""
+    if atteso and claims.get("eserviceId") and claims["eserviceId"] != atteso:
+        difetti.append(f"eserviceId del voucher {claims['eserviceId']} != configurato {atteso}")
+    return difetti
 
 
 def verifica_status_tracing(request):
@@ -111,10 +131,16 @@ def verifica_status_tracing(request):
     else:
         user_id = 'admin'
 
-    voucher, audit = get_tracing_bearer(parametri_tracing, user_id)
+    try:
+        voucher, audit = get_tracing_bearer(parametri_tracing, user_id)
+    except Exception as e:
+        return {"errore": "Voucher non ottenuto", "dettaglio": str(e)}
+
+    # solo metadati della chiamata (invariante 8): nessun dato anagrafico, nessun token
+    claims = jwt.decode(voucher, options={"verify_signature": False})
+    difetti = confronta_identificatori(claims, parametri_tracing)
 
     api_url = f"{target.rstrip('/')}/status"
-    
     # prepara il body per la richiesta GET e relativo digest (body vuoto)
     body = ""
     body_digest = hashlib.sha256(body.encode('UTF-8'))
@@ -156,12 +182,26 @@ def verifica_status_tracing(request):
         "Agid-JWT-Signature": signature
     }
 
-    response = requests.get(api_url, headers=headers, verify=False)
-    
-    if response.status_code in [200, 201]:
-        return {"status": "OK", "dettaglio": "Servizio attivo"}
-    else:
+    response = requests.get(api_url, headers=headers, verify=False, timeout=30)
+
+    if response.status_code not in [200, 201]:
         return {"errore": f"Status code {response.status_code}", "dettaglio": response.text}
+
+    # /status e' pubblico (security: [] nella OpenAPI del tracing): risponde 200 anche senza
+    # Authorization. Da solo non prova nulla, quindi si verifica anche un endpoint autenticato.
+    verifica_voucher = chiamata_api_tracing(request, "GET", "/tracings", params={"offset": 0, "limit": 1})
+    if "errore" in verifica_voucher:
+        # il JS della pagina mostra solo 'dettaglio', quindi qui va la diagnosi completa
+        messaggi = [str(verifica_voucher.get("dettaglio"))]
+        messaggi.append(f"aud del voucher: {claims.get('aud')} - l'API di tracing accetta solo la "
+                        f"audience dichiarata dal proprio descrittore")
+        messaggi += difetti
+        return {
+            "errore": f"Servizio raggiungibile ma voucher rifiutato ({verifica_voucher['errore']})",
+            "dettaglio": "  |  ".join(messaggi),
+        }
+
+    return {"status": "OK", "dettaglio": "Servizio attivo, voucher accettato"}
 
 
 def chiamata_api_tracing(request, method, endpoint, params=None, data=None, files=None):
@@ -217,7 +257,7 @@ def chiamata_api_tracing(request, method, endpoint, params=None, data=None, file
                 "Agid-JWT-TrackingEvidence": audit,
                 "Agid-JWT-Signature": signature
             }
-            response = requests.get(url, headers=headers, params=params, verify=False)
+            response = requests.get(url, headers=headers, params=params, verify=False, timeout=30)
 
         else:  # POST multipart
             session = requests.Session()
@@ -262,7 +302,13 @@ def chiamata_api_tracing(request, method, endpoint, params=None, data=None, file
                 "Accept": "application/json",
                 "Digest": digest
             })
-            response = session.send(prepared, verify=False)
+            response = session.send(prepared, verify=False, timeout=120)
+
+        try:
+            token_id = jwt.decode(voucher, options={"verify_signature": False}).get("jti")
+        except Exception:
+            token_id = None
+        salva_log(request.user, "Tracing", f"{method} {endpoint}", purposeid, response.status_code, token_id)
 
         if response.status_code == 200:
             return response.json()
@@ -271,6 +317,9 @@ def chiamata_api_tracing(request, method, endpoint, params=None, data=None, file
                 errore_api = response.json()
             except Exception:
                 errore_api = response.text
+            if not settings.DEBUG:
+                # invariante 8: fuori dal debug vanno solo i metadati della chiamata
+                return {"errore": response.status_code, "dettaglio": errore_api}
             # Debug: decodifica JWT senza verifica firma per ispezionare i claim
             try:
                 voucher_claims = jwt.decode(voucher, options={"verify_signature": False})
@@ -441,13 +490,22 @@ def impostazioni_tracing(request):
         aud = request.POST.get('aud')
         purposeid = request.POST.get('purposeid')
         audience = request.POST.get('audience')
+        tracing_audience = request.POST.get('tracing_audience') or ''
         baseurlauth = request.POST.get('baseurlauth')
         target = request.POST.get('target')
         clientid = request.POST.get('clientid')
         private_key = request.POST.get('private_key')
         ver_eservice = request.POST.get('ver_eservice')
+        eservice_id = request.POST.get('eservice_id') or ''
 
-        dati = TracingParametri(1, kid, alg, typ, iss, sub, aud, purposeid, audience, baseurlauth, target, clientid, private_key, ver_eservice)
+        # solo parole chiave: i campi positional finiscono fuori di uno da quando
+        # tracing_audience e' stato inserito nel modello prima di baseurlauth
+        dati = TracingParametri(
+            id=1, kid=kid, alg=alg, typ=typ, iss=iss, sub=sub, aud=aud,
+            purposeid=purposeid, audience=audience, tracing_audience=tracing_audience,
+            baseurlauth=baseurlauth, target=target, clientid=clientid,
+            private_key=private_key, ver_eservice=ver_eservice, eservice_id=eservice_id,
+        )
         dati.save()
         salva_log(request.user, "Impostazioni Tracing", "modifica parametri")
         

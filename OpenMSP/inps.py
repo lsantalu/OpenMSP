@@ -17,7 +17,6 @@ import base64
 import datetime
 import uuid
 import jwt
-import subprocess
 import requests
 import json
 import io
@@ -234,40 +233,38 @@ def _get_inps_token(parametri):
 
     asserzione = jwt.encode(payload, parametri.private_key, algorithm="RS256", headers=headers_rsa)
 
-    curl_command = (
-        f"curl --location --silent --request POST {parametri.baseurlauth}/token.oauth2 "
-        f"--header 'Content-Type: application/x-www-form-urlencoded' "
-        f"--data-urlencode 'client_id={parametri.iss}' "
-        f"--data-urlencode 'client_assertion={asserzione}' "
-        "--data-urlencode 'client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer' "
-        "--data-urlencode 'grant_type=client_credentials'"
-    )
-
-    if not sys.platform.startswith('linux'):
-        curl_command = curl_command.replace("'", '"')
-
-    result = subprocess.run(curl_command, shell=True, capture_output=True, text=True)
+    risposta = requests.post(
+        parametri.baseurlauth + "/token.oauth2",
+        data={
+            "client_id": parametri.iss,
+            "client_assertion": asserzione,
+            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            "grant_type": "client_credentials",
+            },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        timeout=30,
+        )
     try:
-        data = json.loads(result.stdout)
-        voucher = data.get('access_token', '')
-    except json.JSONDecodeError:
+        voucher = risposta.json().get('access_token', '')
+    except ValueError:
+        # authority INPS non utilizzabile: il chiamante rendiconto l'errore invece di esplodere
         voucher = ""
 
     # Estrae il token_id (jti) dal voucher
     try:
         decoded_token = jwt.decode(voucher, options={"verify_signature": False})
         token_id = decoded_token.get('jti')
-    except:
+    except jwt.PyJWTError:
         token_id = None
 
     return voucher, token_id
 
 
 def inps_isee(request):
+    selected_prestazione = ''
     if request.user.id:
         utente_sessione = UtentiParametri.objects.get(id=request.user.id)
         utente_abilitato = utente_sessione.inps_isee
-        selected_prestazione = ''
         if request.method == 'POST':
             data = []
             cf = request.POST.get('input_CF', '').strip()
@@ -298,7 +295,7 @@ def inps_isee(request):
     return render(request, 'inps_isee.html', {
         'utente_abilitato': utente_abilitato,
         'tipo_prestazione_da_erogare': TIPO_PRESTAZIONE_DA_EROGARE if request.user.id else [],
-        'selected_prestazione': selected_prestazione if request.user.id else '',
+        'selected_prestazione': selected_prestazione,
     })
 
 
@@ -348,7 +345,7 @@ def RichiestaIsee(cf, bearer, prestazione_da_erogare="A1.01"):
 </soapenv:Envelope>"""
 
     try:
-        response = requests.post(url, headers=headers, data=body.encode('utf-8'))
+        response = requests.post(url, headers=headers, data=body.encode('utf-8'), timeout=30)
         status_code = response.status_code
         purposeid = parametri_inps_isee.purposeid
 
@@ -559,7 +556,7 @@ def inps_durc_massivo(request):
                                     date_obj = datetime.datetime.strptime(date_str, '%Y-%m-%d')
                                     scadenza = date_obj + datetime.timedelta(days=120)
                                     res_data['scadenza'] = scadenza.strftime('%Y-%m-%d')
-                                except:
+                                except (ValueError, TypeError):
                                     pass
                             item['res_data'] = res_data
                             salva_log(request.user, "Verifica INPS - DURC massivo", "Verificato utente " + cf, purposeid=purp_id, resp_status=status, token_id=tok_id)
@@ -592,7 +589,7 @@ def inps_durc_verifica_impresa(cf, bearer):
         "codicefiscale": cf
         }
 
-    response = requests.post(url, headers=headers, json=data)
+    response = requests.post(url, headers=headers, json=data, timeout=30)
     status_code = response.status_code
     purposeid = inps_durc_parametri.purposeid
 
@@ -643,7 +640,7 @@ def inps_durc_download(request, protocollo):
             }
 
             try:
-                response = requests.get(url, headers=headers)
+                response = requests.get(url, headers=headers, timeout=30)
 
                 if response.status_code == 200:
                     res_json = response.json()

@@ -77,6 +77,18 @@ Impostazioni Tracing - OpenMSP - Multi Services Portal
     </div>
     <div class="row">
       <div class="form-group col-6">
+        <label for="tracing_audience">audience tracing API:</label>
+        <input type="text" class="form-control" id="tracing_audience" name="tracing_audience" maxlength="150" value="{{ parametri_tracing.0.tracing_audience }}" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="form-group col-6">
+        <label for="eservice_id">eserviceId:</label>
+        <input type="text" class="form-control" id="eservice_id" name="eservice_id" maxlength="36" value="{{ parametri_tracing.0.eservice_id }}" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="form-group col-6">
         <label for="clientid">clientid:</label>
         <input type="text" class="form-control" id="clientid" name="clientid" maxlength="50" value="{{ parametri_tracing.0.clientid }}" required/>
       </div>

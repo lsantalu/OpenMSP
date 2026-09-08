@@ -102,11 +102,30 @@ if not _raw_ldap_options:
     _raw_ldap_options = {}
 elif not isinstance(_raw_ldap_options, dict):
     # un JSON che non e' un oggetto (true, [], "x") esploderebbe all'avvio con un errore incomprensibile
-    raise ValueError('AUTH_LDAP_CONNECTION_OPTIONS deve essere un oggetto JSON, es. {"ldap.OPT_X_REFERRAL": 0}')
+    raise ValueError('AUTH_LDAP_CONNECTION_OPTIONS deve essere un oggetto JSON, es. {"OPT_PROTOCOL_VERSION": 3}')
 
 AUTH_LDAP_CONNECTION_OPTIONS = {
     getattr(ldap, key): value
     for key, value in _raw_ldap_options.items()
+}
+
+# Opzioni globali ldap_set_option(): le applica django-auth-ldap alla prima
+# autenticazione (backend.ldap -> _LDAPConfig.get_ldap). Le chiavi sono nomi di
+# costanti ldap senza prefisso, es. {"OPT_X_TLS_CACERTFILE": "/app/ca/ente.pem"}
+_raw_ldap_global_options = config(
+    "AUTH_LDAP_GLOBAL_OPTIONS",
+    cast=json.loads,
+    default="{}",
+)
+
+if not _raw_ldap_global_options:
+    _raw_ldap_global_options = {}
+elif not isinstance(_raw_ldap_global_options, dict):
+    raise ValueError('AUTH_LDAP_GLOBAL_OPTIONS deve essere un oggetto JSON, es. {"OPT_X_TLS_CACERTFILE": "/app/ca/ente.pem"}')
+
+AUTH_LDAP_GLOBAL_OPTIONS = {
+    getattr(ldap, key): value
+    for key, value in _raw_ldap_global_options.items()
 }
 
 AUTH_2FA = config("AUTH_2FA", cast=bool)

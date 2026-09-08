@@ -10,11 +10,10 @@ from .verifica_cf import verifica_cf
 import datetime
 import uuid
 import jwt
-import subprocess
+import requests
 import json
 import io
 import csv
-import sys
 import re
 import openpyxl
 from openpyxl import Workbook
@@ -27,7 +26,7 @@ from django.http import HttpResponse
 def inad_export_excel(request):
     data = request.session.get("multi_data", [])  # Oppure recuperalo come preferisci
     wb = Workbook()
-    ws = wb.active
+    ws = wb.worksheets[0]
     ws.append(["#", "CF", "Verifica", "Domicilio digitale"])
 
     # Dizionario per la larghezza massima di ogni colonna
@@ -113,27 +112,28 @@ def inad_get_bearer():
     
     asserzione = jwt.encode(payload, private_key, algorithm="RS256", headers=headers_rsa)
 
-    curl_command = (
-        f"curl --location --silent --request POST {baseurlauth}/token.oauth2 "
-        f"--header 'Content-Type: application/x-www-form-urlencoded' "
-        f"--data-urlencode 'client_id={issuer}' "
-        f"--data-urlencode 'client_assertion={asserzione}' "
-        "--data-urlencode 'client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer' "
-        "--data-urlencode 'grant_type=client_credentials'"
-    )
-
-    if not sys.platform.startswith('linux'):
-        curl_command=curl_command.replace("'", '"')
-
-    result = subprocess.run(curl_command, shell=True, capture_output=True, text=True)
-    data = json.loads(result.stdout)
-    voucher = data['access_token']
+    risposta = requests.post(
+        baseurlauth + "/token.oauth2",
+        data={
+            "client_id": issuer,
+            "client_assertion": asserzione,
+            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            "grant_type": "client_credentials",
+            },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        timeout=30,
+        )
+    try:
+        voucher = risposta.json()['access_token']
+    except (ValueError, KeyError):
+        # authority PDND non utilizzabile: il chiamante rendiconto l'errore invece di esplodere
+        voucher = ""
     
     # Estrae il token_id (jti) dal voucher
     try:
         decoded_token = jwt.decode(voucher, options={"verify_signature": False})
         token_id = decoded_token.get('jti')
-    except:
+    except jwt.PyJWTError:
         token_id = None
         
     return voucher, token_id
@@ -152,7 +152,7 @@ def inad_singola(request):
             if correttezza_cf == 1:
                 bearer, tok_id = inad_get_bearer()
                 parsed_output, status, purp_id = inad_verifica_utente(cf, bearer)
-                data.append(estrai_mail(json.dumps(parsed_output)))
+                data.append(estrai_mail(json.dumps(parsed_output)) if status == 200 else "Interrogazione INAD non riuscita (HTTP " + str(status) + ")")
                 salva_log(request.user, "Verifica INAD singolo", "Verificato domicilio utente " + cf, purposeid=purp_id, resp_status=status, token_id=tok_id)
             elif correttezza_cf == 2:
                 data.append("Codice fiscale di persona minorenne")
@@ -201,7 +201,8 @@ def inad_massiva(request):
                     if row[0]:
                         correttezza_cf = verifica_cf(row[0].strip().upper())
                         if correttezza_cf == 1:
-                            parsed_output= inad_verifica_utente(row[0].strip().upper(), bearer)
+                            bearer, tok_id = inad_get_bearer()
+                            parsed_output, status, purp_id = inad_verifica_utente(row[0].strip().upper(), bearer)
                             data.append(row[0].strip().upper() + " " + str(correttezza_cf) + " " + estrai_mail(json.dumps(parsed_output)))
                         elif correttezza_cf == 2:
                             data.append(row[0].strip().upper() + " " + str(correttezza_cf) + " Codice fiscale di persona minorenne")
@@ -223,20 +224,17 @@ def inad_verifica_utente(cf, bearer):
     inad_parametri = InadParametri.objects.get(id=1)
     purposeid = inad_parametri.purposeid
     url = inad_parametri.target + '/extract'
-    curl_command = (
-        f'curl --silent --request GET '
-        f"--url '{url}/{cf}?practicalReference=ABC123' "
-        f"--header 'Authorization: Bearer {bearer}'"
+    risposta = requests.get(
+        url + '/' + cf,
+        params={"practicalReference": "ABC123"},
+        headers={"Authorization": "Bearer " + bearer},
+        timeout=30,
         )
-    if not sys.platform.startswith('linux'):
-        curl_command=curl_command.replace("'", '"')    
-            
-    result = subprocess.run(curl_command, shell=True, capture_output=True, text=True) 
-    response_data = json.loads(result.stdout)
-    # Nota: curl non restituisce status_code facilmente, usiamo 200 se json decodificato 
-    # o 500 se errore nel json. In una implementazione reale requests sarebbe meglio.
-    status = 200 if response_data else 500
-    return response_data, status, purposeid
+    try:
+        response_data = risposta.json()
+    except ValueError:
+        response_data = {}
+    return response_data, risposta.status_code, purposeid
 
 
 def impostazioni_inad(request):
@@ -272,4 +270,4 @@ def estrai_mail(indirizzo):
     else:
         regex_email = r'[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}'
         indirizzi = re.findall(regex_email, indirizzo, re.IGNORECASE)
-        return indirizzi[0]
+        return indirizzi[0] if indirizzi else "Domicilio non reperibile"

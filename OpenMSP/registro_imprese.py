@@ -13,13 +13,12 @@ from .verifica_cf import verifica_cf_azienda
 import datetime
 import uuid
 import xmltodict
+from xml.parsers.expat import ExpatError
 
 import jwt
-import subprocess
 import requests
 import json
 import io
-import sys
 import csv
 ###import re
 import openpyxl
@@ -213,26 +212,28 @@ def registro_imprese_get_bearer():
 
     asserzione = jwt.encode(payload, private_key, algorithm="RS256", headers=headers_rsa)
 
-    curl_command = (
-        f"curl --location --silent --request POST {baseurlauth}/token.oauth2 "
-        f"--header 'Content-Type: application/x-www-form-urlencoded' "
-        f"--data-urlencode 'client_id={issuer}' "
-        f"--data-urlencode 'client_assertion={asserzione}' "
-        "--data-urlencode 'client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer' "
-        "--data-urlencode 'grant_type=client_credentials'"
-    )
-
-    if not sys.platform.startswith('linux'):
-        curl_command=curl_command.replace("'", '"')
-    result = subprocess.run(curl_command, shell=True, capture_output=True, text=True)
-    data = json.loads(result.stdout)
-    voucher = data['access_token']
+    risposta = requests.post(
+        baseurlauth + "/token.oauth2",
+        data={
+            "client_id": issuer,
+            "client_assertion": asserzione,
+            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            "grant_type": "client_credentials",
+            },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        timeout=30,
+        )
+    try:
+        voucher = risposta.json()['access_token']
+    except (ValueError, KeyError):
+        # authority PDND non utilizzabile: il chiamante rendiconto l'errore invece di esplodere
+        voucher = ""
     
     # Estrae il token_id (jti) dal voucher
     try:
         decoded_token = jwt.decode(voucher, options={"verify_signature": False})
         token_id = decoded_token.get('jti')
-    except:
+    except jwt.PyJWTError:
         token_id = None
         
     return voucher, token_id
@@ -411,7 +412,7 @@ def registro_imprese_verifica_utente(cf, bearer, token_id):
     params = {
         "codiceFiscale": cf
         }
-    response = requests.get(url, headers=headers, params=params)
+    response = requests.get(url, headers=headers, params=params, timeout=30)
     status_code = response.status_code
 
     def modify_keys(d):
@@ -427,7 +428,11 @@ def registro_imprese_verifica_utente(cf, bearer, token_id):
 
     if response.status_code == 200:
         xml_data = response.content
-        parsed_data = xmltodict.parse(xml_data)
+        try:
+            parsed_data = xmltodict.parse(xml_data)
+        except ExpatError:
+            # 200 con body malformato: stesso esito di una risposta errata, niente 500
+            return False, status_code, purposeid, token_id
         modified_data = modify_keys(parsed_data)
         return modified_data, status_code, purposeid, token_id
     else:
