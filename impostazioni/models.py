@@ -388,6 +388,7 @@ class TracingParametri(models.Model):
     clientid = models.CharField(max_length=50)
     private_key = models.CharField(max_length=2500)
     ver_eservice = models.CharField(max_length=10)
+    eservice_id = models.CharField(max_length=36, default='')  # id e-service di tracing, dal catalogo
 
     class Meta:
         managed = False

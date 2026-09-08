@@ -1,0 +1,320 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block page_title %}
+ANIS e ANIST - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+  <h3>ANIS e ANIST - Anagrafe nazionale dell'istruzione</h3>
+  <h4>Servizio unificato interrogazione ANIS e ANIST</h4>
+  <br />
+  {% if user.is_authenticated %}
+    {% if utente_abilitato %}
+      <div id="loadingOverlay">
+        <div class="spinner"></div>
+      </div>
+
+      <div class="col-8 shadow-lg white-bg p-4">
+        <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
+          {% if error %}
+            <div class="alert alert-danger" role="alert">{{ error }}</div>
+          {% endif %}
+
+          <form class="needs-validation" id="istruzione_form" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div class="form-group my-3">
+              <label class="active d-block mb-2">Interrogazione</label>
+              <div class="row">
+                {% for servizio in servizi %}
+                  <div class="col-6">
+                    <div class="form-check m-0">
+                      <input class="form-check-input servizio-istruzione-radio" type="radio"
+                             name="servizio_istruzione" id="servizio_{{ servizio.chiave }}"
+                             value="{{ servizio.chiave }}"
+                             data-singola="{% if servizio.singola %}1{% else %}0{% endif %}"
+                             data-massiva="{% if servizio.massiva %}1{% else %}0{% endif %}"
+                             {% if not servizio.singola and not servizio.massiva %}disabled{% endif %}
+                             {% if servizio.chiave == servizio_scelto %}checked{% endif %} />
+                      <label class="form-check-label{% if not servizio.singola and not servizio.massiva %} text-muted{% endif %}"
+                             for="servizio_{{ servizio.chiave }}">{{ servizio.label }}</label>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="form-group mt-5 mb-5">
+              <label class="active d-block mb-2">Modalita di ricerca</label>
+              <div class="row">
+                <div class="col-6">
+                  <div class="form-check m-0">
+                    <input class="form-check-input" type="radio" name="modalita" id="modalita_singola"
+                           value="singola" {% if modalita_scelta == 'singola' %}checked{% endif %} />
+                    <label class="form-check-label" for="modalita_singola">Ricerca singola</label>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="form-check m-0">
+                    <input class="form-check-input" type="radio" name="modalita" id="modalita_massiva"
+                           value="massiva" {% if modalita_scelta == 'massiva' %}checked{% endif %} />
+                    <label class="form-check-label" for="modalita_massiva">Ricerca massiva</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="input_singola" class="form-group mb-3 d-none">
+              <label for="input_CF">Inserisci il Codice Fiscale</label>
+              <input type="text" name="input_CF" id="input_CF" class="form-control" maxlength="16"
+                     oninput="this.value = this.value.toUpperCase();" />
+            </div>
+
+            <div id="input_massiva" class="form-group mb-3 d-none">
+              <div class="alert alert-info fs-5" role="alert">Il servizio accetta solo file in formato <b>Excel (xlsx)</b> e <b>CSV</b></div>
+
+              <div class="row">
+                <div class="col-12">
+                  <div class="callout callout-highlight success h-100">
+                    <div class="callout-title">
+                      <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check-circle"></use></svg>
+                      Campi Obbligatori
+                    </div>
+                    <p>Questi dati sono necessari per la ricerca.</p>
+                    <ul class="list-unstyled">
+                      <li><strong>Colonna (A)</strong> - Codici fiscali (scritti in carattere MAIUSCOLO)</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <p class="text-muted">
+                  <svg class="icon icon-sm me-1"><use href="{% static 'svg/sprites.svg' %}#it-info-circle"></use></svg>
+                  Le informazioni presenti nel file dalla colonna (B) in poi vengono automaticamente scartate.
+                </p>
+              </div>
+
+              <div class="it-card rounded border shadow-lg mb-4 p-4">
+                <div class="p-3" id="uploadSection">
+                  <div id="dropZone">
+                    <p class="text-center mb-0">
+                      Trascina file qui o<br />
+                      <button type="button" id="selectFileBtn" class="btn btn-sm btn-primary mt-2">
+                        <svg class="icon icon-sm" style="fill: white;" aria-hidden="true">
+                          <use href="{% static 'svg/sprites.svg' %}#it-upload"></use>
+                        </svg> Seleziona file
+                      </button>
+                    </p>
+                    <input type="file" id="file_massivo" name="file_massivo" class="d-none" accept=".csv,.xlsx" />
+                  </div>
+                  <div id="filePreview" class="d-none">
+                    <div class="d-flex justify-content-between align-items-center fw-bold col-md-8 offset-md-2 border border-danger rounded p-2">
+                      <span id="fileName" class="text-truncate"></span>
+                      <button type="button" class="btn btn-sm btn-danger" id="deleteFileBtn" title="Elimina">
+                        <svg class="icon icon-sm icon-light" aria-hidden="true" style="fill: white;">
+                          <use href="{% static 'svg/sprites.svg' %}#it-delete"></use>
+                        </svg> Elimina
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <button class="btn btn-primary" id="executeSearchBtn" type="submit" disabled>
+                <svg class="icon icon-sm icon-white" aria-hidden="true">
+                  <use href="{% static 'svg/sprites.svg' %}#it-search"></use>
+                </svg>Avvia ricerca
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {% if risultati %}
+        <br />
+        <div class="row">
+          {% for esito in risultati %}
+            <div class="col-12 mb-4 col-lg-6">
+              <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
+                <h5 class="it-card-title it-card-title-icon">{{ esito.titolo }} di {{ esito.cf }}</h5>
+                <div class="it-card-image-wrapper bg-{% if esito.positivo %}success{% else %}danger{% endif %} p-3"
+                     style="--bs-bg-opacity: .75;"></div>
+                <div class="it-card-body">
+                  {% if not esito.positivo %}
+                    <p class="it-card-subtitle"><b>{{ esito.messaggio }}</b></p>
+                  {% else %}
+                    {% for riga in esito.righe %}
+                      <p class="it-card-text">
+                        {% for campo in riga %}
+                          {{ campo.0 }}: <b>{{ campo.1 }}</b>{% if not forloop.last %}<br />{% endif %}
+                        {% endfor %}
+                      </p>
+                    {% endfor %}
+                  {% endif %}
+                </div>
+              </article>
+            </div>
+          {% endfor %}
+        </div>
+
+        <br />
+        {% if interrogazione.modalita == 'massiva' %}
+          <div class="d-flex justify-content">
+            {% if interrogazione.export.csv %}
+              <a href="{% url interrogazione.export.csv %}" class="m-1 btn btn-secondary">
+                <svg class="icon icon-sm icon-light" aria-hidden="true">
+                  <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+                </svg><span>Esporta CSV</span>
+              </a>
+            {% endif %}
+            {% if interrogazione.export.excel %}
+              <a href="{% url interrogazione.export.excel %}" class="m-1 btn btn-success">
+                <svg class="icon icon-sm icon-light" aria-hidden="true">
+                  <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+                </svg><span>Esporta Excel</span>
+              </a>
+            {% endif %}
+          </div>
+        {% endif %}
+      {% endif %}
+    {% else %}
+      <div class="col-6">
+        <h4>Utente non abilitato</h4>
+        <p>L'utente non e abilitato all'utilizzo di questo servizio</p>
+        <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+        <div class="p-3 text-end">
+          <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+        </div>
+      </div>
+    {% endif %}
+  {% else %}
+    <h4>Utente non loggato</h4>
+    <p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+    <a href="{% url 'login' %}" class="btn btn-primary">
+      <svg class="icon icon-sm icon-white" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+      </svg>Accedi
+    </a>
+  {% endif %}
+
+  <script>
+    (function () {
+      const form = document.getElementById("istruzione_form");
+      if (!form) return;
+
+      const serviziRadio = document.querySelectorAll(".servizio-istruzione-radio");
+      const modSingola = document.getElementById("modalita_singola");
+      const modMassiva = document.getElementById("modalita_massiva");
+      const boxSingola = document.getElementById("input_singola");
+      const boxMassiva = document.getElementById("input_massiva");
+      const cfInput = document.getElementById("input_CF");
+      const fileInput = document.getElementById("file_massivo");
+      const uploadSection = document.getElementById("uploadSection");
+      const dropZone = document.getElementById("dropZone");
+      const filePreview = document.getElementById("filePreview");
+      const fileName = document.getElementById("fileName");
+      const selectFileBtn = document.getElementById("selectFileBtn");
+      const deleteFileBtn = document.getElementById("deleteFileBtn");
+      const eseguiBtn = document.getElementById("executeSearchBtn");
+      const overlay = document.getElementById("loadingOverlay");
+
+      function servizioScelto() {
+        return document.querySelector('.servizio-istruzione-radio:checked');
+      }
+
+      // Le due modalita' si abilitano solo per il servizio scelto: i permessi sono per
+      // servizio E per modalita', quindi il menu non puo' mentire all'utente.
+      function aggiornaModalita() {
+        const servizio = servizioScelto();
+        const consentite = {singola: false, massiva: false};
+        if (servizio) {
+          consentite.singola = servizio.dataset.singola === "1";
+          consentite.massiva = servizio.dataset.massiva === "1";
+        }
+        modSingola.disabled = !consentite.singola;
+        modMassiva.disabled = !consentite.massiva;
+        if (modSingola.disabled) modSingola.checked = false;
+        if (modMassiva.disabled) modMassiva.checked = false;
+        return consentite;
+      }
+
+      function aggiornaVista() {
+        const consentite = aggiornaModalita();
+        boxSingola.classList.toggle("d-none", !modSingola.checked);
+        boxMassiva.classList.toggle("d-none", !modMassiva.checked);
+        cfInput.required = modSingola.checked;
+        fileInput.required = modMassiva.checked;
+        if (!modMassiva.checked) azzeraAllegato();
+        return consentite;
+      }
+
+      function aggiornaBottone() {
+        const pronto = !!servizioScelto() && (
+          (modSingola.checked && cfInput.value.trim() !== "") ||
+          (modMassiva.checked && fileInput.files.length > 0)
+        );
+        eseguiBtn.disabled = !pronto;
+      }
+
+      function mostraAllegato(file) {
+        fileName.textContent = file.name;
+        filePreview.classList.remove("d-none");
+        dropZone.classList.add("d-none");
+        aggiornaBottone();
+      }
+
+      function azzeraAllegato() {
+        fileInput.value = "";
+        fileName.textContent = "";
+        filePreview.classList.add("d-none");
+        dropZone.classList.remove("d-none");
+        aggiornaBottone();
+      }
+
+      function gestisciFile(files) {
+        const file = files && files[0];
+        if (!file) {
+          azzeraAllegato();
+          return;
+        }
+        const nome = file.name.toLowerCase();
+        if (!nome.endsWith(".csv") && !nome.endsWith(".xlsx")) {
+          alert("Formato file non consentito! Puoi caricare solo CSV o Excel (.xlsx)");
+          azzeraAllegato();
+          return;
+        }
+        const trasferimento = new DataTransfer();
+        trasferimento.items.add(file);
+        fileInput.files = trasferimento.files;
+        mostraAllegato(file);
+      }
+
+      ["dragenter", "dragover", "dragleave", "drop"].forEach(function (evento) {
+        uploadSection.addEventListener(evento, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (evento === "drop") gestisciFile(e.dataTransfer.files);
+        }, false);
+      });
+
+      fileInput.addEventListener("change", function (e) { gestisciFile(e.target.files); });
+      selectFileBtn.addEventListener("click", function () { fileInput.click(); });
+      deleteFileBtn.addEventListener("click", azzeraAllegato);
+      serviziRadio.forEach(function (radio) {
+        radio.addEventListener("change", function () { aggiornaVista(); aggiornaBottone(); });
+      });
+      modSingola.addEventListener("change", function () { aggiornaVista(); aggiornaBottone(); });
+      modMassiva.addEventListener("change", function () { aggiornaVista(); aggiornaBottone(); });
+      cfInput.addEventListener("input", aggiornaBottone);
+      form.addEventListener("submit", function () { if (overlay) overlay.classList.add("show"); });
+
+      aggiornaVista();
+      aggiornaBottone();
+    })();
+  </script>
+
+{% endblock %}

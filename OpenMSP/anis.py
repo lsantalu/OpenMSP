@@ -1,5 +1,7 @@
-# pyright: reportAttributeAccessIssue=false
-# (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono)
+# pyright: reportAttributeAccessIssue=false, reportIndexIssue=false, reportCallIssue=false, reportPossiblyUnboundVariable=false
+# (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono; gli stub di
+#  openpyxl tipizzano Workbook.worksheets[0] come WriteOnlyWorksheet e requests.Response e'
+#  assignata dentro un try. Rumore di tipi su codice gia' a terra, nessun comportamento coinvolto)
 from django.shortcuts import render, redirect
 
 from impostazioni.models import UtentiParametri
@@ -35,23 +37,36 @@ from openpyxl.utils import get_column_letter
 
 from django.http import HttpResponse
 
+# I payload di ANIS e ANIST non hanno un campo d'esito comune (IFS02/IFS03 portano solo
+# l'elenco, ANIST porta frequentante/presenzaTitoli), quindi il giudizio va derivato dalla
+# forma della risposta. Unica fonte di verita': la usano sia gli export sia la pagina unificata.
+def _esito_verifica(dati):
+    """None se la verifica ha prodotto dati, altrimenti il messaggio da mostrare."""
+    if not isinstance(dati, dict):
+        return "Verifica non eseguibile: risposta priva di esito"
+    esito = dati.get("esito")
+    if isinstance(esito, dict):
+        return f"Errore tecnico ({esito.get('codice')}): {str(esito.get('descrizione'))[:180]}"
+    for elenco in ("enrollments", "qualifications", "listaTitoli"):
+        if elenco in dati:
+            return None if dati.get(elenco) else "La richiesta effettuata non produce alcun risultato"
+    if "frequentante" in dati:
+        return None if dati.get("frequentante") else "Esito negativo della verifica"
+    if "presenzaTitoli" in dati:
+        return None if dati.get("presenzaTitoli") else "La richiesta effettuata non produce alcun risultato"
+    return "Verifica non eseguibile: risposta priva di esito"
+
+
 def _riga_errore(row, colonne):
-    """Riga di esportazione per una verifica fallita: [cf, messaggio, 'N/A'...], o [] se e' ok.
-    Vale sia l'esito esplicito False sia il campo assente: una verifica fallita non lo
-    contiene affatto, e trattarla come riuscita farebbe poi IndexError su listaIscrizioni."""
+    """Riga di esportazione per una verifica senza dati: [cf, messaggio, 'N/A'...], o [] se e' ok.
+    Le righe in stringa ("CF Codice fiscale non corretto") escono []: le interpretano i rami
+    else delle singole view di export."""
     dati = row[1] if isinstance(row, (list, tuple)) else row
     if not isinstance(dati, dict):
         return []
-    esito = dati.get("esito")
-    fallita = ("frequentante" not in dati) or (dati.get("frequentante") is False)
-    if not (fallita or isinstance(esito, dict)):
+    messaggio = _esito_verifica(dati)
+    if messaggio is None:
         return []
-    if isinstance(esito, dict):
-        messaggio = f"Errore tecnico ({esito.get('codice')}): {str(esito.get('descrizione'))[:180]}"
-    elif dati.get("frequentante") is False:
-        messaggio = "Esito negativo della verifica"
-    else:
-        messaggio = "Verifica non eseguibile: risposta priva di esito"
     if isinstance(row, (list, tuple)):
         cf = row[0]
     else:
@@ -59,6 +74,73 @@ def _riga_errore(row, colonne):
         # Serve far appendere (cf, res) anche ai due view massivi IFS, poi cf = row[0] per tutti.
         cf = (dati.get("personal_data") or {}).get("tax_code", "N/A")
     return [cf, messaggio] + ["N/A"] * (colonne - 2)
+
+
+ANIS_ESITO_FREQUENZA = {
+    1: "Frequentante", 2: "Non Frequentante",
+    3: "Frequentante su altro anno corso", 4: "Non piu Frequentante",
+}
+
+
+def _con_codice(nome, codice):
+    return f"{nome} (cod. {codice})" if codice else (nome or "")
+
+
+def _righe_servizio(id_caso, dati):
+    """Righe della card: una per iscrizione / titolo / frequenza, come liste di coppie
+    (etichetta, valore). Le coppie vuole cadono, il template non deve controllare nulla."""
+    def ripulita(coppie):
+        return [(etichetta, valore) for etichetta, valore in coppie if valore]
+    if id_caso == 1:
+        return [ripulita([
+            ("Istituto", _con_codice(e.get("institute_name"), e.get("institute_code"))),
+            ("Tipologia corso", _con_codice(e.get("programme_type_name"), e.get("programme_type_code"))),
+            ("Nome del corso", _con_codice(e.get("degree_course_name"), e.get("degree_course_code"))),
+            ("Classe", _con_codice(e.get("degree_class_name"), e.get("degree_class_code"))),
+            ("Anno accademico", e.get("academic_year")),
+            ("Anni durata corso", e.get("degree_course_year")),
+        ]) for e in dati.get("enrollments") or []]
+    if id_caso == 2:
+        righe = []
+        for qual in dati.get("qualifications") or []:
+            voto = qual.get("qualification_grade_value")
+            massimale = qual.get("qualification_grading_scale_maximum_grade")
+            if voto == "QUALIFIED":
+                voto = "Abilitato"
+            elif voto == "110L":
+                voto = f"110 cum laude su {massimale}"
+            elif voto:
+                voto = f"{voto} su {massimale}"
+            righe.append(ripulita([
+                ("Istituto", _con_codice(qual.get("institute_name"), qual.get("institute_code"))),
+                ("Qualifica", qual.get("qualification_name")),
+                ("Tipologia corso", _con_codice(qual.get("programme_type_name"), qual.get("programme_type_code"))),
+                ("Nome del corso", _con_codice(qual.get("degree_course_name"), qual.get("degree_course_code"))),
+                ("Classe", _con_codice(qual.get("degree_class_name"), qual.get("degree_class_code"))),
+                ("Data conseguimento", qual.get("academic_qualification_date")),
+                ("Valutazione", voto),
+            ]))
+        return righe
+    if id_caso == 3:
+        return [ripulita([
+            ("Istituto principale", _con_codice(dati.get("denoIstitutoPrincipale"), dati.get("codiceIstitutoPrincipale"))),
+            ("Plesso", _con_codice(dati.get("denominazionePlesso"), dati.get("codiceMeccanografico"))),
+            ("Tipologia corso", dati.get("percorsoStudi")),
+            ("Anno corso", dati.get("annoCorso")),
+            ("Esito frequenza", ANIS_ESITO_FREQUENZA.get(dati.get("esitoFrequenza"), dati.get("esitoFrequenza"))),
+        ])]
+    righe = []
+    for titolo in dati.get("listaTitoli") or []:
+        votazione = titolo.get("votoFinale")
+        if votazione and titolo.get("flagLode") == "S":
+            votazione = f"{votazione} con lode"
+        righe.append(ripulita([
+            ("Titolo", _con_codice(titolo.get("denominazioneTitolo"), titolo.get("codiceTitolo"))),
+            ("Istituto principale", _con_codice(titolo.get("denoIstitutoPrincipale"), titolo.get("codiceIstitutoPrincipale"))),
+            ("Plesso", _con_codice(titolo.get("denominazionePlesso"), titolo.get("codiceMeccanografico"))),
+            ("Votazione", votazione),
+        ]))
+    return righe
 
 
 def anis_iscrizioni_export_excel(request):
@@ -794,6 +876,145 @@ def anist_titoli_massiva(request):
     else:
         utente_abilitato = False
     return render(request, 'anist_titoli_massiva.html', { 'utente_abilitato': utente_abilitato })
+
+
+# Una riga per ogni interrogazione del menu "Istruzione": id_caso e forma della risposta
+# stanno gia' in AnisParametri/anis_verifica_utente, qui serve l'abbinamento con il doppio
+# gate (ServiziParametri.attivo AND il flag su utenti_parametri), con i nomi di audit delle
+# viste singole (la pagina dei log non si biforca) e con gli export gia' esistenti.
+ANIS_SERVIZI = {
+    'IFS02': {
+        'id_caso': 1, 'codice': 'anis_IFS02', 'label': 'ANIS - Iscrizioni universitarie',
+        'titolo': 'Iscrizioni', 'con_cf': False,
+        'singolo': 'anis_IFS02_singolo', 'massivo': 'anis_IFS02_massivo',
+        'log': {'singola': 'Verifica ANIS - IFS02 - Iscrizioni Singolo',
+                'massiva': 'Verifica ANIS - IFS02 - Iscrizioni Massivo'},
+        'export': {'excel': 'anis_iscrizioni_export_excel', 'csv': 'anis_iscrizioni_export_csv'},
+    },
+    'IFS03': {
+        'id_caso': 2, 'codice': 'anis_IFS03', 'label': 'ANIS - Titoli di studio universitari',
+        'titolo': 'Titoli conseguiti', 'con_cf': False,
+        'singolo': 'anis_IFS03_singolo', 'massivo': 'anis_IFS03_massivo',
+        'log': {'singola': 'Verifica ANIS - IFS03 - Titoli Singolo',
+                'massiva': 'Verifica ANIS - IFS03 - Titoli Massivo'},
+        'export': {'excel': 'anis_titoli_export_excel'},
+    },
+    'ANIST_FREQ': {
+        'id_caso': 3, 'codice': 'anist_frequenze', 'label': 'ANIST - Frequenza scolastica',
+        'titolo': 'Frequenza di', 'con_cf': True,
+        'singolo': 'anist_frequenze_singolo', 'massivo': 'anist_frequenze_massivo',
+        'log': {'singola': 'Verifica ANIST - Frequenze Singolo',
+                'massiva': 'Verifica ANIST - Frequenze Massivo'},
+        'export': {'excel': 'anist_frequenze_export_excel', 'csv': 'anist_frequenze_export_csv'},
+    },
+    'ANIST_TITOLI': {
+        'id_caso': 4, 'codice': 'anist_titoli', 'label': 'ANIST - Titoli di studio',
+        'titolo': 'Titoli conseguiti', 'con_cf': True,
+        'singolo': 'anist_titoli_singolo', 'massivo': 'anist_titoli_massivo',
+        'log': {'singola': 'Verifica ANIST - Titoli Singolo',
+                'massiva': 'Verifica ANIST - Titoli Massivo'},
+        'export': {'excel': 'anist_titoli_export_excel', 'csv': 'anist_titoli_export_csv'},
+    },
+}
+
+
+def _cf_da_file(allegato):
+    """Codici fiscali dalla colonna A di un CSV o di un XLSX; None se il formato non e' leggibile.
+    Nessuna riga di intestazione viene saltata (come nelle pagine attuali): un CF inesistente
+    lo rifiuta gia' verifica_cf."""
+    nome = allegato.name.lower()
+    if nome.endswith('.csv'):
+        letture = csv.reader(io.TextIOWrapper(allegato.file, encoding='utf-8'))
+        return [riga[0].strip().upper() for riga in letture if riga and riga[0]]
+    if nome.endswith('.xlsx'):
+        foglio = openpyxl.load_workbook(allegato).active
+        return [str(riga[0]).strip().upper() for riga in foglio.iter_rows(values_only=True) if riga and riga[0]]
+    return None
+
+
+def istruzione(request):
+    """Pagina unificata ANIS/ANIST: un form, quattro interrogazioni, singola o massiva.
+    Il protocollo AgID resta in anis_verifica_utente, qui cambiano solo id_caso e i permessi."""
+    permessi = {}
+    servizi = []
+    utente_abilitato = False
+    if request.user.is_authenticated:
+        utente = UtentiParametri.objects.filter(id=request.user.id).first()
+        attivi = {servizio.codice_servizio: servizio.attivo for servizio in ServiziParametri.objects.all()}
+        for chiave, conf in ANIS_SERVIZI.items():
+            abilitato = attivi.get(conf['codice'], False) and bool(utente)
+            permessi[chiave] = {
+                'singola': abilitato and bool(getattr(utente, conf['singolo'], False)),
+                'massiva': abilitato and bool(getattr(utente, conf['massivo'], False)),
+            }
+            servizi.append({'chiave': chiave, 'label': conf['label'],
+                            'singola': permessi[chiave]['singola'],
+                            'massiva': permessi[chiave]['massiva']})
+            utente_abilitato = utente_abilitato or any(permessi[chiave].values())
+
+    risultati = []
+    interrogazione = {'titolo': '', 'modalita': '', 'export': {}}
+    servizio_scelto = ''
+    modalita_scelta = ''
+    error = None
+
+    if request.method == 'POST':
+        servizio_scelto = request.POST.get('servizio_istruzione') or ''
+        modalita_scelta = request.POST.get('modalita') or ''
+        conf = ANIS_SERVIZI.get(servizio_scelto)
+        if conf is None or modalita_scelta not in ('singola', 'massiva') \
+                or not permessi.get(servizio_scelto, {}).get(modalita_scelta, False):
+            error = 'Non sei abilitato per questa tipologia di ricerca.'
+        else:
+            if modalita_scelta == 'singola':
+                cf_lista = [request.POST.get('input_CF', '').strip().upper()]
+            else:
+                allegato = request.FILES.get('file_massivo')
+                cf_lista = _cf_da_file(allegato) if allegato else None
+            if cf_lista is None:
+                error = 'Il file non è un CSV o XLSX'
+            elif not cf_lista or cf_lista == ['']:
+                error = 'Inserisci almeno un codice fiscale.'
+            else:
+                nome_log = conf['log'][modalita_scelta]
+                multi_data = []
+                for cf in cf_lista:
+                    valido = verifica_cf(cf) in (1, 2)
+                    payload = {}
+                    if valido:
+                        payload, status, purp_id, tok_id = anis_verifica_utente(
+                            request.user.username, cf, conf['id_caso'])
+                    # invarianti 2 e 8: una riga per interrogazione, solo metadati
+                    salva_log(request.user, nome_log, "Verificato utente " + cf,
+                              purposeid=purp_id if valido else None,
+                              resp_status=status if valido else None,
+                              token_id=tok_id if valido else None)
+                    messaggio = 'Codice fiscale non corretto' if not valido else _esito_verifica(payload)
+                    positivo = messaggio is None
+                    risultati.append({
+                        'cf': cf, 'titolo': conf['titolo'], 'positivo': positivo,
+                        'messaggio': messaggio if not positivo else '',
+                        'righe': _righe_servizio(conf['id_caso'], payload) if positivo else [],
+                    })
+                    # multi_data tiene la forma che le view di export si aspettano: payload nudo
+                    # per IFS02/IFS03, (cf, payload) per ANIST, stringa per il CF errato
+                    riga = payload if valido else cf + " Codice fiscale non corretto"
+                    multi_data.append((cf, riga) if conf['con_cf'] else riga)
+                interrogazione = {'titolo': conf['titolo'], 'modalita': modalita_scelta,
+                                  'export': conf['export'] if modalita_scelta == 'massiva' else {}}
+                if modalita_scelta == 'massiva':
+                    request.session['multi_data'] = converti_data(multi_data)
+
+    return render(request, 'istruzione.html', {
+        'utente_abilitato': utente_abilitato,
+        'servizi': servizi,
+        'permessi_json': json.dumps(permessi),
+        'risultati': risultati,
+        'interrogazione': interrogazione,
+        'servizio_scelto': servizio_scelto,
+        'modalita_scelta': modalita_scelta,
+        'error': error,
+    })
 
 
 def anis_get_voucher(clientid, baseurlauth, client_assertion):

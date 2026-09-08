@@ -184,7 +184,11 @@ def impostazioni_parametri(request):
 
 
 def impostazioni_servizi(request):
-    servizi_impostazioni = ServiziParametri.objects.exclude(codice_servizio='tracing_pdnd')
+    # nessun filtro per codice: la voce "Tracing PDND" deve avere il suo toggle e il suo
+    # bottone come ogni altro e-service. L'attivo di questa riga e' IL gate del megamenu
+    # (base.html: services_dict.tracing_pdnd.attivo), nasconderla qui vuol dire non poterlo
+    # piu' disattivare.
+    servizi_impostazioni = ServiziParametri.objects.all()
     gruppi_parametri = GruppiParametri.objects.all()
 
     if request.method == 'POST':

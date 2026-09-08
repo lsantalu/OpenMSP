@@ -1,7 +1,6 @@
 <!-- templates/base.html -->
 {% extends 'base.html' %} {% load static %} {% block page_title %} Impostazioni
-ANIS - OpenMSP - Multi Services Portal {% endblock %} {% block
-centered_container %}
+ANIS - OpenMSP - Multi Services Portal {% endblock %} {% block centered_container %}
 <h3>Impostazioni ANIS</h3>
 <br />
 {% if user.is_authenticated %}
@@ -37,8 +36,7 @@ centered_container %}
 
     <div class="tab-content" id="myTabContent">
       <br />
-      {% for servizio_anis in servizi_anis %} {% for parametro_anis in
-      parametri_anis %} {% if parametro_anis.id == forloop.parentloop.counter %}
+      {% for servizio_anis in servizi_anis %} {% for parametro_anis in parametri_anis %} {% if parametro_anis.id == forloop.parentloop.counter %}
       <div
         class="tab-pane p-4 fade {% if servizio_anis.id == 1 %}show active {% endif %}"
         id="tab{{ servizio_anis.id }}"

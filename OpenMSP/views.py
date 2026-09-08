@@ -130,11 +130,13 @@ def home(request):
         },
         {
             'title': 'ANIS e ANIST',
+            # tutti e quattro i link puntano alla pagina unificata: il primo servizio attivo e
+            # consentito vince, e il flag massivo conta quanto il singolo
             'service_links': [
-                ('anis_IFS02', 'anis_iscrizioni_singola', ('anis_IFS02_singolo',)),
-                ('anis_IFS03', 'anis_titoli_singola', ('anis_IFS03_singolo',)),
-                ('anist_frequenze', 'anist_frequenze_singola', ('anist_frequenze_singolo',)),
-                ('anist_titoli', 'anist_titoli_singola', ('anist_titoli_singolo',)),
+                ('anis_IFS02', 'istruzione', ('anis_IFS02_singolo', 'anis_IFS02_massivo')),
+                ('anis_IFS03', 'istruzione', ('anis_IFS03_singolo', 'anis_IFS03_massivo')),
+                ('anist_frequenze', 'istruzione', ('anist_frequenze_singolo', 'anist_frequenze_massivo')),
+                ('anist_titoli', 'istruzione', ('anist_titoli_singolo', 'anist_titoli_massivo')),
             ],
             'image': 'images/anis_anist.png',
             'alt': 'ANIS e ANIST',
@@ -190,13 +192,14 @@ def Api_C021(codice_fiscale, api_key):
     return anpr_get_request(api_key, anpr_get_request(api_key, codice_fiscale,7), 6)
 
 def Api_inad(codice_fiscale, api_key):
+    """Ritorna (dato, meta): meta contiene cio' che serve a salva_log, ed e' vuoto se
+    l'erogatore non e' stato interrogato (CF scartato a priori). L'audit lo fa la vista."""
     bearer, token_id = inad_get_bearer()
     correttezza_cf = verifica_cf(codice_fiscale)
     if correttezza_cf == 1:
-        ###salva_log(api_key,"Verifica INAD singolo", "Verificato domicilio utente " + codice_fiscale )
         parsed_output, status, purp_id = inad_verifica_utente(codice_fiscale, bearer)
-        return estrai_mail(json.dumps(parsed_output))
-    return "Codice fiscale non corretto"
+        return estrai_mail(json.dumps(parsed_output)), {"purposeid": purp_id, "resp_status": status, "token_id": token_id}
+    return "Codice fiscale non corretto", {}
 
 def Api_ipa(codice_fiscale, api_key):
     ipa_parametri = IpaParametri.objects.get(id=1)
@@ -228,6 +231,8 @@ def Api_ipa(codice_fiscale, api_key):
     return "Codice fiscale non corretto"
 
 def Api_ini_pec(codice_fiscale, api_key):
+    """Ritorna (dato, meta) come Api_inad: prima il ramo con CF non valido non aveva return
+    e lasciava None (shim difettoso)."""
     bearer, token_id = registro_imprese_get_bearer()
     correttezza_cf_azienda = verifica_cf_azienda(codice_fiscale)
     if correttezza_cf_azienda == 1:
@@ -236,8 +241,8 @@ def Api_ini_pec(codice_fiscale, api_key):
             dd = elenco_dati_registro.get('blocchi_impresa', {}).get('dati_identificativi', {}).get('indirizzo_posta_certificata', 'Dato non disponibile')
         else:
             dd = "Ditta non presente nel Registro Imprese"
-        ###salva_log(api_key,"Verifica INI-PEC singolo", "Verificato domicilio impresa " + codice_fiscale )
-        return dd.lower()
+        return dd.lower(), {"purposeid": purp_id, "resp_status": status_code, "token_id": tok_id}
+    return "Codice fiscale non corretto", {}
 
 
 @csrf_exempt
@@ -270,11 +275,11 @@ def pdnd_gateway_service(request):
     if tipo_servizio == "C021" :
         risultato = Api_C021(codice_fiscale, chiave_autenticazione)
     if tipo_servizio == "inad" :
-        risultato = Api_inad(codice_fiscale, chiave_autenticazione)
+        risultato, _meta = Api_inad(codice_fiscale, chiave_autenticazione)
     if tipo_servizio == "ipa" :
         risultato = Api_ipa(codice_fiscale, chiave_autenticazione)
     if tipo_servizio == "ini_pec" :
-        risultato = Api_ini_pec(codice_fiscale, chiave_autenticazione)
+        risultato, _meta = Api_ini_pec(codice_fiscale, chiave_autenticazione)
 
     if risultato is None:
         # nessun tipo_servizio riconosciuto: prima era un NameError (500) su un endpoint pubblico
@@ -307,6 +312,19 @@ def logout(request):
             messages.error(request, 'L\'utente è disabilitato. Contatta l\'amministratore di sistema')
     auth_logout(request)
     return redirect('home')
+
+
+# Nomi di audit: identici a quelli delle viste singole (OpenMSP/anpr.py), cosi' la pagina
+# dei log e i suoi filtri non si biforcano tra le due generazioni di UI.
+ANPR_LOG = {
+    'C001': 'Verifica ANPR - C001 - Notifica',
+    'C007': 'Verifica ANPR - C007 - Esistenza in vita',
+    'C015': 'Verifica ANPR - C015 - Generalità',
+    'C017': 'Verifica ANPR - C017 - Matrimonio',
+    'C018': 'Verifica ANPR - C018 - Cittadinanza',
+    'C020': 'Verifica ANPR - C020 - Residenza',
+    'C021': 'Verifica ANPR - C021 - Stato famiglia',
+}
 
 
 def anpr(request):
@@ -378,7 +396,8 @@ def anpr(request):
             'C018': ('anpr_C018', 5, True),
             'C020': ('anpr_C020', 6, True),
             'C021': ('anpr_C021', 7, True),
-            'C030': ('anpr_C030', 9, False),
+            # C030 non e' qui di proposito: e' strumentale alla risoluzione del CF in idANPR,
+            # non e' una interrogazione utente. Cablato a id 9 era un DoesNotExist (500).
         }
 
         if servizio not in service_map:
@@ -396,21 +415,16 @@ def anpr(request):
                 data = []
                 data.append(cf)
                 if correttezza_cf in (1, 2):
-                    if needs_idanpr:
-                        id_anpr, status_id_anpr, purp_id_anpr, tok_id_anpr = anpr_get_request(request.user.username, cf, 8)
-                        result = anpr_get_request(request.user.username, id_anpr, service_id)
-                    else:
-                        result = anpr_get_request(request.user.username, cf, service_id)
-
-                    if isinstance(result, tuple) and result:
-                        res_data = result[0]
-                    else:
-                        res_data = result
-
+                    # prima chiamata (id 8 = C030): trasforma il CF in idANPR, serve a tutte le modalita'
+                    id_anpr, status_id, purp_id, tok_id = anpr_get_request(request.user.username, cf, 8)
+                    res_data, status, purp_id, tok_id = anpr_get_request(request.user.username, id_anpr, service_id)
                     data.append(res_data)
                     data = converti_data(data)
+                    salva_log(request.user, ANPR_LOG[servizio], "Verificato utente " + cf,
+                              purposeid=purp_id, resp_status=status, token_id=tok_id)
                 else:
                     data.append("Codice fiscale non corretto")
+                    salva_log(request.user, ANPR_LOG[servizio], "Verificato utente " + cf)
 
     return render(request, 'anpr.html', {
         'utente_abilitato': utente_abilitato,
@@ -656,21 +670,30 @@ def domicili_digitali_view(request):
 
                 if not codici_amm:
                     results.append({'cf': cf_display, 'dato': "Nessun ente trovato"})
+                    salva_log(request.user, "Verifica IndicePA", "Nessun ente per " + (cf_display or "(nessun criterio)"))
                 else:
+                    esito_ipa = None
                     for cod in codici_amm:
                         response = ipa_codice(auth_id, cod)
+                        esito_ipa = response.status_code
                         if response.status_code == 200:
                             risultato = response.json()
                             results.append({'tipo': 'ipa', 'raw': risultato})
                         else:
                             results.append({'tipo': 'error', 'cf': cod, 'dato': 'Errore interrogazione iPA'})
+                    salva_log(request.user, "Verifica IndicePA", "Verificato domicilio ente " + cf_display,
+                              resp_status=esito_ipa)
             else:
                 cf = request.POST.get('cf_singolo')
                 if cf:
-                    dato = None
-                    if tipo == 'inad': dato = Api_inad(cf, api_key)
-                    elif tipo == 'inipec': dato = Api_ini_pec(cf, api_key)
+                    if tipo == 'inad':
+                        dato, meta = Api_inad(cf, api_key)
+                        nome, riga = "Verifica INAD singolo", "Verificato domicilio utente " + cf
+                    else:
+                        dato, meta = Api_ini_pec(cf, api_key)
+                        nome, riga = "Verifica INI-PEC singolo", "Verificato domicilio impresa " + cf
                     results.append({'tipo': 'standard', 'cf': cf, 'dato': dato})
+                    salva_log(request.user, nome, riga, **meta)
 
         elif modalita == 'massiva':
             file_obj = request.FILES.get('file_massivo')
@@ -716,21 +739,33 @@ def domicili_digitali_view(request):
                                     else:
                                         export_data.append(ente)
                                         results.append({'tipo': 'standard', 'cf': ente, 'dato': 'Errore interrogazione iPA'})
+                                salva_log(request.user, "Verifica Ipa massivo - riga CSV", "Verificato CF " + ente,
+                                          resp_status=response.status_code)
                                 continue
                         dato = "Domicilio digitale non trovato"
                         export_data.append(ente)
+                        salva_log(request.user, "Verifica Ipa massivo - riga CSV", "Verificato CF " + ente,
+                                  resp_status=response.status_code)
                     elif tipo == 'inad':
-                        dato = Api_inad(cf, api_key)
+                        dato, meta = Api_inad(cf, api_key)
                         stato = verifica_cf(cf)
                         export_data.append(f"{cf.strip().upper()} {stato} {dato}")
+                        salva_log(request.user, "Verifica INAD massivo - riga CSV", "Verificato CF " + cf.strip().upper(), **meta)
                     elif tipo == 'inipec':
-                        dato = Api_ini_pec(cf, api_key)
+                        dato, meta = Api_ini_pec(cf, api_key)
                         stato = verifica_cf_azienda(cf)
                         export_data.append(f"{cf.strip().upper()} {stato} {dato}")
+                        salva_log(request.user, "Verifica INI-PEC massivo - riga CSV", "Verificato CF " + cf.strip().upper(), **meta)
                     results.append({'tipo': 'standard', 'cf': cf, 'dato': dato})
 
                 if tipo in ['ipa', 'inad', 'inipec']:
                     request.session['multi_data'] = export_data
+                    riepilogo = {
+                        'ipa': ("Verifica Ipa massivo", "Verificati n. " + str(len(cf_list)) + " CF"),
+                        'inad': ("Verifica INAD massivo", "Fine elaborazione CSV - n. " + str(len(cf_list)) + " CF"),
+                        'inipec': ("Verifica INI-PEC massivo", "Fine caricamento CSV verificati n. " + str(len(cf_list)) + " CF"),
+                    }
+                    salva_log(request.user, riepilogo[tipo][0], riepilogo[tipo][1])
 
     return render(request, 'domicili_digitali.html', {
         'results': results,

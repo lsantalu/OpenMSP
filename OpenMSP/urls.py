@@ -101,6 +101,7 @@ from .anis import anist_titoli_massiva
 from .anis import anist_titoli_export_excel
 from .anis import anist_titoli_export_csv
 from .anis import impostazioni_anis
+from .anis import istruzione
 
 from .impostazioni import impostazioni_servizi, impostazioni_servizi_toggle, impostazioni_logs
 from .impostazioni import impostazioni_utenti
@@ -189,6 +190,7 @@ urlpatterns = [
     path("anist_titoli_massiva/", anist_titoli_massiva, name="anist_titoli_massiva"),
     path("anist_titoli_export_excel/", anist_titoli_export_excel, name="anist_titoli_export_excel"),
     path("anist_titoli_export_csv/", anist_titoli_export_csv, name="anist_titoli_export_csv"),
+    path("istruzione/", istruzione, name="istruzione"),
 
 
     path("app_io_verifica_utente/", app_io_verifica_utente, name="app_io_verifica_utente"),
