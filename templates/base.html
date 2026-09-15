@@ -382,7 +382,7 @@ OpenMSP - Multi Services Portal
                       {% endif %}
                       <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div>
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.ipa_singolo and not user_perms.ipa_massivo and not user_perms.inad_singolo and not user_perms.inad_massivo and not user_perms.inipec_singolo and not user_perms.inipec_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'domicili_digitali' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.ipa_singolo and not user_perms.ipa_massivo and not user_perms.inad_singolo and not user_perms.inad_massivo and not user_perms.inipec_singolo and not user_perms.inipec_massivo %} class="text-muted"{% endif %}>TEST - Cerca domicilio</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.ipa_singolo and not user_perms.ipa_massivo and not user_perms.inad_singolo and not user_perms.inad_massivo and not user_perms.inipec_singolo and not user_perms.inipec_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'domicili_digitali' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.ipa_singolo and not user_perms.ipa_massivo and not user_perms.inad_singolo and not user_perms.inad_massivo and not user_perms.inipec_singolo and not user_perms.inipec_massivo %} class="text-muted"{% endif %}>Cerca domicilio digitale</span></a>
                       </li>
                     </ul>
                   </div>
@@ -458,7 +458,7 @@ OpenMSP - Multi Services Portal
                       {% endif %}
                       <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div>
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.anpr_C001 and not user_perms.anpr_C007 and not user_perms.anpr_C015 and not user_perms.anpr_C017 and not user_perms.anpr_C018 and not user_perms.anpr_C020 and not user_perms.anpr_C021 %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_C001 and not user_perms.anpr_C007 and not user_perms.anpr_C015 and not user_perms.anpr_C017 and not user_perms.anpr_C018 and not user_perms.anpr_C020 and not user_perms.anpr_C021 %} class="text-muted"{% endif %}>TEST - Interroga ANPR</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.anpr_abilitato %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_abilitato %} class="text-muted"{% endif %}>Interroga ANPR</span></a>
                       </li>
                     </ul>
                   </div>
@@ -641,7 +641,7 @@ OpenMSP - Multi Services Portal
                       {% endif %}
                       <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div>
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.anis_IFS02_singolo and not user_perms.anis_IFS02_massivo and not user_perms.anis_IFS03_singolo and not user_perms.anis_IFS03_massivo and not user_perms.anist_frequenze_singolo and not user_perms.anist_frequenze_massivo and not user_perms.anist_titoli_singolo and not user_perms.anist_titoli_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'istruzione' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anis_IFS02_singolo and not user_perms.anis_IFS02_massivo and not user_perms.anis_IFS03_singolo and not user_perms.anis_IFS03_massivo and not user_perms.anist_frequenze_singolo and not user_perms.anist_frequenze_massivo and not user_perms.anist_titoli_singolo and not user_perms.anist_titoli_massivo %} class="text-muted"{% endif %}>TEST - Interroga ANIS/ANIST</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.anis_IFS02_singolo and not user_perms.anis_IFS02_massivo and not user_perms.anis_IFS03_singolo and not user_perms.anis_IFS03_massivo and not user_perms.anist_frequenze_singolo and not user_perms.anist_frequenze_massivo and not user_perms.anist_titoli_singolo and not user_perms.anist_titoli_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'istruzione' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anis_IFS02_singolo and not user_perms.anis_IFS02_massivo and not user_perms.anis_IFS03_singolo and not user_perms.anis_IFS03_massivo and not user_perms.anist_frequenze_singolo and not user_perms.anist_frequenze_massivo and not user_perms.anist_titoli_singolo and not user_perms.anist_titoli_massivo %} class="text-muted"{% endif %}>Interroga ANIS/ANIST</span></a>
                       </li>
                     </ul>
                   </div>

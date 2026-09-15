@@ -12,6 +12,7 @@ from impostazioni.models import AnisParametri
 from .utils import salva_log
 from .utils import svuota_none
 from .utils import converti_data
+from .utils import cf_da_file
 from .verifica_cf import verifica_cf
 
 ##from datetime import datetime, date
@@ -918,20 +919,6 @@ ANIS_SERVIZI = {
 }
 
 
-def _cf_da_file(allegato):
-    """Codici fiscali dalla colonna A di un CSV o di un XLSX; None se il formato non e' leggibile.
-    Nessuna riga di intestazione viene saltata (come nelle pagine attuali): un CF inesistente
-    lo rifiuta gia' verifica_cf."""
-    nome = allegato.name.lower()
-    if nome.endswith('.csv'):
-        letture = csv.reader(io.TextIOWrapper(allegato.file, encoding='utf-8'))
-        return [riga[0].strip().upper() for riga in letture if riga and riga[0]]
-    if nome.endswith('.xlsx'):
-        foglio = openpyxl.load_workbook(allegato).active
-        return [str(riga[0]).strip().upper() for riga in foglio.iter_rows(values_only=True) if riga and riga[0]]
-    return None
-
-
 def istruzione(request):
     """Pagina unificata ANIS/ANIST: un form, quattro interrogazioni, singola o massiva.
     Il protocollo AgID resta in anis_verifica_utente, qui cambiano solo id_caso e i permessi."""
@@ -970,7 +957,7 @@ def istruzione(request):
                 cf_lista = [request.POST.get('input_CF', '').strip().upper()]
             else:
                 allegato = request.FILES.get('file_massivo')
-                cf_lista = _cf_da_file(allegato) if allegato else None
+                cf_lista = cf_da_file(allegato) if allegato else None
             if cf_lista is None:
                 error = 'Il file non è un CSV o XLSX'
             elif not cf_lista or cf_lista == ['']:

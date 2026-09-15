@@ -4,6 +4,7 @@ set -euo pipefail
 
 # Upgrade schema/data OpenMSP DB from 1.3 to 1.4.
 # Fix duplicate MIT service codes introduced in some upgraded production DBs.
+# Aggiunge i sette permessi anpr_Cxxx_massivo a utenti_parametri (interrogazioni ANPR massive).
 # Usage:
 #   ./update/update_to_1.4.sh [path/to/db.sqlite3] [path/to/.env]
 
@@ -150,6 +151,19 @@ if [[ "$(table_exists tracing_parametri)" == "1" ]] && [[ "$(column_exists_in_db
   echo "Aggiunta colonna eservice_id a tracing_parametri..."
   sqlite3 "$DB_PATH" "ALTER TABLE tracing_parametri ADD COLUMN eservice_id TEXT DEFAULT ''"
 fi
+
+# Interrogazioni ANPR massive: un permesso massivo per ogni caso d'uso, accanto a quello singolo
+# gia' presente. Nessuna tabella nuova e nessuna riga in servizi_parametri: il gate del megamenu
+# resta la riga anpr_c0xx gia' usata dal singolo (come ANIS IFS02 singolo/massivo).
+for caso in C001 C007 C015 C017 C018 C020 C021; do
+  colonna="anpr_${caso}_massivo"
+  if [[ "$(column_exists_in_db "$DB_PATH" utenti_parametri "$colonna")" == "0" ]]; then
+    echo "Aggiunta colonna $colonna a utenti_parametri..."
+    sqlite3 "$DB_PATH" "ALTER TABLE utenti_parametri ADD COLUMN $colonna BOOLEAN DEFAULT 0"
+  else
+    echo "Colonna $colonna gia' presente, la salto."
+  fi
+done
 
 echo "Verifica e normalizzazione servizi MIT in servizi_parametri..."
 

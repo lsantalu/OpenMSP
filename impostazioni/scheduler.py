@@ -1,4 +1,5 @@
 import datetime
+import sys
 from random import randint
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -13,6 +14,10 @@ from impostazioni.models import Logs
 
 
 def start():
+    # sotto test runner lo scheduler non deve partire: il purge a +10s dall'avvio si schianta
+    # contro il DB di test in memoria bloccato dalle transazioni dei test (tabella bloccata)
+    if len(sys.argv) > 1 and sys.argv[1] == 'test':
+        return
     scheduler = BackgroundScheduler()
     # 'interval' conta le 24 ore dall'avvio del processo: con `restart: always`, i deploy e i
     # 3 worker di gunicorn lo zero si ripreme ogni volta e il purge non partiva mai (608 righe

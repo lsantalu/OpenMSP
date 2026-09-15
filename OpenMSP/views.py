@@ -46,13 +46,14 @@ from django.contrib.auth.models import User
 
 from .ipa import ipa_codice
 from .anpr import anpr_get_request
+from .anpr import ANPR_SERVIZI, ANPR_COLONNE, ANPR_PARENTELA, anpr_righe
 from .inad import inad_get_bearer, inad_verifica_utente, estrai_mail
 from .verifica_cf import verifica_cf, verifica_cf_azienda
 from .registro_imprese import registro_imprese_get_bearer, registro_imprese_verifica_utente
 from .anis import anis_verifica_utente
 
 
-from .utils import converti_data, salva_log
+from .utils import converti_data, salva_log, cf_da_file
 
 from impostazioni.models import IpaParametri
 from impostazioni.models import ServiziParametri
@@ -89,10 +90,15 @@ def home(request):
     home_cards = [
         {
             'title': 'Domicili Digitali',
+            # tutti e tre i link puntano alla pagina unificata (come ANPR e ANIS): il primo
+            # servizio attivo e consentito vince, e il flag massivo conta quanto il singolo, cosi'
+            # la card e il megamenu dicono la stessa cosa (invariante 1)
             'service_links': [
-                ('ipa', 'ipa_singola', ('ipa_singolo',)),
-                ('inad', 'inad_singola', ('inad_singolo',)),
-                ('registro_imprese', 'registro_imprese', ('registro_imprese',)),
+                ('ipa', 'domicili_digitali', ('ipa_singolo', 'ipa_massivo')),
+                ('inad', 'domicili_digitali', ('inad_singolo', 'inad_massivo')),
+                # non esiste una riga 'inipec' in servizi_parametri: quella che accende INI-PEC e'
+                # ancora la stessa usata prima, il gate sull'utente resta sui flag inipec
+                ('registro_imprese', 'domicili_digitali', ('inipec_singolo', 'inipec_massivo')),
             ],
             'image': 'images/domicio_digitale.png',
             'alt': 'Domicili Digitali',
@@ -100,15 +106,17 @@ def home(request):
         },
         {
             'title': 'Interrogazioni ANPR',
+            # tutti i link puntano alla pagina unificata: il primo caso attivo e consentito vince,
+            # e il flag massivo conta quanto il singolo (un operatore con solo il massivo deve
+            # poter arrivare al servizio dalla home)
             'service_links': [
-                ('anpr_c001', 'anpr_notifica', ('anpr_C001',)),
-                ('anpr_c007', 'anpr_esistenza_in_vita', ('anpr_C007',)),
-                ('anpr_c015', 'anpr_generalita', ('anpr_C015',)),
-                ('anpr_c017', 'anpr_matrimonio', ('anpr_C017',)),
-                ('anpr_c018', 'anpr_cittadinanza', ('anpr_C018',)),
-                ('anpr_c020', 'anpr_residenza', ('anpr_C020',)),
-                ('anpr_c021', 'anpr_stato_famiglia', ('anpr_C021',)),
-                ('anpr_c030', 'anpr_notifica', ('anpr_C030',)),
+                ('anpr_c001', 'anpr', ('anpr_C001', 'anpr_C001_massivo')),
+                ('anpr_c007', 'anpr', ('anpr_C007', 'anpr_C007_massivo')),
+                ('anpr_c015', 'anpr', ('anpr_C015', 'anpr_C015_massivo')),
+                ('anpr_c017', 'anpr', ('anpr_C017', 'anpr_C017_massivo')),
+                ('anpr_c018', 'anpr', ('anpr_C018', 'anpr_C018_massivo')),
+                ('anpr_c020', 'anpr', ('anpr_C020', 'anpr_C020_massivo')),
+                ('anpr_c021', 'anpr', ('anpr_C021', 'anpr_C021_massivo')),
             ],
             'image': 'images/anpr.png',
             'alt': 'ANPR',
@@ -201,6 +209,15 @@ def Api_inad(codice_fiscale, api_key):
         return estrai_mail(json.dumps(parsed_output)), {"purposeid": purp_id, "resp_status": status, "token_id": token_id}
     return "Codice fiscale non corretto", {}
 
+def json_da_response(response):
+    """JSON di una risposta iPA/PDND: un 200 con corpo non JSON (manutenzione, proxy, HTML di
+    errore) altrimenti esplode in un 500 nel mezzo di un'interrogazione massiva."""
+    try:
+        return json.loads(response.content.decode('utf-8'))
+    except (ValueError, UnicodeDecodeError):
+        return {}
+
+
 def Api_ipa(codice_fiscale, api_key):
     ipa_parametri = IpaParametri.objects.get(id=1)
     auth_id = ipa_parametri.auth_id
@@ -217,7 +234,7 @@ def Api_ipa(codice_fiscale, api_key):
             }
         response = requests.post(url, data=payload, headers=headers, timeout=30)
         if response.status_code == 200:
-            temp_data = json.loads(response.content.decode('utf-8'))
+            temp_data = json_da_response(response)
             if 'data' in temp_data and temp_data['data']:
                 codice_ipa = temp_data['data'][0]['cod_amm']
                 response_pec = ipa_codice(auth_id, codice_ipa)
@@ -314,49 +331,36 @@ def logout(request):
     return redirect('home')
 
 
-# Nomi di audit: identici a quelli delle viste singole (OpenMSP/anpr.py), cosi' la pagina
-# dei log e i suoi filtri non si biforcano tra le due generazioni di UI.
-ANPR_LOG = {
-    'C001': 'Verifica ANPR - C001 - Notifica',
-    'C007': 'Verifica ANPR - C007 - Esistenza in vita',
-    'C015': 'Verifica ANPR - C015 - Generalità',
-    'C017': 'Verifica ANPR - C017 - Matrimonio',
-    'C018': 'Verifica ANPR - C018 - Cittadinanza',
-    'C020': 'Verifica ANPR - C020 - Residenza',
-    'C021': 'Verifica ANPR - C021 - Stato famiglia',
-}
-
-
+# La pagina unificata ANPR vive qui per storia; la tabella dei casi d'uso e il client AgID sono
+# in OpenMSP/anpr.py, insieme all'export Excel che rilegge session['multi_data'].
 def anpr(request):
+    """Un form, sette casi d'uso, singola o massiva. La scelta del servizio e il caricamento del
+    file seguono la stessa logica della pagina dei domicili digitali: permesso servizio x modalita'
+    calcolato dai flag dell'utente, ri-validato nel POST (un form manomesso non ottiene un caso non
+    abilitato) e file CSV/XLSX letto dalla sola colonna A."""
+    permessi = {}
+    servizi = []
     utente_abilitato = False
-    data = None
-    error = None
-    service_options = [
-        {'value': 'C001', 'label': 'C001 - Servizio notifica'},
-        {'value': 'C007', 'label': 'C007 - Esistenza in vita'},
-        {'value': 'C015', 'label': 'C015 - Generalita'},
-        {'value': 'C017', 'label': 'C017 - Matrimonio'},
-        {'value': 'C018', 'label': 'C018 - Cittadinanza'},
-        {'value': 'C020', 'label': 'C020 - Residenza'},
-        {'value': 'C021', 'label': 'C021 - Stato di famiglia'},
-    ]
-
-    utente_sessione = None
     if request.user.is_authenticated:
-        utente_sessione = UtentiParametri.objects.filter(id=request.user.id).first()
-        if utente_sessione:
-            utente_abilitato = any([
-                utente_sessione.anpr_C001,
-                utente_sessione.anpr_C007,
-                utente_sessione.anpr_C015,
-                utente_sessione.anpr_C017,
-                utente_sessione.anpr_C018,
-                utente_sessione.anpr_C020,
-                utente_sessione.anpr_C021,
-                utente_sessione.anpr_C030,
-            ])
+        utente = UtentiParametri.objects.filter(id=request.user.id).first()
+        attivi = {servizio.codice_servizio: servizio.attivo
+                  for servizio in ServiziParametri.objects.all()}
+        for caso, conf in ANPR_SERVIZI.items():
+            abilitato = bool(utente) and attivi.get('anpr_' + caso.lower(), False)
+            permessi[caso] = {
+                'singola': abilitato and bool(getattr(utente, conf['flag'], False)),
+                'massiva': abilitato and bool(getattr(utente, conf['flag_massivo'], False)),
+            }
+            servizi.append({'caso': caso, 'label': conf['label'],
+                            'singola': permessi[caso]['singola'],
+                            'massiva': permessi[caso]['massiva']})
+            utente_abilitato = utente_abilitato or any(permessi[caso].values())
 
+    data = None
+    righe = []
+    error = None
     servizio_scelto = None
+    modalita_scelta = None
     cessazione_matrimonio_choices = [
         ('1', 'Cessazione effetti civili'),
         ('2', 'Annullamento'),
@@ -370,70 +374,74 @@ def anpr(request):
         ('10', 'Notaio (estero)'),
         ('22', 'Altro tipo di cessazione / scioglimento'),
     ]
-    parentela_choices = [
-        ('1', 'Intestatario Scheda'), ('2', 'Marito / Moglie'), ('3', 'Figlio / Figlia'),
-        ('4', 'Nipote (discendente)'), ('5', 'Pronipote (discendente)'), ('6', 'Padre / Madre'),
-        ('7', 'Nonno / Nonna'), ('8', 'Bisnonno / Bisnonna'), ('9', 'Fratello / Sorella'),
-        ('10', 'Nipote (collaterale)'), ('11', 'Zio / Zia (Collaterale)'), ('12', 'Cugino / Cugina'),
-        ('13', 'Altro Parente'), ('14', 'Figliastro / Figliastra'), ('15', 'Patrigno / Matrigna'),
-        ('16', 'Genero / Nuora'), ('17', 'Suocero / Suocera'), ('18', 'Cognato / Cognata'),
-        ('19', 'Fratellastro / Sorellastra'), ('20', 'Nipote (Affine)'), ('21', 'Zio / Zia (Affine)'),
-        ('22', 'Altro Affine'), ('23', 'Convivente (con vincoli di adozione o affettivi)'),
-        ('24', 'Responsabile della convivenza non affettiva'), ('25', 'Convivente in convivenza non affettiva'),
-        ('26', 'Tutore'), ('28', 'Unito civilmente'), ('80', 'Adottato'), ('81', 'Nipote'),
-        ('99', 'Non definito/comunicato'),
-    ]
 
     if request.method == 'POST':
-        cf = request.POST.get('input_CF', '').strip().upper()
-        servizio = request.POST.get('servizio_anpr')
-        servizio_scelto = servizio
-        service_map = {
-            'C001': ('anpr_C001', 1, True),
-            'C007': ('anpr_C007', 2, True),
-            'C015': ('anpr_C015', 3, True),
-            'C017': ('anpr_C017', 4, True),
-            'C018': ('anpr_C018', 5, True),
-            'C020': ('anpr_C020', 6, True),
-            'C021': ('anpr_C021', 7, True),
-            # C030 non e' qui di proposito: e' strumentale alla risoluzione del CF in idANPR,
-            # non e' una interrogazione utente. Cablato a id 9 era un DoesNotExist (500).
-        }
-
-        if servizio not in service_map:
-            error = 'Servizio ANPR non valido.'
-        elif not utente_abilitato:
+        servizio_scelto = request.POST.get('servizio_anpr') or None
+        modalita_scelta = request.POST.get('modalita') or None
+        conf = ANPR_SERVIZI.get(servizio_scelto or '')
+        if (conf is None or modalita_scelta not in ('singola', 'massiva')
+                or not permessi.get(servizio_scelto, {}).get(modalita_scelta, False)):
             error = 'Non sei abilitato per questa tipologia di ricerca.'
-        elif not cf:
-            error = 'Inserisci un codice fiscale.'
         else:
-            perm_attr, service_id, needs_idanpr = service_map[servizio]
-            if not getattr(utente_sessione, perm_attr, False):
-                error = 'Non sei abilitato per questa tipologia di ricerca.'
+            if modalita_scelta == 'singola':
+                cf_lista = [request.POST.get('input_CF', '').strip().upper()]
             else:
-                correttezza_cf = verifica_cf(cf)
-                data = []
-                data.append(cf)
-                if correttezza_cf in (1, 2):
-                    # prima chiamata (id 8 = C030): trasforma il CF in idANPR, serve a tutte le modalita'
-                    id_anpr, status_id, purp_id, tok_id = anpr_get_request(request.user.username, cf, 8)
-                    res_data, status, purp_id, tok_id = anpr_get_request(request.user.username, id_anpr, service_id)
+                allegato = request.FILES.get('file_massivo')
+                cf_lista = cf_da_file(allegato) if allegato else None
+
+            if not cf_lista or cf_lista == ['']:
+                error = ('Inserisci un codice fiscale.' if modalita_scelta == 'singola'
+                         else "Il file non è un CSV o XLSX leggibile, o la colonna A è vuota.")
+            elif modalita_scelta == 'singola':
+                # identico alle sette viste dedicate: stessa forma di `data`, stesso nome di audit
+                cf = cf_lista[0]
+                data = [cf]
+                if verifica_cf(cf) in (1, 2):
+                    id_anpr = anpr_get_request(request.user.username, cf, 8)[0]
+                    res_data, status, purp_id, tok_id = anpr_get_request(
+                        request.user.username, id_anpr, conf['id_caso'])
                     data.append(res_data)
                     data = converti_data(data)
-                    salva_log(request.user, ANPR_LOG[servizio], "Verificato utente " + cf,
+                    salva_log(request.user, conf['log'], "Verificato utente " + cf,
                               purposeid=purp_id, resp_status=status, token_id=tok_id)
                 else:
                     data.append("Codice fiscale non corretto")
-                    salva_log(request.user, ANPR_LOG[servizio], "Verificato utente " + cf)
+                    salva_log(request.user, conf['log'], "Verificato utente " + cf)
+            else:
+                nome_log = conf['log'] + ' Massivo'
+                for cf in cf_lista:
+                    if verifica_cf(cf) not in (1, 2):
+                        righe.extend(anpr_righe(cf, None, 'Codice fiscale non corretto'))
+                        salva_log(request.user, nome_log, "Verificato utente " + cf)
+                        continue
+                    # il CF si scarta prima di spendere il secondo voucher: senza idANPR la
+                    # chiamata sul caso d'uso sarebbe solo un errore opaco in piu'
+                    id_anpr, status_id, purp_id, tok_id = anpr_get_request(
+                        request.user.username, cf, 8)
+                    if id_anpr == 'ZZZZZZZZZ':
+                        righe.extend(anpr_righe(cf, None, 'Soggetto non presente in ANPR'))
+                    else:
+                        risposta, status_id, purp_id, tok_id = anpr_get_request(
+                            request.user.username, id_anpr, conf['id_caso'])
+                        righe.extend(anpr_righe(cf, converti_data(risposta)))
+                    salva_log(request.user, nome_log, "Verificato utente " + cf,
+                              purposeid=purp_id, resp_status=status_id, token_id=tok_id)
+                request.session['multi_data'] = righe
+                salva_log(request.user, nome_log,
+                          "Fine elaborazione CSV - n. " + str(len(cf_lista)) + " CF")
 
     return render(request, 'anpr.html', {
         'utente_abilitato': utente_abilitato,
-        'service_options': service_options,
+        'servizi': servizi,
+        'permessi': permessi,
         'data': data,
+        'righe': righe,
+        'colonne': ANPR_COLONNE,
         'error': error,
         'servizio_scelto': servizio_scelto,
+        'modalita_scelta': modalita_scelta,
         'cessazione': cessazione_matrimonio_choices,
-        'parentela': parentela_choices,
+        'parentela': ANPR_PARENTELA,
     })
 
 
@@ -458,9 +466,8 @@ def debug_openmsp(request):
                     }
             response = requests.post(url, data=payload, headers=headers, timeout=30)
             if response.status_code == 200:
-                content_str = response.content.decode('utf-8')
-                temp_data = json.loads(content_str)
-                if temp_data['data'] != None :
+                temp_data = json_da_response(response)
+                if temp_data.get('data') is not None :
                     codice_ipa = temp_data['data'][0]['cod_amm']
                     response = ipa_codice(auth_id, codice_ipa)
                     if response.status_code == 200:
@@ -650,7 +657,7 @@ def domicili_digitali_view(request):
                     url = "https://www.indicepa.gov.it:443/ws/WS16DESAMMServices/api/WS16_DES_AMM"
                     response = requests.post(url, data={"AUTH_ID": auth_id, "DESCR": descrizione}, headers={'Content-Type': 'application/x-www-form-urlencoded'}, timeout=30)
                     if response.status_code == 200:
-                        temp_data = json.loads(response.content.decode('utf-8'))
+                        temp_data = json_da_response(response)
                         occorrenze = temp_data.get('result', {}).get('num_items', 0)
                         if occorrenze:
                             for idx in range(occorrenze):
@@ -661,7 +668,7 @@ def domicili_digitali_view(request):
                         url = "https://www.indicepa.gov.it:443/ws/WS23DOMDIGCFServices/api/WS23_DOM_DIG_CF"
                         response = requests.post(url, data={"AUTH_ID": auth_id, "CF": cf_ipa}, headers={'Content-Type': 'application/x-www-form-urlencoded'}, timeout=30)
                         if response.status_code == 200:
-                            temp_data = json.loads(response.content.decode('utf-8'))
+                            temp_data = json_da_response(response)
                             if 'data' in temp_data and temp_data['data']:
                                 codici_amm.append(temp_data['data'][0]['cod_amm'])
                 elif codice_ipa:
@@ -698,20 +705,8 @@ def domicili_digitali_view(request):
         elif modalita == 'massiva':
             file_obj = request.FILES.get('file_massivo')
             if file_obj:
-                cf_list = []
-                filename = file_obj.name
-                if filename.endswith('.csv'):
-                    decoded_file = file_obj.read().decode('utf-8').splitlines()
-                    reader = csv.reader(decoded_file)
-                    for row in reader:
-                        if row:
-                            cf_list.append(row[0])
-                elif filename.endswith('.xlsx') or filename.endswith('.xls'):
-                    wb = openpyxl.load_workbook(file_obj, data_only=True)
-                    sheet = wb.active
-                    for row in sheet.iter_rows(values_only=True):
-                        if row[0]:
-                            cf_list.append(str(row[0]))
+                # stessa lettura dell'ANPR massiva: colonna A, CSV con il ';' di Excel
+                cf_list = cf_da_file(file_obj) or []
 
                 ipa_auth_id = None
                 ipa_search_url = "https://www.indicepa.gov.it:443/ws/WS16DESAMMServices/api/WS16_DES_AMM"
@@ -726,7 +721,7 @@ def domicili_digitali_view(request):
                         ente = cf.strip().upper()
                         response = requests.post(ipa_search_url, data={"AUTH_ID": ipa_auth_id, "DESCR": ente}, headers=headers, timeout=30)
                         if response.status_code == 200:
-                            temp_data = json.loads(response.content.decode('utf-8'))
+                            temp_data = json_da_response(response)
                             occorrenze = temp_data.get('result', {}).get('num_items', 0)
                             if occorrenze:
                                 for indice in range(0, occorrenze):

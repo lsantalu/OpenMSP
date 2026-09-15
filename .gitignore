@@ -17,3 +17,4 @@ OpenMSP.code-workspace
 TODO
 .pi-lens.json
 pyrightconfig.json
+copy.sqlite3

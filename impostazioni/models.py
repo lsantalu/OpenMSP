@@ -36,6 +36,13 @@ class UtentiParametri(models.Model):
     anpr_C020 = models.BooleanField(default=False)
     anpr_C021 = models.BooleanField(default=False)
     anpr_C030 = models.BooleanField(default=False)
+    anpr_C001_massivo = models.BooleanField(default=False)
+    anpr_C007_massivo = models.BooleanField(default=False)
+    anpr_C015_massivo = models.BooleanField(default=False)
+    anpr_C017_massivo = models.BooleanField(default=False)
+    anpr_C018_massivo = models.BooleanField(default=False)
+    anpr_C020_massivo = models.BooleanField(default=False)
+    anpr_C021_massivo = models.BooleanField(default=False)
     mit_cude = models.BooleanField(default=False)
     mit_veicoli = models.BooleanField(default=False)
     mit_whitelist = models.BooleanField(default=False)
@@ -59,6 +66,20 @@ class UtentiParametri(models.Model):
     anist_titoli_massivo = models.BooleanField(default=False)
     app_io_composer = models.BooleanField(default=False)
     app_io_storico_messaggi = models.BooleanField(default=False)
+    # C030 escluso: e' strumentale alla risoluzione del CF in idANPR, non una interrogazione
+    ANPR_CASI = ('C001', 'C007', 'C015', 'C017', 'C018', 'C020', 'C021')
+
+    @property
+    def anpr_abilitato(self):
+        """Almeno un caso ANPR attivo, singolo o massivo: e' il gate del megamenu e della pagina
+        unificata, che cosi' non possono mentire tra loro."""
+        return any(getattr(self, f'anpr_{caso}', False) or getattr(self, f'anpr_{caso}_massivo', False)
+                   for caso in UtentiParametri.ANPR_CASI)
+
+    @property
+    def anpr_massivo_abilitato(self):
+        return any(getattr(self, f'anpr_{caso}_massivo', False) for caso in UtentiParametri.ANPR_CASI)
+
     def somma_servizi_attivi(self):
         total_true = sum([getattr(self, field.name) for field in self._meta.fields if isinstance(field, models.BooleanField) and getattr(self, field.name)])
         return total_true

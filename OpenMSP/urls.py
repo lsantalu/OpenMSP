@@ -58,6 +58,7 @@ from .registro_imprese import impostazioni_registro_imprese
 from .registro_imprese import registro_imprese
 
 from .anpr import anpr_notifica
+from .anpr import anpr_export_excel
 from .anpr import anpr_esistenza_in_vita
 from .anpr import anpr_generalita
 from .anpr import anpr_matrimonio
@@ -161,6 +162,7 @@ urlpatterns = [
     path("anpr_cittadinanza/", anpr_cittadinanza, name="anpr_cittadinanza"),
     path("anpr_residenza/", anpr_residenza, name="anpr_residenza"),
     path("anpr_stato_famiglia/", anpr_stato_famiglia, name="anpr_stato_famiglia"),
+    path('anpr_export_excel/', anpr_export_excel, name='anpr_export_excel'),
 
     path("inps_isee/", inps_isee, name="inps_isee"),
     path("inps_durc_singolo/", inps_durc_singolo, name="inps_durc_singolo"),

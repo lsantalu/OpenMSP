@@ -1,8 +1,11 @@
 # pyright: reportAttributeAccessIssue=false
 # (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono)
 import re
+import csv
+import io
 import datetime
 from datetime import date
+import openpyxl
 import pytz
 from django.db import connection
 from impostazioni.models import Logs
@@ -39,6 +42,22 @@ AGGIORNA_LOG = {
 for _colonna in AGGIORNA_LOG:
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", _colonna):
         raise RuntimeError(f"chiave non valida in AGGIORNA_LOG: {_colonna!r}")  # non assert: -O lo salterebbe
+
+def cf_da_file(allegato):
+    """Codici fiscali dalla colonna A di un CSV o di un XLSX; None se il formato non e' leggibile.
+    Nessuna riga di intestazione viene saltata (come nelle pagine attuali): un CF inesistente
+    lo rifiuta gia' verifica_cf."""
+    nome = allegato.name.lower()
+    if nome.endswith('.csv'):
+        # delimitatore ';' perche' cosi' esportano Excel e LibreOffice: solo la colonna A, il
+        # resto della riga va ignorato (un reader con il dialetto di default si prende la riga)
+        letture = csv.reader(io.TextIOWrapper(allegato.file, encoding='utf-8-sig'), delimiter=';')
+        return [riga[0].strip().upper() for riga in letture if riga and riga[0].strip()]
+    if nome.endswith('.xlsx'):
+        foglio = openpyxl.load_workbook(allegato).worksheets[0]
+        return [str(riga[0]).strip().upper() for riga in foglio.iter_rows(values_only=True) if riga and riga[0]]
+    return None
+
 
 def converti_data(data):
     date_pattern = re.compile(r'^\d{4}-\d{2}-\d{2}$')

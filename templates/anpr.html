@@ -7,7 +7,7 @@
 
 {% block centered_container %}
   <h3>Interroga ANPR</h3>
-  <h4>Servizio unificato per interrogazioni singole ANPR</h4>
+  <h4>Servizio unificato per interrogazioni ANPR singole e massive</h4>
   <br />
   {% if user.is_authenticated %}
     {% if utente_abilitato %}
@@ -28,20 +28,92 @@
             <div class="form-group mt-3 mb-5">
               <label class="active d-block mb-2">Servizio ANPR</label>
               <div class="row">
-                {% for option in service_options %}
+                {% for option in servizi %}
                   <div class="col-6 col-md-4">
                     <div class="form-check m-0">
-                      <input class="form-check-input servizio-anpr-radio" type="radio" name="servizio_anpr" id="servizio_{{ option.value }}" value="{{ option.value }}" />
-                      <label class="form-check-label" for="servizio_{{ option.value }}">{{ option.label }}</label>
+                      <input class="form-check-input servizio-anpr-radio" type="radio" name="servizio_anpr" id="servizio_{{ option.caso }}" value="{{ option.caso }}" data-singola="{% if option.singola %}1{% else %}0{% endif %}" data-massiva="{% if option.massiva %}1{% else %}0{% endif %}" {{ option.attributi }} />
+                      <label class="form-check-label{% if not option.singola and not option.massiva %} text-muted{% endif %}"
+                             for="servizio_{{ option.caso }}">{{ option.label }}</label>
                     </div>
                   </div>
                 {% endfor %}
               </div>
             </div>
-            
-            <div id="input_singola" class="form-group mb-3">
+
+            <!-- Mode selection: stessa logica della pagina dei domicili digitali -->
+            <div class="form-group mt-3 mb-5">
+              <label class="active d-block mb-2">Modalita di ricerca</label>
+              <div class="row">
+                <div class="col-6">
+                  <div class="form-check m-0">
+                    <input class="form-check-input" type="radio" name="modalita" id="modalita_singola" value="singola" {{ attributi_singola }} />
+                    <label class="form-check-label" for="modalita_singola">Ricerca singola</label>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="form-check m-0">
+                    <input class="form-check-input" type="radio" name="modalita" id="modalita_massiva" value="massiva" {{ attributi_massiva }} />
+                    <label class="form-check-label" for="modalita_massiva">Ricerca massiva</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="input_singola" class="form-group mb-3 d-none">
               <label for="input_CF">Codice Fiscale</label>
-              <input type="text" name="input_CF" id="input_CF" class="form-control" maxlength="16" oninput="this.value = this.value.toUpperCase();" required />
+              <input type="text" name="input_CF" id="input_CF" class="form-control" maxlength="16" oninput="this.value = this.value.toUpperCase();" />
+            </div>
+
+            <div id="input_massiva" class="form-group mb-3 d-none">
+              <div class="alert alert-info fs-5" role="alert">Il servizio accetta solo file in formato <b>Excel (xlsx)</b> e <b>CSV</b></div>
+
+              <div class="row">
+                <div class="col-12">
+                  <div class="callout callout-highlight success h-100">
+                    <div class="callout-title">
+                      <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check-circle"></use></svg>
+                      Campi Obbligatori
+                    </div>
+                    <p>Questi dati sono necessari per la ricerca.</p>
+                    <ul class="list-unstyled">
+                      <li><strong>Colonna (A)</strong> - Codici fiscali (scritti in carattere MAIUSCOLO)</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <p class="text-muted">
+                  <svg class="icon icon-sm me-1"><use href="{% static 'svg/sprites.svg' %}#it-info-circle"></use></svg>
+                  Le informazioni presenti nel file dalla colonna (B) in poi vengono automaticamente scartate.
+                </p>
+              </div>
+
+              <div class="it-card rounded border shadow-lg mb-4 p-4">
+                <div class="p-3" id="uploadSection">
+                  <div id="dropZone">
+                    <p class="text-center mb-0">
+                      Trascina file qui o<br />
+                      <button type="button" id="selectFileBtn" class="btn btn-sm btn-primary mt-2">
+                        <svg class="icon icon-sm" style="fill: white;" aria-hidden="true">
+                          <use href="{% static 'svg/sprites.svg' %}#it-upload"></use>
+                        </svg> Seleziona file
+                      </button>
+                    </p>
+                    <input type="file" id="file_massivo" name="file_massivo" class="d-none" accept=".csv,.xlsx" />
+                  </div>
+                  <div id="filePreview" class="d-none">
+                    <div class="d-flex justify-content-between align-items-center fw-bold col-md-8 offset-md-2 border border-danger rounded p-2">
+                      <span id="fileName" class="text-truncate"></span>
+                      <button type="button" class="btn btn-sm btn-danger" id="deleteFileBtn" title="Elimina">
+                        <svg class="icon icon-sm icon-light" aria-hidden="true" style="fill: white;">
+                          <use href="{% static 'svg/sprites.svg' %}#it-delete"></use>
+                        </svg> Elimina
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="mt-4">
@@ -54,6 +126,47 @@
           </form>
         </div>
       </div>
+
+      {% if righe %}
+        <br />
+        <div class="col-12 shadow-lg white-bg p-5 mt-4">
+          <h5>Esito dell'interrogazione massiva</h5>
+          <table id="dataTable" class="table align-middle table-hover table-primary">
+            <thead class="text-center">
+              <tr>
+                <th scope="col">#</th>
+                {% for colonna in colonne %}
+                  <th scope="col">{{ colonna }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for riga in righe %}
+                <tr class="{% if riga.1 == 'Trovato' %}table-success{% else %}table-danger{% endif %}">
+                  <td class="text-center">{{ forloop.counter }}</td>
+                  {% for cell in riga %}
+                    <td>{{ cell }}</td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <br />
+        <div class="d-flex justify-content">
+          <button type="button" id="exportCsvBtn" class="m-1 btn btn-secondary" data-filename="EsitoAnprMassivo.csv">
+            <svg class="icon icon-sm icon-light" aria-hidden="true">
+              <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+            </svg><span>Esporta CSV</span>
+          </button>
+          <a href="{% url 'anpr_export_excel' %}" class="m-1 btn btn-success">
+            <svg class="icon icon-sm icon-light" aria-hidden="true">
+              <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+            </svg><span>Esporta Excel</span>
+          </a>
+        </div>
+      {% endif %}
 
       {% if data %}
   <br />
@@ -707,6 +820,29 @@
   {% endif %}
 
 <script>
+  function esportaTabellaCSV(nomeFile) {
+    const tabella = document.getElementById('dataTable');
+    if (!tabella) return;
+    const righeCSV = [];
+    tabella.querySelectorAll('tr').forEach((riga) => {
+      const celle = [];
+      riga.querySelectorAll('td, th').forEach((cella) => {
+        let testo = cella.textContent.trim().replace(/\s+/g, ' ').replace(/"/g, '""');
+        if (/[;"\n]/.test(testo)) testo = '"' + testo + '"';
+        celle.push(testo);
+      });
+      righeCSV.push(celle.join(';'));
+    });
+    const blob = new Blob([righeCSV.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.setAttribute('href', URL.createObjectURL(blob));
+    link.setAttribute('download', nomeFile);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  }
+
   document.getElementById('anpr_form').addEventListener('submit', function() {
     document.getElementById('loadingOverlay').classList.add('show');
   });
@@ -714,34 +850,117 @@
   document.addEventListener('DOMContentLoaded', function () {
     const executeSearchBtn = document.getElementById('executeSearchBtn');
     const inputCF = document.getElementById('input_CF');
+    const inputSingola = document.getElementById('input_singola');
+    const inputMassiva = document.getElementById('input_massiva');
+    const modalitaSingola = document.getElementById('modalita_singola');
+    const modalitaMassiva = document.getElementById('modalita_massiva');
+    const fileInput = document.getElementById('file_massivo');
+    const selectFileBtn = document.getElementById('selectFileBtn');
+    const uploadSection = document.getElementById('uploadSection');
+    const dropZone = document.getElementById('dropZone');
+    const filePreview = document.getElementById('filePreview');
+    const fileName = document.getElementById('fileName');
+    const deleteFileBtn = document.getElementById('deleteFileBtn');
     const servizioRadios = document.querySelectorAll('.servizio-anpr-radio');
+    const estensioniConsentite = ['.csv', '.xlsx'];
 
-    function checkFormValidity() {
-      if (executeSearchBtn && inputCF) {
-        // Check if CF is valid and at least one radio button is selected
-        const cfValid = inputCF.value.trim().length === 16;
-        let servizioSelected = false;
-        
-        servizioRadios.forEach(radio => {
-          if (radio.checked) {
-            servizioSelected = true;
-          }
-        });
+    function servizioScelto() {
+      return document.querySelector('.servizio-anpr-radio:checked');
+    }
 
-        executeSearchBtn.disabled = !(cfValid && servizioSelected);
+    function modalitaPermessa() {
+      const radio = servizioScelto();
+      if (!radio) return false;
+      if (modalitaSingola.checked) return radio.dataset.singola === '1';
+      if (modalitaMassiva.checked) return radio.dataset.massiva === '1';
+      return false;
+    }
+
+    function azzeraCaricamento() {
+      fileInput.value = '';
+      fileName.textContent = '';
+      filePreview.classList.add('d-none');
+      dropZone.classList.remove('d-none');
+    }
+
+    function aggiornaPulsante() {
+      let pronto = false;
+      if (servizioScelto() && modalitaPermessa()) {
+        if (modalitaMassiva.checked) pronto = fileInput.files.length > 0;
+        else pronto = inputCF.value.trim().length === 16;
       }
+      executeSearchBtn.disabled = !pronto;
     }
 
-    // Event listeners for CF input and radio buttons
-    if (inputCF) {
-      inputCF.addEventListener('input', checkFormValidity);
+    function aggiornaSezioni() {
+      // stesso comportamento dei domicili digitali: prima il caso d'uso, poi la modalita'
+      const radio = servizioScelto();
+      if (radio && modalitaSingola.checked && radio.dataset.singola !== '1') modalitaSingola.checked = false;
+      if (radio && modalitaMassiva.checked && radio.dataset.massiva !== '1') modalitaMassiva.checked = false;
+      inputSingola.classList.toggle('d-none', !modalitaSingola.checked);
+      inputMassiva.classList.toggle('d-none', !modalitaMassiva.checked);
+      fileInput.required = modalitaMassiva.checked;
+      if (!modalitaMassiva.checked) azzeraCaricamento();
+      aggiornaPulsante();
     }
 
-    servizioRadios.forEach(radio => {
-      radio.addEventListener('change', checkFormValidity);
+    function mostraFile(file) {
+      fileName.textContent = file.name;
+      filePreview.classList.remove('d-none');
+      dropZone.classList.add('d-none');
+      aggiornaPulsante();
+    }
+
+    function gestisciFile(files) {
+      if (!files || files.length === 0) {
+        azzeraCaricamento();
+        aggiornaPulsante();
+        return;
+      }
+      const file = files[0];
+      const nome = file.name.toLowerCase();
+      if (!estensioniConsentite.some((estensione) => nome.endsWith(estensione))) {
+        alert('Formato file non consentito! Puoi caricare solo CSV o Excel (.xlsx)');
+        azzeraCaricamento();
+        aggiornaPulsante();
+        return;
+      }
+      const contenitore = new DataTransfer();
+      contenitore.items.add(file);
+      fileInput.files = contenitore.files;
+      mostraFile(file);
+    }
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((nome) => {
+      uploadSection.addEventListener(nome, (evento) => {
+        evento.preventDefault();
+        evento.stopPropagation();
+      });
+    });
+    ['dragenter', 'dragover'].forEach((nome) => {
+      uploadSection.addEventListener(nome, () => uploadSection.classList.add('dragover'));
+    });
+    ['dragleave', 'drop'].forEach((nome) => {
+      uploadSection.addEventListener(nome, () => uploadSection.classList.remove('dragover'));
+    });
+    uploadSection.addEventListener('drop', (evento) => gestisciFile(evento.dataTransfer.files));
+    fileInput.addEventListener('change', (evento) => gestisciFile(evento.target.files));
+    selectFileBtn.addEventListener('click', () => fileInput.click());
+    deleteFileBtn.addEventListener('click', () => {
+      azzeraCaricamento();
+      aggiornaPulsante();
     });
 
-    checkFormValidity(); // Initial check
+    servizioRadios.forEach((radio) => radio.addEventListener('change', aggiornaSezioni));
+    [modalitaSingola, modalitaMassiva].forEach((radio) => radio.addEventListener('change', aggiornaSezioni));
+    inputCF.addEventListener('input', aggiornaPulsante);
+
+    document.getElementById('exportCsvBtn') && document.getElementById('exportCsvBtn').addEventListener('click', function (evento) {
+      evento.preventDefault();
+      esportaTabellaCSV(this.dataset.filename || 'EsitoAnprMassivo.csv');
+    });
+
+    aggiornaSezioni();
 
     const printButton = document.getElementById('printButton');
     if (printButton) {

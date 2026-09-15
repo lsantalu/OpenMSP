@@ -149,8 +149,15 @@ def impostazioni_parametri(request):
                 if "EMAIL_USE_SSL" not in processed_keys:
                     new_lines.insert(insert_index, f"EMAIL_USE_SSL = {env_updates['EMAIL_USE_SSL']}\n")
 
-            with open(settings_path, 'w') as file:
-                file.writelines(new_lines)
+            # scrittura atomica: meta' .env riscritto vuol dire deploy con la config troncata
+            try:
+                with open(settings_path + '.tmp', 'w') as file:
+                    file.writelines(new_lines)
+                os.replace(settings_path + '.tmp', settings_path)
+            except OSError as errore:
+                # nient'altro viene salvato: la config di runtime deve restare coerente
+                messages.error(request, f'Impossibile scrivere il file .env: {errore}')
+                return redirect('impostazioni_parametri')
 
             dati_ente.nome = request.POST.get('nome_ente')
             dati_ente.cf = request.POST.get('cf_ente')
@@ -228,6 +235,30 @@ def impostazioni_servizi_toggle(request):
     return JsonResponse({'status': 'error', 'message': 'Metodo non consentito'}, status=405)
 
 
+PERMESSI_UTENTE = [str(campo.name) for campo in UtentiParametri._meta.fields
+                   if isinstance(campo, models.BooleanField)]
+
+
+def id_utente_da_post(request):
+    """Id utente dei form di impostazioni_utenti: un POST manomesso o vuoto qui prima esplodeva
+    in un 500 dentro int()."""
+    valore = request.POST.get('utente_selezionato') or request.POST.get('scegliUtente')
+    try:
+        return int(valore)
+    except (TypeError, ValueError):
+        return None
+
+
+def salva_permessi(id_utente, array_permessi):
+    """Ogni BooleanField di utenti_parametri vale quanto il suo toggle nel form: la lista dei campi
+    viene dal modello, cosi' aggiungere un permesso non vuol dire riscrivere le due viste gemelle
+    impostazioni_utenti / impostazioni_utenti_2."""
+    dati = UtentiParametri.objects.filter(id=id_utente).first() or UtentiParametri(id=id_utente, utente_id_id=id_utente)
+    for campo in PERMESSI_UTENTE:
+        setattr(dati, campo, campo in array_permessi)
+    dati.save()
+
+
 def impostazioni_utenti_2(request):
     utenti_impostazioni = UtentiParametri.objects.all()
     utenti = User.objects.all().order_by('username')
@@ -241,64 +272,27 @@ def impostazioni_utenti_2(request):
 
         for i in range (1, num_utenti_ultimo+1):
             if i not in existing_ids_utenti_permessi and i in existing_ids_utenti:
-                UtentiParametri.objects.create(id=i, utente_id=User.objects.get(id=i), ipa_singolo=False, ipa_massivo=False, inad_singolo=False, inad_massivo=False, inipec_singolo=False, inipec_massivo=False, anpr_C001=False, anpr_C007=False, anpr_C015=False, anpr_C017=False, anpr_C018=False, anpr_C020=False, anpr_C021=False, anpr_C030=False, mit_cude=False, mit_veicoli=False, mit_whitelist=False, mit_targa=False, anis_IFS02_singolo=False, anis_IFS02_massivo=False, anis_IFS03_singolo=False, anis_IFS03_massivo=False, cassa_forense=False, registro_imprese=False, inps_isee=False, inps_durc_singolo=False, inps_durc_massivo=False,app_io_verifica_singolo=False, app_io_verifica_massivo=False, app_io_singolo=False, app_io_massivo=False, anist_frequenze_singolo=False, anist_frequenze_massivo=False, anist_titoli_singolo=False, anist_titoli_massivo =False, app_io_composer=False, app_io_storico_messaggi=False)
+                UtentiParametri.objects.create(id=i, utente_id=User.objects.get(id=i))
 
     if request.method == 'POST':
+        utente_selezionato = id_utente_da_post(request)
+        if utente_selezionato is None:
+            messages.error(request, 'Seleziona un utente prima di salvare i permessi.')
+            return redirect('impostazioni_utenti_2')
         if 'trova_utente' in request.POST:
-            utente_selezionato = request.POST.get('scegliUtente')
+            pass
         elif 'disattiva_utente' in request.POST:
-            utente_selezionato = request.POST.get('scegliUtente')
-            utente_attivo = get_object_or_404(User, id=int(utente_selezionato))
+            utente_attivo = get_object_or_404(User, id=utente_selezionato)
             utente_attivo.is_active = not utente_attivo.is_active
             utente_attivo.save()
         else:
-            utente_selezionato = request.POST.get('utente_selezionato')
             array_permessi_raw = request.POST.get('array_permessi')
             try:
                 array_permessi = json.loads(array_permessi_raw) if array_permessi_raw else []
             except (json.JSONDecodeError, TypeError):
                 array_permessi = []
 
-            ipa_singolo = (True if 'ipa_singolo' in array_permessi else False)
-            ipa_massivo = (True if 'ipa_massivo' in array_permessi else False)
-            inad_singolo = (True if 'inad_singolo' in array_permessi else False)
-            inad_massivo = (True if 'inad_massivo' in array_permessi else False)
-            inipec_singolo = (True if 'inipec_singolo' in array_permessi else False)
-            inipec_massivo = (True if 'inipec_massivo' in array_permessi else False)
-            anpr_C001 = (True if 'anpr_C001' in array_permessi else False)
-            anpr_C007 = (True if 'anpr_C007' in array_permessi else False)
-            anpr_C015 = (True if 'anpr_C015' in array_permessi else False)
-            anpr_C017 = (True if 'anpr_C017' in array_permessi else False)
-            anpr_C018 = (True if 'anpr_C018' in array_permessi else False)
-            anpr_C020 = (True if 'anpr_C020' in array_permessi else False)
-            anpr_C021 = (True if 'anpr_C021' in array_permessi else False)
-            anpr_C030 = (True if 'anpr_C030' in array_permessi else False)
-            mit_cude = (True if 'mit_cude' in array_permessi else False)
-            mit_veicoli = (True if 'mit_veicoli' in array_permessi else False)
-            mit_whitelist = (True if 'mit_whitelist' in array_permessi else False)
-            mit_targa = (True if 'mit_targa' in array_permessi else False)
-            anis_IFS02_singolo = (True if 'anis_IFS02_singolo' in array_permessi else False)
-            anis_IFS02_massivo = (True if 'anis_IFS02_massivo' in array_permessi else False)
-            anis_IFS03_singolo = (True if 'anis_IFS03_singolo' in array_permessi else False)
-            anis_IFS03_massivo = (True if 'anis_IFS03_massivo' in array_permessi else False)
-            cassa_forense = (True if 'cassa_forense' in array_permessi else False)
-            registro_imprese = (True if 'registro_imprese' in array_permessi else False)
-            inps_isee = (True if 'inps_isee' in array_permessi else False)
-            inps_durc_singolo = (True if 'inps_durc_singolo' in array_permessi else False)
-            inps_durc_massivo = (True if 'inps_durc_massivo' in array_permessi else False)
-            app_io_verifica_singolo = (True if 'app_io_verifica_singolo' in array_permessi else False)
-            app_io_verifica_massivo = (True if 'app_io_verifica_massivo' in array_permessi else False)
-            app_io_singolo = (True if 'app_io_singolo' in array_permessi else False)
-            app_io_massivo = (True if 'app_io_massivo' in array_permessi else False)
-            anist_frequenze_singolo = (True if 'anist_frequenze_singolo' in array_permessi else False)
-            anist_frequenze_massivo = (True if 'anist_frequenze_massivo' in array_permessi else False)
-            anist_titoli_singolo = (True if 'anist_titoli_singolo' in array_permessi else False)
-            anist_titoli_massivo = (True if 'anist_titoli_massivo' in array_permessi else False)
-            app_io_composer = (True if 'app_io_composer' in array_permessi else False)
-            app_io_storico_messaggi = (True if 'app_io_storico_messaggi' in array_permessi else False)
-
-            dati = UtentiParametri(int(utente_selezionato), int(utente_selezionato), ipa_singolo=ipa_singolo, ipa_massivo=ipa_massivo,  inad_singolo=inad_singolo, inad_massivo=inad_massivo, inipec_singolo=inipec_singolo, inipec_massivo=inipec_massivo, anpr_C001=anpr_C001, anpr_C007=anpr_C007, anpr_C015=anpr_C015, anpr_C017=anpr_C017, anpr_C018=anpr_C018, anpr_C020=anpr_C020, anpr_C021=anpr_C021, anpr_C030=anpr_C030, mit_cude = mit_cude, mit_veicoli = mit_veicoli, mit_whitelist=mit_whitelist, mit_targa = mit_targa, anis_IFS02_singolo=anis_IFS02_singolo, anis_IFS02_massivo=anis_IFS02_massivo, anis_IFS03_singolo=anis_IFS03_singolo, anis_IFS03_massivo=anis_IFS03_massivo, cassa_forense=cassa_forense, registro_imprese=registro_imprese, inps_isee=inps_isee, inps_durc_singolo=inps_durc_singolo, inps_durc_massivo=inps_durc_massivo, app_io_verifica_singolo=app_io_verifica_singolo, app_io_verifica_massivo=app_io_verifica_massivo, app_io_singolo=app_io_singolo, app_io_massivo=app_io_massivo, anist_frequenze_singolo=anist_frequenze_singolo, anist_frequenze_massivo=anist_frequenze_massivo, anist_titoli_singolo=anist_titoli_singolo, anist_titoli_massivo=anist_titoli_massivo, app_io_composer=app_io_composer, app_io_storico_messaggi=app_io_storico_messaggi)
-            dati.save()
+            salva_permessi(utente_selezionato, array_permessi)
             salva_log(request.user,"Impostazioni Utenti", "modifica parametri")
 
         servizi_utente = UtentiParametri.objects.get(id=utente_selezionato)
@@ -307,7 +301,7 @@ def impostazioni_utenti_2(request):
         numero_servizi_attivi = servizi_attivi_utente(utente_selezionato) + utente_adm
         numero_servizi_disattivi = numero_servizi - numero_servizi_attivi
 
-        return render(request, 'impostazioni_utenti_2.html', { 'utenti': utenti, 'utente_selezionato': int(utente_selezionato), 'servizi_utente': servizi_utente, 'numero_servizi_attivi': numero_servizi_attivi, 'numero_servizi_disattivi': numero_servizi_disattivi, 'utenti_impostazioni': utenti_impostazioni })
+        return render(request, 'impostazioni_utenti_2.html', { 'utenti': utenti, 'utente_selezionato': utente_selezionato, 'servizi_utente': servizi_utente, 'numero_servizi_attivi': numero_servizi_attivi, 'numero_servizi_disattivi': numero_servizi_disattivi, 'utenti_impostazioni': utenti_impostazioni })
 
 
     return render(request, 'impostazioni_utenti_2.html', { 'utenti_impostazioni': utenti_impostazioni, 'utenti': utenti})
@@ -371,69 +365,32 @@ def impostazioni_utenti(request):
 
         for i in range (1, num_utenti_ultimo+1):
             if i not in existing_ids_utenti_permessi and i in existing_ids_utenti:
-                UtentiParametri.objects.create(id=i, utente_id=User.objects.get(id=i), ipa_singolo=False, ipa_massivo=False, inad_singolo=False, inad_massivo=False, inipec_singolo=False, inipec_massivo=False, anpr_C001=False, anpr_C007=False, anpr_C015=False, anpr_C017=False, anpr_C018=False, anpr_C020=False, anpr_C021=False, anpr_C030=False,  mit_cude=False, mit_veicoli=False, mit_whitelist=False, mit_targa=False, anis_IFS02_singolo=False, anis_IFS02_massivo=False, anis_IFS03_singolo=False, anis_IFS03_massivo=False, cassa_forense=False, registro_imprese=False, inps_isee=False, inps_durc_singolo=False, inps_durc_massivo=False,app_io_verifica_singolo=False, app_io_verifica_massivo=False, app_io_singolo=False, app_io_massivo=False, anist_frequenze_singolo=False, anist_frequenze_massivo=False, anist_titoli_singolo=False, anist_titoli_massivo =False, app_io_composer=False, app_io_storico_messaggi=False)
+                UtentiParametri.objects.create(id=i, utente_id=User.objects.get(id=i))
 
     if request.method == 'POST':
+        utente_selezionato = id_utente_da_post(request)
+        if utente_selezionato is None:
+            messages.error(request, 'Seleziona un utente prima di salvare i permessi.')
+            return redirect('impostazioni_utenti')
         if 'trova_utente' in request.POST:
-            utente_selezionato = request.POST.get('scegliUtente')
+            pass
         elif 'disattiva_utente' in request.POST:
-            utente_selezionato = request.POST.get('scegliUtente')
-            utente_attivo = get_object_or_404(User, id=int(utente_selezionato))
+            utente_attivo = get_object_or_404(User, id=utente_selezionato)
             utente_attivo.is_active = not utente_attivo.is_active
             utente_attivo.save()
         elif 'reset_2fa' in request.POST:
-            utente_selezionato = request.POST.get('scegliUtente')
-            utente_target = get_object_or_404(User, id=int(utente_selezionato))
+            utente_target = get_object_or_404(User, id=utente_selezionato)
             for device in devices_for_user(utente_target):
                 device.delete()
             messages.success(request, f"2FA resettata per l'utente {utente_target.username}.")
         else:
-            utente_selezionato = request.POST.get('utente_selezionato')
             array_permessi_raw = request.POST.get('array_permessi')
             try:
                 array_permessi = json.loads(array_permessi_raw) if array_permessi_raw else []
             except (json.JSONDecodeError, TypeError):
                 array_permessi = []
 
-            ipa_singolo = (True if 'ipa_singolo' in array_permessi else False)
-            ipa_massivo = (True if 'ipa_massivo' in array_permessi else False)
-            inad_singolo = (True if 'inad_singolo' in array_permessi else False)
-            inad_massivo = (True if 'inad_massivo' in array_permessi else False)
-            inipec_singolo = (True if 'inipec_singolo' in array_permessi else False)
-            inipec_massivo = (True if 'inipec_massivo' in array_permessi else False)
-            anpr_C001 = (True if 'anpr_C001' in array_permessi else False)
-            anpr_C007 = (True if 'anpr_C007' in array_permessi else False)
-            anpr_C015 = (True if 'anpr_C015' in array_permessi else False)
-            anpr_C017 = (True if 'anpr_C017' in array_permessi else False)
-            anpr_C018 = (True if 'anpr_C018' in array_permessi else False)
-            anpr_C020 = (True if 'anpr_C020' in array_permessi else False)
-            anpr_C021 = (True if 'anpr_C021' in array_permessi else False)
-            anpr_C030 = (True if 'anpr_C030' in array_permessi else False)
-            mit_cude = (True if 'mit_cude' in array_permessi else False)
-            mit_veicoli = (True if 'mit_veicoli' in array_permessi else False)
-            mit_whitelist = (True if 'mit_whitelist' in array_permessi else False)
-            mit_targa = (True if 'mit_targa' in array_permessi else False)
-            anis_IFS02_singolo = (True if 'anis_IFS02_singolo' in array_permessi else False)
-            anis_IFS02_massivo = (True if 'anis_IFS02_massivo' in array_permessi else False)
-            anis_IFS03_singolo = (True if 'anis_IFS03_singolo' in array_permessi else False)
-            anis_IFS03_massivo = (True if 'anis_IFS03_massivo' in array_permessi else False)
-            cassa_forense = (True if 'cassa_forense' in array_permessi else False)
-            registro_imprese = (True if 'registro_imprese' in array_permessi else False)
-            inps_isee = (True if 'inps_isee' in array_permessi else False)
-            inps_durc_singolo = (True if 'inps_durc_singolo' in array_permessi else False)
-            inps_durc_massivo = (True if 'inps_durc_massivo' in array_permessi else False)
-            app_io_verifica_singolo = (True if 'app_io_verifica_singolo' in array_permessi else False)
-            app_io_verifica_massivo = (True if 'app_io_verifica_massivo' in array_permessi else False)
-            app_io_singolo = (True if 'app_io_singolo' in array_permessi else False)
-            app_io_massivo = (True if 'app_io_massivo' in array_permessi else False)
-            anist_frequenze_singolo = (True if 'anist_frequenze_singolo' in array_permessi else False)
-            anist_frequenze_massivo = (True if 'anist_frequenze_massivo' in array_permessi else False)
-            anist_titoli_singolo = (True if 'anist_titoli_singolo' in array_permessi else False)
-            anist_titoli_massivo = (True if 'anist_titoli_massivo' in array_permessi else False)
-            app_io_composer = (True if 'app_io_composer' in array_permessi else False)
-            app_io_storico_messaggi = (True if 'app_io_storico_messaggi' in array_permessi else False)
-            dati = UtentiParametri(int(utente_selezionato), int(utente_selezionato), ipa_singolo=ipa_singolo, ipa_massivo=ipa_massivo,  inad_singolo=inad_singolo, inad_massivo=inad_massivo, inipec_singolo=inipec_singolo, inipec_massivo=inipec_massivo, anpr_C001=anpr_C001, anpr_C007=anpr_C007, anpr_C015=anpr_C015, anpr_C017=anpr_C017, anpr_C018=anpr_C018, anpr_C020=anpr_C020, anpr_C021=anpr_C021, anpr_C030=anpr_C030, mit_cude = mit_cude, mit_veicoli = mit_veicoli, mit_whitelist=mit_whitelist, mit_targa = mit_targa, anis_IFS02_singolo=anis_IFS02_singolo, anis_IFS02_massivo=anis_IFS02_massivo, anis_IFS03_singolo=anis_IFS03_singolo, anis_IFS03_massivo=anis_IFS03_massivo, cassa_forense=cassa_forense, registro_imprese=registro_imprese, inps_isee=inps_isee, inps_durc_singolo=inps_durc_singolo, inps_durc_massivo=inps_durc_massivo, app_io_verifica_singolo=app_io_verifica_singolo, app_io_verifica_massivo=app_io_verifica_massivo, app_io_singolo=app_io_singolo, app_io_massivo=app_io_massivo, anist_frequenze_singolo=anist_frequenze_singolo, anist_frequenze_massivo=anist_frequenze_massivo, anist_titoli_singolo=anist_titoli_singolo, anist_titoli_massivo=anist_titoli_massivo, app_io_composer=app_io_composer, app_io_storico_messaggi=app_io_storico_messaggi)
-            dati.save()
+            salva_permessi(utente_selezionato, array_permessi)
             salva_log(request.user,"Impostazioni Utenti", "modifica parametri")
 
         servizi_utente = UtentiParametri.objects.get(id=utente_selezionato)
@@ -442,7 +399,7 @@ def impostazioni_utenti(request):
         numero_servizi_attivi = servizi_attivi_utente(utente_selezionato) + utente_adm
         numero_servizi_disattivi = numero_servizi - numero_servizi_attivi
 
-        return render(request, 'impostazioni_utenti.html', { 'utenti': utenti, 'utente_selezionato': int(utente_selezionato), 'servizi_utente': servizi_utente, 'numero_servizi_attivi': numero_servizi_attivi, 'numero_servizi_disattivi': numero_servizi_disattivi, 'utenti_impostazioni': utenti_impostazioni, 'servizi_impostazioni': servizi_impostazioni, 'gruppi_parametri': gruppi_parametri })
+        return render(request, 'impostazioni_utenti.html', { 'utenti': utenti, 'utente_selezionato': utente_selezionato, 'servizi_utente': servizi_utente, 'numero_servizi_attivi': numero_servizi_attivi, 'numero_servizi_disattivi': numero_servizi_disattivi, 'utenti_impostazioni': utenti_impostazioni, 'servizi_impostazioni': servizi_impostazioni, 'gruppi_parametri': gruppi_parametri })
 
 
     return render(request, 'impostazioni_utenti.html', { 'utenti_impostazioni': utenti_impostazioni, 'utenti': utenti, 'servizi_impostazioni': servizi_impostazioni, 'gruppi_parametri': gruppi_parametri})
