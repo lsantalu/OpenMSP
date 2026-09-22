@@ -716,6 +716,13 @@ OpenMSP - Multi Services Portal
                       <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
                       {% endif %}
 
+                      {% if services_dict.anncsu.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anncsu %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu %} class="text-muted"{% endif %}>Consultazione ANNCSU</span></a>
+                      </li>
+                      <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
+                      {% endif %}
+
                       <li>
                         <a class="list-item dropdown-item" href="{% url 'verifica_cf' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span>Verifica CF massiva PF</span></a>
                       </li>

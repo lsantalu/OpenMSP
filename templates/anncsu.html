@@ -1,0 +1,71 @@
+<!-- templates/anncsu.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Consultazione ANNCSU - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Consultazione ANNCSU</h3>
+<h4>Archivio Nazionale dei Numeri Civici delle Strade Urbane</h4>
+<br />
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+<div class="col-10 shadow-lg white-bg p-4">
+  <p>
+    Il servizio consente la consultazione dell&rsquo;Archivio Nazionale dei Numeri Civici delle
+    Strade Urbane (ANNCSU), archivio informatizzato contenente gli stradari (le denominazioni
+    delle aree di circolazione aperte al pubblico) e gli indirizzari (i numeri civici e le
+    indicazioni metriche eventualmente corredati di esponente e specificit&agrave;) dei Comuni
+    italiani che li hanno certificati e ne gestiscono l&rsquo;aggiornamento.
+  </p>
+  <p>
+    L&rsquo;interrogazione &egrave; sincrona e le risposte sono sempre in JSON. Trattandosi di un
+    servizio di ricerca, gli esiti negativi sono trattati secondo lo standard HTTP.
+  </p>
+  <div class="alert alert-info" role="alert">
+    Il servizio &egrave; in attivazione: questa pagina rende per ora solo la descrizione
+    dell&rsquo;e-service. Le interrogazioni non sono ancora disponibili dal portale.
+  </div>
+  <h5>Operazioni esposte dall&rsquo;e-service</h5>
+  <table class="table" summary="Operazioni disponibili su ANNCSU - Consultazione">
+    <thead>
+      <tr>
+        <th scope="col">Operazione</th>
+        <th scope="col">Descrizione</th>
+        <th scope="col">Dati in ingresso</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for nome, descrizione, input in operazioni %}
+      <tr>
+        <td><code>{{ nome }}</code></td>
+        <td>{{ descrizione }}</td>
+        <td>{{ input }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="col-6">
+  <h4>Utente non abilitato</h4>
+  <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+  <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+  <div class="p-3 text-end">
+    <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+  </div>
+</div>
+{% endif %}
+{% else %}
+<h4>Utente non loggato</h4>
+<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+<a href="{% url 'login' %}" class="btn btn-primary">
+  <svg class="icon icon-sm icon-white" aria-hidden="true">
+    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+  </svg>Accedi
+</a>
+{% endif %}
+{% endblock %}

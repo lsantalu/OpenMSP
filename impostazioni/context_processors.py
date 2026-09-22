@@ -67,6 +67,7 @@ def custom_context(request):
         ('anis_IFS03_singolo', 'ANIS IFS03 Singolo', *get_service_status('anis_IFS03')),
         ('anis_IFS03_massivo', 'ANIS IFS03 Massivo', *get_service_status('anis_IFS03')),
         ('cassa_forense', 'Consiglio Nazionale Forense', *get_service_status('cassa_forense')),
+        ('anncsu', 'Consultazione ANNCSU', *get_service_status('anncsu')),
         ('app_io_verifica_singolo', 'App IO Verifica Singolo', *get_service_status('app_io')),
         ('app_io_verifica_massivo', 'App IO Verifica Massivo', *get_service_status('app_io')),
         ('app_io_singolo', 'App IO Singolo', *get_service_status('app_io')),

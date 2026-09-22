@@ -64,6 +64,7 @@ class UtentiParametri(models.Model):
     anist_frequenze_massivo = models.BooleanField(default=False)
     anist_titoli_singolo = models.BooleanField(default=False)
     anist_titoli_massivo = models.BooleanField(default=False)
+    anncsu = models.BooleanField(default=False)
     app_io_composer = models.BooleanField(default=False)
     app_io_storico_messaggi = models.BooleanField(default=False)
     # C030 escluso: e' strumentale alla risoluzione del CF in idANPR, non una interrogazione
@@ -320,6 +321,39 @@ class AnprParametri(models.Model):
     class Meta:
         managed = False
         db_table = 'anpr_parametri'
+
+
+class AnncsuServizi(models.Model):
+    id = models.IntegerField(blank=True, primary_key=True)
+    servizio = models.CharField(blank=True, null=True, max_length=100)
+
+    class Meta:
+        managed = False
+        db_table = 'anncsu_servizi'
+
+
+class AnncsuParametri(models.Model):
+    # Unica riga (id=1): le 8 operazioni di ANNCSU - Consultazione sono path sullo stesso
+    # target, quindi un solo set di credenziali AgID (a differenza di ANPR, un caso = una riga)
+    id = models.IntegerField(blank=True, primary_key=True)
+    servizio_id = models.ForeignKey(AnncsuServizi, models.DO_NOTHING, db_column='servizio_id')
+    kid = models.CharField(max_length=64)
+    alg = models.CharField(max_length=10)
+    typ = models.CharField(max_length=10)
+    iss = models.CharField(max_length=36)
+    sub = models.CharField(max_length=36)
+    aud = models.CharField(max_length=150)
+    purposeid = models.CharField(max_length=36)
+    audience = models.CharField(max_length=150)
+    baseurlauth = models.CharField(max_length=150)
+    target = models.CharField(max_length=150)
+    clientid = models.CharField(max_length=50)
+    private_key = models.CharField(max_length=2500)
+    ver_eservice = models.CharField(max_length=10)
+
+    class Meta:
+        managed = False
+        db_table = 'anncsu_parametri'
 
 
 class CassaForenseParametri(models.Model):

@@ -5,6 +5,9 @@ set -euo pipefail
 # Upgrade schema/data OpenMSP DB from 1.3 to 1.4.
 # Fix duplicate MIT service codes introduced in some upgraded production DBs.
 # Aggiunge i sette permessi anpr_Cxxx_massivo a utenti_parametri (interrogazioni ANPR massive).
+# Allinea le versioni e-service ANPR: C007 v3 -> v4, C017 v1 -> v2.
+# Attiva l'e-service ANNCSU: tabelle anncsu_servizi / anncsu_parametri, gruppo e servizio
+#   nei menu, permesso anncsu in utenti_parametri.
 # Usage:
 #   ./update/update_to_1.4.sh [path/to/db.sqlite3] [path/to/.env]
 
@@ -91,13 +94,110 @@ table_exists() {
   table_exists_in_db "$DB_PATH" "$table_name"
 }
 
+# Versioni e-service ANPR aggiornate da ANPR: C007 3->4, C017 1->2. Idempotente e
+# selettivo (join sul nome servizio, non sull'id), gira anche su un DB gia' a
+# 1.4.0: chi ha eseguito questo script prima della modifica si allinea da solo.
+allinea_versioni_anpr() {
+  sqlite3 "$DB_PATH" <<'SQL'
+BEGIN TRANSACTION;
+UPDATE anpr_parametri SET ver_eservice = '4'
+ WHERE servizio_id = (SELECT id FROM anpr_servizi WHERE servizio LIKE 'C007%');
+UPDATE anpr_parametri SET ver_eservice = '2'
+ WHERE servizio_id = (SELECT id FROM anpr_servizi WHERE servizio LIKE 'C017%');
+COMMIT;
+SQL
+  sqlite3 -header -column "$DB_PATH" "SELECT s.servizio, p.ver_eservice AS versione FROM anpr_parametri p JOIN anpr_servizi s ON s.id = p.servizio_id WHERE s.servizio LIKE 'C007%' OR s.servizio LIKE 'C017%';"
+}
+
+# e-service ANNCSU (Archivio Nazionale Numeri Civici Strade Urbane, Agenzia Entrate).
+# Idempotente: gira sia su un DB alla 1.3.0 sia su uno gia' a 1.4.0, come allinea_versioni_anpr.
+# Le due tabelle ricalcano anpr_servizi / anpr_parametri (1 riga servizio + 1 riga parametri,
+# 8 operazioni = path sul target). kid qui e' VARCHAR(64): il KID di ANNCSU e' 43 caratteri e
+# VARCHAR(42) lo troncava al passaggio su mysql (vedi nota in cima a impostazioni/models.py).
+# La private_key resta vuota, e come in anpr_parametri/resto delle tabelle parametri di
+# db_example restano vuoti anche kid, iss, sub, purposeid e clientid: sono i dati del singolo
+# ente (invariante 6: le credenziali AgID vivono nel DB, non nel repository). Si compilano
+# dalla pagina impostazioni_anncsu. Riempiono invece le costanti di protocollo e gli URL,
+# che sono pubblici perche' pubblicati sulla specifica dell'erogatore.
+attiva_anncsu() {
+  sqlite3 "$DB_PATH" <<'SQL'
+PRAGMA foreign_keys = OFF;
+BEGIN TRANSACTION;
+
+CREATE TABLE IF NOT EXISTS "anncsu_servizi" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "servizio" VARCHAR(100)
+);
+
+CREATE TABLE IF NOT EXISTS "anncsu_parametri" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "servizio_id" INTEGER,
+  "kid" VARCHAR(64),
+  "alg" VARCHAR(10),
+  "typ" VARCHAR(10),
+  "iss" VARCHAR(36),
+  "sub" VARCHAR(36),
+  "aud" VARCHAR(150),
+  "purposeid" VARCHAR(36),
+  "audience" VARCHAR(150),
+  "baseurlauth" VARCHAR(150),
+  "target" VARCHAR(150),
+  "clientid" VARCHAR(50),
+  "private_key" VARCHAR(2500),
+  "ver_eservice" TEXT DEFAULT 1,
+  FOREIGN KEY("servizio_id") REFERENCES "anncsu_servizi"("id")
+);
+
+INSERT INTO gruppi_parametri (descrizione)
+SELECT 'ANNCSU' WHERE NOT EXISTS (SELECT 1 FROM gruppi_parametri WHERE descrizione = 'ANNCSU');
+
+INSERT INTO servizi_parametri (codice_servizio, descrizione, gruppo_id, attivo, url)
+SELECT 'anncsu', 'Consultazione ANNCSU', id, 0, 'impostazioni_anncsu'
+  FROM gruppi_parametri WHERE descrizione = 'ANNCSU'
+   AND NOT EXISTS (SELECT 1 FROM servizi_parametri WHERE codice_servizio = 'anncsu');
+
+INSERT INTO anncsu_servizi (id, servizio)
+SELECT 1, 'Consultazione ANNCSU' WHERE NOT EXISTS (SELECT 1 FROM anncsu_servizi WHERE id = 1);
+
+INSERT INTO anncsu_parametri
+  (id, servizio_id, kid, alg, typ, iss, sub, aud, purposeid, audience, baseurlauth, target, clientid, private_key, ver_eservice)
+SELECT 1, 1,
+       '', 'RS256', 'JWT',
+       '', '',
+       'auth.interop.pagopa.it/client-assertion',
+       '',
+       'https://modipa.agenziaentrate.gov.it/govway/rest/in/AgenziaEntrate-PDND/anncsu-consultazione/v1',
+       'https://auth.interop.pagopa.it',
+       'https://modipa.agenziaentrate.gov.it/govway/rest/in/AgenziaEntrate-PDND/anncsu-consultazione/v1',
+       '', '', '1'
+  WHERE NOT EXISTS (SELECT 1 FROM anncsu_parametri WHERE id = 1);
+
+COMMIT;
+PRAGMA foreign_keys = ON;
+SQL
+
+  if [[ "$(sqlite3 "$DB_PATH" "SELECT EXISTS(SELECT 1 FROM pragma_table_info('utenti_parametri') WHERE name='anncsu');")" == "0" ]]; then
+    echo "Aggiunta colonna anncsu a utenti_parametri..."
+    sqlite3 "$DB_PATH" "ALTER TABLE utenti_parametri ADD COLUMN anncsu BOOLEAN DEFAULT 0"
+  else
+    echo "Colonna anncsu gia' presente, la salto."
+  fi
+}
+
+RUN_TS="$(date +%Y%m%d_%H%M%S)"
+BACKUP_PATH="${DB_PATH}.bak.${RUN_TS}"
+cp -a "$DB_PATH" "$BACKUP_PATH"
+echo "Backup DB creato: $BACKUP_PATH"
+
 if [[ "$(table_exists dati_ente)" == "1" ]]; then
   DB_VERSION=$(sqlite3 "$DB_PATH" "SELECT versione FROM dati_ente LIMIT 1;" | xargs echo -n)
   echo "INFO: Versione database rilevata: '$DB_VERSION'"
 
   case "$DB_VERSION" in
   "1.4.0")
-    echo "Il database è già alla versione 1.4.0. Nessun aggiornamento necessario."
+    echo "Database già alla versione 1.4.0: applico allineamento versioni e-service ANPR e ANNCSU."
+    allinea_versioni_anpr
+    attiva_anncsu
     exit 0
     ;;
   "1.0.0")
@@ -132,11 +232,6 @@ else
   echo "Attenzione: tabella 'dati_ente' non trovata. Impossibile verificare la versione."
 fi
 
-RUN_TS="$(date +%Y%m%d_%H%M%S)"
-BACKUP_PATH="${DB_PATH}.bak.${RUN_TS}"
-cp -a "$DB_PATH" "$BACKUP_PATH"
-echo "Backup DB creato: $BACKUP_PATH"
-
 column_exists_in_db() {
   local db_path="$1"
   local table_name="$2"
@@ -164,6 +259,9 @@ for caso in C001 C007 C015 C017 C018 C020 C021; do
     echo "Colonna $colonna gia' presente, la salto."
   fi
 done
+
+echo "Attivazione e-service ANNCSU..."
+attiva_anncsu
 
 echo "Verifica e normalizzazione servizi MIT in servizi_parametri..."
 
@@ -230,6 +328,9 @@ fi
 sqlite3 "$DB_PATH" "CREATE UNIQUE INDEX IF NOT EXISTS servizi_parametri_codice_servizio_uniq ON servizi_parametri(codice_servizio);"
 
 echo "Servizi MIT normalizzati correttamente."
+
+echo "Allineamento versioni e-service ANPR..."
+allinea_versioni_anpr
 
 echo "Pulizia e reset dell'array app_io_catalogo_servizi..."
 sqlite3 "$DB_PATH" <<'SQL'
@@ -328,8 +429,15 @@ fi
 
 if [[ -f "$PROJECT_ROOT/manage.py" ]]; then
   echo "Esecuzione migrazioni Django..."
-  python3 "$PROJECT_ROOT/manage.py" collectstatic --noinput
-  python3 "$PROJECT_ROOT/manage.py" migrate
+
+  # manage.py va eseguito con il python dell'ambiente virtualenv del progetto:
+  # il python3 di sistema non ha Django ne' le dipendenze di requirements.txt.
+  VENV_DIR="${VENV_DIR:-$PROJECT_ROOT/env}"
+  source "$VENV_DIR/bin/activate"
+  echo "Ambiente attivato: $VIRTUAL_ENV"
+
+  python "$PROJECT_ROOT/manage.py" collectstatic --noinput
+  python "$PROJECT_ROOT/manage.py" migrate
 fi
 
 echo "Upgrade struttura e dati DB alla versione 1.4 completato."

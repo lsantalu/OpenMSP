@@ -20,6 +20,9 @@ from .ipa import impostazioni_ipa
 from .cassa_forense import cassa_forense
 from .cassa_forense import impostazioni_cassa_forense
 
+from .anncsu import anncsu_consultazione
+from .anncsu import impostazioni_anncsu
+
 from .inad import inad_singola
 from .inad import inad_massiva
 from .inad import inad_export_excel
@@ -176,6 +179,7 @@ urlpatterns = [
 
     path("cassa_forense/", cassa_forense, name="cassa_forense"),
     path("registro_imprese/", registro_imprese, name="registro_imprese"),
+    path("anncsu/", anncsu_consultazione, name="anncsu"),
 
     path("anis_iscrizioni_singola/", anis_iscrizioni_singola, name="anis_iscrizioni_singola"),
     path("anis_iscrizioni_massiva/", anis_iscrizioni_massiva, name="anis_iscrizioni_massiva"),
@@ -237,6 +241,7 @@ urlpatterns = [
     path("impostazioni_inps_durc/", impostazioni_inps_durc, name="impostazioni_inps_durc"),
     path("impostazioni_mit/", impostazioni_mit, name="impostazioni_mit"),
     path("impostazioni_cassa_forense/", impostazioni_cassa_forense, name="impostazioni_cassa_forense"),
+    path("impostazioni_anncsu/", impostazioni_anncsu, name="impostazioni_anncsu"),
     path("impostazioni_anis/", impostazioni_anis, name="impostazioni_anis"),
     path("impostazioni_app_io/", impostazioni_app_io, name="impostazioni_app_io"),
     path("impostazioni_app_io_2/", impostazioni_app_io_2, name="impostazioni_app_io_2"),

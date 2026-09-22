@@ -18,3 +18,4 @@ TODO
 .pi-lens.json
 pyrightconfig.json
 copy.sqlite3
+*.bak*

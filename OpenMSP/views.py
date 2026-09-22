@@ -151,6 +151,17 @@ def home(request):
             'description': 'Interrogazione anagrafe istruzione.',
         },
         {
+            'title': 'Consultazione ANNCSU',
+            # un solo gate per tutti e otto le operazioni: l'e-service su PDND e' uno soltanto,
+            # il permesso in utenti_parametri e' il singolo flag anncsu
+            'service_links': [('anncsu', 'anncsu', ('anncsu',))],
+            # icona dedicata in static/images/: in dev Django serve gli statici dal finder, in
+            # deploy passa da collectstatic (lo fa gia' l'update script) prima di rendere la home
+            'image': 'images/anncsu.png',
+            'alt': 'ANNCSU',
+            'description': 'Verifica odonimi e accessi nell’Archivio Nazionale dei Numeri Civici delle Strade Urbane.',
+        },
+        {
             'title': 'INPS',
             'service_links': [
                 ('inps_isee', 'inps_isee', ('inps_isee',)),
