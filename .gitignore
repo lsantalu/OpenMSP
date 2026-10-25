@@ -1,5 +1,7 @@
 .gitignore
 .github/*
+.pi/*
+.ruff_cache/*
 .vscode/*
 docs/*
 env/*

@@ -2,12 +2,18 @@
 # update/update_to_1.4.sh
 set -euo pipefail
 
-# Upgrade schema/data OpenMSP DB from 1.3 to 1.4.
-# Fix duplicate MIT service codes introduced in some upgraded production DBs.
-# Aggiunge i sette permessi anpr_Cxxx_massivo a utenti_parametri (interrogazioni ANPR massive).
+# Upgrade schema/data OpenMSP DB from 1.3 to 1.4 (richieste unificate, ANPR massive, ANNCSU).
+# Aggiunge i sette permessi anpr_Cxxx_massivo a utenti_parametri (interrogazioni ANPR massive)
+#   e il permesso anncsu.
+# Attiva l'e-service ANNCSU: tabelle anncsu_servizi / anncsu_parametri, gruppo e servizio nei menu.
+# Aggiunge eservice_id a tracing_parametri (diagnosi di finalita' diversa da quella configurata).
 # Allinea le versioni e-service ANPR: C007 v3 -> v4, C017 v1 -> v2.
-# Attiva l'e-service ANNCSU: tabelle anncsu_servizi / anncsu_parametri, gruppo e servizio
-#   nei menu, permesso anncsu in utenti_parametri.
+# Normalizza i codici servizio MIT duplicati su qualche DB di produzione gia' aggiornato alla 1.3
+#   e pone l'indice univoco su servizi_parametri.codice_servizio.
+# Riscrive .env e settings.py per il deployment dietro reverse proxy (issue #10) e per
+#   AUTH_LDAP_GLOBAL_OPTIONS (issue #14), e allinea il CDN di Bootstrap Italia.
+# Idempotente: su un DB gia' alla 1.4.0 riallinea ANPR e ANNCSU e raccoglie gli statici senza
+#   toccare i dati; i passaggi su .env e settings.py sono pilotati da grep.
 # Usage:
 #   ./update/update_to_1.4.sh [path/to/db.sqlite3] [path/to/.env]
 
@@ -184,6 +190,30 @@ SQL
   fi
 }
 
+# Gli statici vanno raccolti anche su un DB gia' a 1.4.0 (deploy fresco da db_example.sqlite3,
+# che e' gia' a 1.4.0): la nuova icona static/images/anncsu.png non comparirebbe in deploy.
+aggiorna_statici_e_migrazioni() {
+  [[ -f "$PROJECT_ROOT/manage.py" ]] || return 0
+  echo "Raccolta statici e migrazioni Django..."
+
+  # manage.py va eseguito con il python dell'ambiente virtualenv del progetto:
+  # il python3 di sistema non ha Django ne' le dipendenze di requirements.txt.
+  local venv_dir="${VENV_DIR:-$PROJECT_ROOT/env}"
+  local py=python
+  if [[ -f "$venv_dir/bin/activate" ]]; then
+    source "$venv_dir/bin/activate"
+    echo "Ambiente attivato: $VIRTUAL_ENV"
+  else
+    # Deploy Docker: nel container non c'e' nessun env/ e i requisiti sono gia' nell'immagine.
+    # Prima di questo fallback lo script moriva a meta' su `source`, da root, con il DB gia' aggiornato.
+    echo "INFO: virtualenv non trovato in $venv_dir: uso il python dell'immagine."
+    py="$(command -v python3 || command -v python)"
+  fi
+
+  "$py" "$PROJECT_ROOT/manage.py" collectstatic --noinput
+  "$py" "$PROJECT_ROOT/manage.py" migrate
+}
+
 RUN_TS="$(date +%Y%m%d_%H%M%S)"
 BACKUP_PATH="${DB_PATH}.bak.${RUN_TS}"
 cp -a "$DB_PATH" "$BACKUP_PATH"
@@ -198,6 +228,7 @@ if [[ "$(table_exists dati_ente)" == "1" ]]; then
     echo "Database già alla versione 1.4.0: applico allineamento versioni e-service ANPR e ANNCSU."
     allinea_versioni_anpr
     attiva_anncsu
+    aggiorna_statici_e_migrazioni
     exit 0
     ;;
   "1.0.0")
@@ -378,7 +409,7 @@ if [[ -f "$ENV_TARGET_PATH" ]]; then
   fi
 
   echo "Aggiornamento bootstrap-italia-cdn in .env..."
-  sed -i 's|bootstrap-italia@[0-9]*\.[0-9]*\.[0-9]*/dist|bootstrap-italia@2.18.2/dist|' "$ENV_TARGET_PATH" 2>/dev/null || true
+  sed -i 's|bootstrap-italia@[0-9]*\.[0-9]*\.[0-9]*/dist|bootstrap-italia@2.18.3/dist|' "$ENV_TARGET_PATH" 2>/dev/null || true
 
   if [[ -f "$SETTINGS_FILE" ]]; then
     echo "Aggiornamento di settings.py per supportare reverse proxy..."
@@ -427,17 +458,6 @@ GLOBAL_LDAP_EOF
   fi
 fi
 
-if [[ -f "$PROJECT_ROOT/manage.py" ]]; then
-  echo "Esecuzione migrazioni Django..."
-
-  # manage.py va eseguito con il python dell'ambiente virtualenv del progetto:
-  # il python3 di sistema non ha Django ne' le dipendenze di requirements.txt.
-  VENV_DIR="${VENV_DIR:-$PROJECT_ROOT/env}"
-  source "$VENV_DIR/bin/activate"
-  echo "Ambiente attivato: $VIRTUAL_ENV"
-
-  python "$PROJECT_ROOT/manage.py" collectstatic --noinput
-  python "$PROJECT_ROOT/manage.py" migrate
-fi
+aggiorna_statici_e_migrazioni
 
 echo "Upgrade struttura e dati DB alla versione 1.4 completato."

@@ -206,7 +206,7 @@ DEBUG = False
 ALLOWED_HOSTS = '["your.domain.com"]'
 
 DJANGO_BOOTSTRAP_ITALIA_USE_CDN = True
-DJANGO_BOOTSTRAP_ITALIA_CDN = 'https://cdn.jsdelivr.net/npm/bootstrap-italia@2.17.0/dist'
+DJANGO_BOOTSTRAP_ITALIA_CDN = 'https://cdn.jsdelivr.net/npm/bootstrap-italia@2.18.3/dist'
 
 EMAIL_HOST = 'mail.host.com'
 EMAIL_PORT = 465
