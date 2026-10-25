@@ -23,6 +23,9 @@ import io
 import csv
 import sys
 import openpyxl
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill
+from openpyxl.utils import get_column_letter
 from decimal import Decimal, InvalidOperation
 
 
@@ -567,10 +570,66 @@ def inps_durc_massivo(request):
 
                     data.append(item)
 
+            request.session["durc_data"] = data
+
             return render(request, 'inps_durc_massivo.html', {'data': data, 'utente_abilitato': utente_abilitato })
     else:
         utente_abilitato = False
     return render(request, 'inps_durc_massivo.html', { 'utente_abilitato': utente_abilitato })
+
+
+def inps_durc_export_excel(request):
+    if request.user.id:
+        utente_sessione = UtentiParametri.objects.get(id=request.user.id)
+        if not utente_sessione.inps_durc_massivo:
+            return HttpResponse("Utente non abilitato", status=403)
+    else:
+        return HttpResponse("Utente non autenticato", status=403)
+
+    data = request.session.get("durc_data", [])
+    if not data:
+        return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
+
+    wb = Workbook()
+    ws = wb.worksheets[0]
+    header = ["#", "CF", "Denominazione", "Esito", "Protocollo", "Scadenza"]
+    ws.append(header)
+    max_lengths = [len(h) for h in header]
+
+    for i, item in enumerate(data, 1):
+        res = item.get('res_data') or {}
+        if not res.get('protocollo'):
+            esito = item.get('error', '-')
+            color = "FFC7CE" if item.get('error') else "FFEB9C"
+        elif res.get('esitoInps') == '1' or res.get('esitoInail') == '1' or res.get('esitoCe') == '1':
+            esito = 'IRREGOLARE'
+            color = "FFC7CE"
+        else:
+            esito = 'REGOLARE'
+            color = "C6EFCE"
+
+        fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
+        ws.append([i, item.get('cf', ''), res.get('denominazione', ''), esito,
+                   res.get('protocollo', ''), res.get('scadenza', '')])
+        for col in ws.iter_rows(min_row=ws.max_row, max_row=ws.max_row):
+            for j, cell in enumerate(col):
+                cell.fill = fill
+                value_length = len(str(cell.value)) if cell.value else 0
+                if len(max_lengths) <= j:
+                    max_lengths.append(value_length)
+                else:
+                    max_lengths[j] = max(max_lengths[j], value_length)
+
+    for i, width in enumerate(max_lengths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = width
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    response = HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=EsitoVerificaDURC_Massiva.xlsx'
+    return response
 
 
 def inps_durc_verifica_impresa(cf, bearer):

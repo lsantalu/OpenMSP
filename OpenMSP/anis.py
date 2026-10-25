@@ -2,41 +2,42 @@
 # (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono; gli stub di
 #  openpyxl tipizzano Workbook.worksheets[0] come WriteOnlyWorksheet e requests.Response e'
 #  assignata dentro un try. Rumore di tipi su codice gia' a terra, nessun comportamento coinvolto)
-from django.shortcuts import render, redirect
-
-from impostazioni.models import UtentiParametri
-from impostazioni.models import ServiziParametri
-from impostazioni.models import AnisServizi
-from impostazioni.models import AnisParametri
-
-from .utils import salva_log
-from .utils import svuota_none
-from .utils import converti_data
-from .utils import cf_da_file
-from .verifica_cf import verifica_cf
+import base64
+import csv
 
 ##from datetime import datetime, date
 import datetime
-from jose.constants import Algorithms
-import http.client, urllib.parse
 import hashlib
+import http.client
+import io
+import json
 import random
-import base64
-import datetime
+import re
+import urllib.parse
 import uuid
+
 import jwt
+import openpyxl
+
 ###import subprocess
 import requests
-import json
-import io
-import csv
-import re
-import openpyxl
+from django.http import HttpResponse
+from django.shortcuts import redirect, render
+from jose.constants import Algorithms
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
 from openpyxl.utils import get_column_letter
 
-from django.http import HttpResponse
+from impostazioni.models import (
+    AnisParametri,
+    AnisServizi,
+    ServiziParametri,
+    UtentiParametri,
+)
+
+from .utils import cf_da_file, converti_data, permessi_servizi, salva_log, svuota_none
+from .verifica_cf import verifica_cf
+
 
 # I payload di ANIS e ANIST non hanno un campo d'esito comune (IFS02/IFS03 portano solo
 # l'elenco, ANIST porta frequentante/presenzaTitoli), quindi il giudizio va derivato dalla
@@ -212,7 +213,7 @@ def anis_iscrizioni_export_excel(request):
 
 def anis_iscrizioni_export_csv(request):
     data = request.session.get("multi_data", [])
-    
+
     response = HttpResponse(
         content_type='text/csv',
         headers={'Content-Disposition': 'attachment; filename="EsitoAnisIscrizioni.csv"'},
@@ -300,7 +301,7 @@ def anis_titoli_export_excel(request):
                             valutazione = "110 cum laude"
                         valutazione = valutazione + " su " + qual['qualification_grading_scale_maximum_grade']
                     ws.append([cf, istituto, qualifica, tipo_corso, nome_corso, classe, data_conseg, valutazione])
-                    
+
                     fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
                     for col in ws.iter_rows(min_row=ws.max_row, max_row=ws.max_row):
                         for i, cell in enumerate(col):
@@ -316,7 +317,7 @@ def anis_titoli_export_excel(request):
             if "Codice" in split_row[1]:
                 color = "FFC7CE"  # rosso
                 ws.append([cf, "Codice fiscale non corretto", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"])
-                
+
                 fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
                 for col in ws.iter_rows(min_row=ws.max_row, max_row=ws.max_row):
                     for i, cell in enumerate(col):
@@ -364,7 +365,7 @@ def anist_frequenze_export_excel(request):
         elif isinstance(row, list):
             cf = row[0]
             if isinstance(row[1], dict):
-                if row[1]['frequentante'] == False :
+                if not row[1]['frequentante']:
                     color = "FFC7CE"
                     ws.append([cf, "La richiesta effettuata non produce alcun risultato", "N/A", "N/A", "N/A", "N/A"])
                 else:
@@ -413,7 +414,7 @@ def anist_frequenze_export_excel(request):
 
 def anist_frequenze_export_csv(request):
     data = request.session.get("multi_data", [])
-    
+
     response = HttpResponse(
         content_type='text/csv',
         headers={'Content-Disposition': 'attachment; filename="EsitoAnistFrequenze.csv"'},
@@ -432,7 +433,7 @@ def anist_frequenze_export_csv(request):
         elif isinstance(row, list):
             cf = row[0]
             if isinstance(row[1], dict):
-                if row[1]['frequentante'] == False:
+                if not row[1]['frequentante']:
                     writer.writerow([cf, "La richiesta effettuata non produce alcun risultato", "N/A", "N/A", "N/A", "N/A"])
                 else:
                     istituto = row[1]['denoIstitutoPrincipale'] + " (" + row[1]['codiceIstitutoPrincipale'] + ")"
@@ -474,7 +475,7 @@ def anist_titoli_export_excel(request):
             ws.append(err)
         elif isinstance(row, list):
             cf = row[0]
-            if row[1]['presenzaTitoli'] == False:
+            if not row[1]['presenzaTitoli']:
                 color = "FFC7CE"
                 valori = [cf, "La richiesta effettuata non produce alcun risultato", "N/A", "N/A", "N/A"]
                 ws.append(valori)
@@ -525,7 +526,7 @@ def anist_titoli_export_excel(request):
 
 def anist_titoli_export_csv(request):
     data = request.session.get("multi_data", [])
-    
+
     response = HttpResponse(
         content_type='text/csv',
         headers={'Content-Disposition': 'attachment; filename="EsitoAnistTitoli.csv"'},
@@ -543,7 +544,7 @@ def anist_titoli_export_csv(request):
             writer.writerow(err)
         elif isinstance(row, list):
             cf = row[0]
-            if row[1]['presenzaTitoli'] == False:
+            if not row[1]['presenzaTitoli']:
                 writer.writerow([cf, "La richiesta effettuata non produce alcun risultato", "N/A", "N/A", "N/A"])
             else:
                 for titol in row[1]['listaTitoli']:
@@ -887,7 +888,7 @@ ANIS_SERVIZI = {
     'IFS02': {
         'id_caso': 1, 'codice': 'anis_IFS02', 'label': 'ANIS - Iscrizioni universitarie',
         'titolo': 'Iscrizioni', 'con_cf': False,
-        'singolo': 'anis_IFS02_singolo', 'massivo': 'anis_IFS02_massivo',
+        'flag': 'anis_IFS02_singolo', 'flag_massivo': 'anis_IFS02_massivo',
         'log': {'singola': 'Verifica ANIS - IFS02 - Iscrizioni Singolo',
                 'massiva': 'Verifica ANIS - IFS02 - Iscrizioni Massivo'},
         'export': {'excel': 'anis_iscrizioni_export_excel', 'csv': 'anis_iscrizioni_export_csv'},
@@ -895,7 +896,7 @@ ANIS_SERVIZI = {
     'IFS03': {
         'id_caso': 2, 'codice': 'anis_IFS03', 'label': 'ANIS - Titoli di studio universitari',
         'titolo': 'Titoli conseguiti', 'con_cf': False,
-        'singolo': 'anis_IFS03_singolo', 'massivo': 'anis_IFS03_massivo',
+        'flag': 'anis_IFS03_singolo', 'flag_massivo': 'anis_IFS03_massivo',
         'log': {'singola': 'Verifica ANIS - IFS03 - Titoli Singolo',
                 'massiva': 'Verifica ANIS - IFS03 - Titoli Massivo'},
         'export': {'excel': 'anis_titoli_export_excel'},
@@ -903,7 +904,7 @@ ANIS_SERVIZI = {
     'ANIST_FREQ': {
         'id_caso': 3, 'codice': 'anist_frequenze', 'label': 'ANIST - Frequenza scolastica',
         'titolo': 'Frequenza di', 'con_cf': True,
-        'singolo': 'anist_frequenze_singolo', 'massivo': 'anist_frequenze_massivo',
+        'flag': 'anist_frequenze_singolo', 'flag_massivo': 'anist_frequenze_massivo',
         'log': {'singola': 'Verifica ANIST - Frequenze Singolo',
                 'massiva': 'Verifica ANIST - Frequenze Massivo'},
         'export': {'excel': 'anist_frequenze_export_excel', 'csv': 'anist_frequenze_export_csv'},
@@ -911,7 +912,7 @@ ANIS_SERVIZI = {
     'ANIST_TITOLI': {
         'id_caso': 4, 'codice': 'anist_titoli', 'label': 'ANIST - Titoli di studio',
         'titolo': 'Titoli conseguiti', 'con_cf': True,
-        'singolo': 'anist_titoli_singolo', 'massivo': 'anist_titoli_massivo',
+        'flag': 'anist_titoli_singolo', 'flag_massivo': 'anist_titoli_massivo',
         'log': {'singola': 'Verifica ANIST - Titoli Singolo',
                 'massiva': 'Verifica ANIST - Titoli Massivo'},
         'export': {'excel': 'anist_titoli_export_excel', 'csv': 'anist_titoli_export_csv'},
@@ -921,23 +922,11 @@ ANIS_SERVIZI = {
 
 def istruzione(request):
     """Pagina unificata ANIS/ANIST: un form, quattro interrogazioni, singola o massiva.
-    Il protocollo AgID resta in anis_verifica_utente, qui cambiano solo id_caso e i permessi."""
-    permessi = {}
-    servizi = []
-    utente_abilitato = False
-    if request.user.is_authenticated:
-        utente = UtentiParametri.objects.filter(id=request.user.id).first()
-        attivi = {servizio.codice_servizio: servizio.attivo for servizio in ServiziParametri.objects.all()}
-        for chiave, conf in ANIS_SERVIZI.items():
-            abilitato = attivi.get(conf['codice'], False) and bool(utente)
-            permessi[chiave] = {
-                'singola': abilitato and bool(getattr(utente, conf['singolo'], False)),
-                'massiva': abilitato and bool(getattr(utente, conf['massivo'], False)),
-            }
-            servizi.append({'chiave': chiave, 'label': conf['label'],
-                            'singola': permessi[chiave]['singola'],
-                            'massiva': permessi[chiave]['massiva']})
-            utente_abilitato = utente_abilitato or any(permessi[chiave].values())
+    Il protocollo AgID resta in anis_verifica_utente, qui cambiano solo id_caso e i permessi.
+    Un eService spento non viene offerto; attivo ma senza permesso viene offerto disabilitato."""
+    utente = (UtentiParametri.objects.filter(id=request.user.id).first()
+              if request.user.is_authenticated else None)
+    servizi, permessi, utente_abilitato = permessi_servizi(utente, ANIS_SERVIZI)
 
     risultati = []
     interrogazione = {'titolo': '', 'modalita': '', 'export': {}}
@@ -995,7 +984,6 @@ def istruzione(request):
     return render(request, 'istruzione.html', {
         'utente_abilitato': utente_abilitato,
         'servizi': servizi,
-        'permessi_json': json.dumps(permessi),
         'risultati': risultati,
         'interrogazione': interrogazione,
         'servizio_scelto': servizio_scelto,
@@ -1026,28 +1014,16 @@ def anis_get_voucher(clientid, baseurlauth, client_assertion):
     try:
         decoded_token = jwt.decode(voucher, options={"verify_signature": False})
         token_id = decoded_token.get('jti')
-    except Exception:
+    except Exception:  # noqa: BLE001  # token_id e' solo audit: meglio None che far fallire l'interrogazione
         token_id = None
     return voucher, token_id
 
 
 def anis_verifica_utente(user_ID, cf, id_caso):
     parametri_anis = AnisParametri.objects.get(id=id_caso)
-    caso = ''
-    if id_caso == 1:
-        caso = "IFS02"
-    if id_caso == 2:
-        caso = "IFS03"
-    if id_caso == 3:
-        caso = "Anist_Frequenze"
-    else:
-        caso = "Anist_Titoli"
-
     kid = parametri_anis.kid
     alg = parametri_anis.alg
     typ = parametri_anis.typ
-    issuer = parametri_anis.iss
-    subject = parametri_anis.sub
     aud = parametri_anis.aud
     purposeid = parametri_anis.purposeid
     audience = parametri_anis.audience
@@ -1064,7 +1040,10 @@ def anis_verifica_utente(user_ID, cf, id_caso):
         richiesta = f'{{"codiceFiscale":"{cf}"}}'
 
 
-    issued = datetime.datetime.utcnow()
+    # ponytail: iat/nbf/exp qui sono naive (utcnow) e il client AgID a terra li accetta:
+    # renderli aware cambierebbe il valore degli epoch gia' in uso, DTZ003 silenziato,
+    # upgrade = now(timezone.utc) verificato su un ambiente AgID reale.
+    issued = datetime.datetime.utcnow()  # noqa: DTZ003
     delta = datetime.timedelta(minutes=43200)
     expire_in = issued + delta
     dnonce = random.randint(1000000000000, 9999999999999)
@@ -1152,7 +1131,9 @@ def anis_verifica_utente(user_ID, cf, id_caso):
                 }
 
     try:
-        response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
+        # ponytail: verify=False e' debito ereditato (AGENTS.md); il timeout ora c'e', la verifica
+        # CA resta da fare su un ambiente AgID reale. S501 silenziato, non comportamentale.
+        response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False, timeout=30)  # noqa: S501
         status_code = response.status_code
         if response.status_code != 200:
             try:
@@ -1179,7 +1160,7 @@ def anis_verifica_utente(user_ID, cf, id_caso):
                 "descrizione": f"Risposta non valida dal server (non JSON): {response.text[:200]}"
             }
         }, 500, purposeid, token_id
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  # il client desegue in esito network_error, non in 500
         return {
             "esito": {
                 "codice": "network_error",
@@ -1191,13 +1172,6 @@ def impostazioni_anis(request):
     servizi_anis = AnisServizi.objects.all()
     parametri_anis = AnisParametri.objects.all()
     svuota_none(parametri_anis)
-
-    service_active = ServiziParametri.objects.all()
-    i_serv=0
-    service_desc = ["" for _ in range(ServiziParametri.objects.count())]
-    for servizio in service_active:
-        service_desc[i_serv]= (servizio.attivo)
-        i_serv += 1
 
     if request.method == 'POST':
         active_tab = request.POST.get("active_tab", "").replace("tab", "")

@@ -53,7 +53,7 @@ from .registro_imprese import registro_imprese_get_bearer, registro_imprese_veri
 from .anis import anis_verifica_utente
 
 
-from .utils import converti_data, salva_log, cf_da_file
+from .utils import converti_data, salva_log, cf_da_file, permessi_servizi
 
 from impostazioni.models import IpaParametri
 from impostazioni.models import ServiziParametri
@@ -346,26 +346,12 @@ def logout(request):
 # in OpenMSP/anpr.py, insieme all'export Excel che rilegge session['multi_data'].
 def anpr(request):
     """Un form, sette casi d'uso, singola o massiva. La scelta del servizio e il caricamento del
-    file seguono la stessa logica della pagina dei domicili digitali: permesso servizio x modalita'
-    calcolato dai flag dell'utente, ri-validato nel POST (un form manomesso non ottiene un caso non
-    abilitato) e file CSV/XLSX letto dalla sola colonna A."""
-    permessi = {}
-    servizi = []
-    utente_abilitato = False
-    if request.user.is_authenticated:
-        utente = UtentiParametri.objects.filter(id=request.user.id).first()
-        attivi = {servizio.codice_servizio: servizio.attivo
-                  for servizio in ServiziParametri.objects.all()}
-        for caso, conf in ANPR_SERVIZI.items():
-            abilitato = bool(utente) and attivi.get('anpr_' + caso.lower(), False)
-            permessi[caso] = {
-                'singola': abilitato and bool(getattr(utente, conf['flag'], False)),
-                'massiva': abilitato and bool(getattr(utente, conf['flag_massivo'], False)),
-            }
-            servizi.append({'caso': caso, 'label': conf['label'],
-                            'singola': permessi[caso]['singola'],
-                            'massiva': permessi[caso]['massiva']})
-            utente_abilitato = utente_abilitato or any(permessi[caso].values())
+    file seguono la stessa logica della pagina dei domicili digitali: doppio gate (invariante 1)
+    ri-validato nel POST, un caso d'uso spento in servizi_parametri non viene offerto, uno attivo
+    ma senza permesso su utenti_parametri viene offerto disabilitato."""
+    utente = (UtentiParametri.objects.filter(id=request.user.id).first()
+              if request.user.is_authenticated else None)
+    servizi, permessi, utente_abilitato = permessi_servizi(utente, ANPR_SERVIZI)
 
     data = None
     righe = []
@@ -591,78 +577,58 @@ class CustomUserCreationForm(UserCreationForm):
             raise forms.ValidationError("Questo indirizzo email è già in uso.")
         return email
 
+# Come ANPR_SERVIZI e ANIS_SERVIZI: `codice` e' la riga di servizi_parametri che accende il
+# servizio, i due flag sono i permessi su utenti_parametri. INI-PEC vive sotto `registro_imprese`
+# (stessa mappatura gia' usata dal megamenu e da context_processors).
+DOMICILI_SERVIZI = {
+    'ipa': {'codice': 'ipa', 'flag': 'ipa_singolo', 'flag_massivo': 'ipa_massivo',
+            'label': 'iPA (Amministrazioni)'},
+    'inad': {'codice': 'inad', 'flag': 'inad_singolo', 'flag_massivo': 'inad_massivo',
+             'label': 'INAD (Persone Fisiche)'},
+    'inipec': {'codice': 'registro_imprese', 'flag': 'inipec_singolo', 'flag_massivo': 'inipec_massivo',
+               'label': 'INI-PEC (Persone Giuridiche)'},
+}
+
+
 def domicili_digitali_view(request):
+    """Unica pagina per iPA / INAD / INI-PEC, singola o massiva. Un eService spento non viene
+    offerto; attivo ma senza permesso viene offerto disabilitato (invariante 1: doppio gate
+    servizi_parametri AND utenti_parametri, ri-validato nel POST)."""
     results = None
     search_context = {}
-    utente_abilitato = False
-    allowed_searches = {
-        'ipa': {'singola': False, 'massiva': False},
-        'inad': {'singola': False, 'massiva': False},
-        'inipec': {'singola': False, 'massiva': False},
-    }
-
-    if request.user.is_authenticated:
-        utente_sessione = UtentiParametri.objects.filter(id=request.user.id).first()
-        if utente_sessione:
-            allowed_searches = {
-                'ipa': {
-                    'singola': bool(utente_sessione.ipa_singolo),
-                    'massiva': bool(utente_sessione.ipa_massivo),
-                },
-                'inad': {
-                    'singola': bool(utente_sessione.inad_singolo),
-                    'massiva': bool(utente_sessione.inad_massivo),
-                },
-                'inipec': {
-                    'singola': bool(utente_sessione.inipec_singolo),
-                    'massiva': bool(utente_sessione.inipec_massivo),
-                },
-            }
-            utente_abilitato = any(
-                mode_enabled
-                for service_modes in allowed_searches.values()
-                for mode_enabled in service_modes.values()
-            )
+    error = None
+    utente = (UtentiParametri.objects.filter(id=request.user.id).first()
+              if request.user.is_authenticated else None)
+    servizi, permessi, utente_abilitato = permessi_servizi(utente, DOMICILI_SERVIZI)
+    contesto = {'results': results, 'search_context': search_context,
+                'utente_abilitato': utente_abilitato, 'servizi': servizi, 'error': error}
 
     if request.method == 'POST':
-        if not utente_abilitato:
-            return render(request, 'domicili_digitali.html', {
-                'results': results,
-                'search_context': search_context,
-                'utente_abilitato': utente_abilitato,
-                'allowed_searches': allowed_searches,
-                    'allowed_searches_json': json.dumps(allowed_searches),
-            })
-
         tipo = request.POST.get('tipo_domicilio')
         modalita = request.POST.get('modalita')
         api_key = "DEFAULT_KEY"
+        search_context = {'tipo': tipo, 'modalita': modalita}
+        contesto['search_context'] = search_context
 
-        if tipo not in allowed_searches or modalita not in allowed_searches[tipo] or not allowed_searches[tipo][modalita]:
-            return render(request, 'domicili_digitali.html', {
-                'results': results,
-                'search_context': {'tipo': tipo, 'modalita': modalita},
-                'utente_abilitato': utente_abilitato,
-                'allowed_searches': allowed_searches,
-                    'allowed_searches_json': json.dumps(allowed_searches),
-                'error': "Non sei abilitato per questa tipologia di ricerca.",
-            })
+        if not permessi.get(tipo, {}).get(modalita, False):
+            contesto['error'] = "Non sei abilitato per questa tipologia di ricerca."
+            return render(request, 'domicili_digitali.html', contesto)
 
         results = []
-        search_context = {'tipo': tipo, 'modalita': modalita}
+        contesto['results'] = results
 
         if modalita == 'singola':
             if tipo == 'ipa':
                 descrizione = request.POST.get('input_descrizione_ente')
                 cf_ipa = request.POST.get('input_CF')
                 codice_ipa = request.POST.get('input_codice_ente')
-                
+
                 ipa_parametri = IpaParametri.objects.get(id=1)
                 auth_id = ipa_parametri.auth_id
-                
+
                 codici_amm = []
                 cf_display = ""
-                
+
                 if descrizione:
                     cf_display = descrizione
                     url = "https://www.indicepa.gov.it:443/ws/WS16DESAMMServices/api/WS16_DES_AMM"
@@ -735,7 +701,7 @@ def domicili_digitali_view(request):
                             temp_data = json_da_response(response)
                             occorrenze = temp_data.get('result', {}).get('num_items', 0)
                             if occorrenze:
-                                for indice in range(0, occorrenze):
+                                for indice in range(occorrenze):
                                     codice_ipa = temp_data['data'][indice]['cod_amm']
                                     response_pec = ipa_codice(ipa_auth_id, codice_ipa)
                                     if response_pec.status_code == 200:
@@ -773,10 +739,28 @@ def domicili_digitali_view(request):
                     }
                     salva_log(request.user, riepilogo[tipo][0], riepilogo[tipo][1])
 
-    return render(request, 'domicili_digitali.html', {
-        'results': results,
-        'search_context': search_context,
-        'utente_abilitato': utente_abilitato,
-        'allowed_searches': allowed_searches,
-                    'allowed_searches_json': json.dumps(allowed_searches),
-    })
+    # Classe della riga e nome dell'export: regole in un punto solo, il template si limita a
+    # renderizzare (prima la classe era un {% if %} annidato dentro il tag <tr>).
+    esportazioni = {'ipa': 'ipa_export_excel', 'inad': 'inad_export_excel',
+                    'inipec': 'inipec_export_excel'}
+    for riga in results or []:
+        dato = riga.get('dato', '')
+        if '@' in dato:
+            riga['classe'] = 'table-success'
+        elif dato == 'Codice fiscale non corretto':
+            riga['classe'] = 'table-warning'
+        else:
+            riga['classe'] = 'table-danger'
+    search_context['export'] = esportazioni.get(search_context.get('tipo', ''), 'ipa_export_excel')
+
+    # Classe della riga in tabella: regola unica qui, il template non deve duplicarla.
+    for riga in results or []:
+        dato = riga.get('dato', '')
+        if '@' in dato:
+            riga['classe'] = 'table-success'
+        elif dato == 'Codice fiscale non corretto':
+            riga['classe'] = 'table-warning'
+        else:
+            riga['classe'] = 'table-danger'
+
+    return render(request, 'domicili_digitali.html', contesto)

@@ -80,6 +80,7 @@ from .inps import inps_isee
 from .inps import inps_durc_singolo
 from .inps import inps_durc_massivo
 from .inps import inps_durc_download
+from .inps import inps_durc_export_excel
 from .inps import impostazioni_inps_isee
 from .inps import impostazioni_inps_durc
 
@@ -170,6 +171,7 @@ urlpatterns = [
     path("inps_isee/", inps_isee, name="inps_isee"),
     path("inps_durc_singolo/", inps_durc_singolo, name="inps_durc_singolo"),
     path("inps_durc_massivo/", inps_durc_massivo, name="inps_durc_massivo"),
+    path("inps_durc_export_excel/", inps_durc_export_excel, name='inps_durc_export_excel'),
     path("inps_durc_download/<str:protocollo>/", inps_durc_download, name="inps_durc_download"),
 
     path("mit_whitelist/", mit_whitelist, name="mit_whitelist"),

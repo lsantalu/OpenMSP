@@ -31,9 +31,8 @@
                 {% for option in servizi %}
                   <div class="col-6 col-md-4">
                     <div class="form-check m-0">
-                      <input class="form-check-input servizio-anpr-radio" type="radio" name="servizio_anpr" id="servizio_{{ option.caso }}" value="{{ option.caso }}" data-singola="{% if option.singola %}1{% else %}0{% endif %}" data-massiva="{% if option.massiva %}1{% else %}0{% endif %}" {{ option.attributi }} />
-                      <label class="form-check-label{% if not option.singola and not option.massiva %} text-muted{% endif %}"
-                             for="servizio_{{ option.caso }}">{{ option.label }}</label>
+                      <input class="form-check-input servizio-anpr-radio" type="radio" name="servizio_anpr" id="servizio_{{ option.chiave }}" value="{{ option.chiave }}" data-singola="{% if option.singola %}1{% else %}0{% endif %}" data-massiva="{% if option.massiva %}1{% else %}0{% endif %}" {{ option.attributi }} />
+                      <label class="form-check-label{% if option.attributi %} text-muted{% endif %}" for="servizio_{{ option.chiave }}">{{ option.label }}</label>
                     </div>
                   </div>
                 {% endfor %}
@@ -46,13 +45,13 @@
               <div class="row">
                 <div class="col-6">
                   <div class="form-check m-0">
-                    <input class="form-check-input" type="radio" name="modalita" id="modalita_singola" value="singola" {{ attributi_singola }} />
+                    <input class="form-check-input" type="radio" name="modalita" id="modalita_singola" value="singola" disabled />
                     <label class="form-check-label" for="modalita_singola">Ricerca singola</label>
                   </div>
                 </div>
                 <div class="col-6">
                   <div class="form-check m-0">
-                    <input class="form-check-input" type="radio" name="modalita" id="modalita_massiva" value="massiva" {{ attributi_massiva }} />
+                    <input class="form-check-input" type="radio" name="modalita" id="modalita_massiva" value="massiva" disabled />
                     <label class="form-check-label" for="modalita_massiva">Ricerca massiva</label>
                   </div>
                 </div>
@@ -175,11 +174,10 @@
   <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
     <h5 class="it-card-title it-card-title-icon">Generalità di {{ data.0 }}</h5>
     {% if 'Codice fiscale non corretto' in data.1 or 'listaErrori' in data.1 %}
-    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;"></div>
       {% else %}
-      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
+      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;"></div>
         {% endif %}
-      </div>
       <div class="it-card-body">
         {% if 'Codice fiscale non corretto' in data.1 %}
         <p class="it-card-text">
@@ -229,20 +227,18 @@
 
           {% endif %}
           <br>
-          Soggetto in vita: <b>
+          Soggetto in vita: 
             {% if "N" in soggetto.infoSoggettoEnte.0.valore %}
-            No</b>
+            <b>No</b>
             {% else%}
-            Si</b>
-            {% endif %}
+            <b>Si</b>            {% endif %}
 
             <br>
-            Soggetto AIRE: <b>
+            Soggetto AIRE: 
               {% if "N" in soggetto.generalita.soggettoAIRE %}
-              No</b>
+              <b>No</b>
               {% else%}
-              Si</b>
-              {% endif %}
+              <b>Si</b>              {% endif %}
             </p>
             {% endwith %}
             {% endif %}
@@ -255,11 +251,10 @@
   <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
     <h5 class="it-card-title it-card-title-icon">Esistenza in vita di {{ data.0 }}</h5>
     {% if 'Codice fiscale non corretto' in data.1 or 'listaErrori' in data.1 %}
-    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;"></div>
       {% else %}
-      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
+      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;"></div>
         {% endif %}
-      </div>
       <div class="it-card-body">
         {% if 'Codice fiscale non corretto' in data.1 %}
         <p class="it-card-text">
@@ -283,12 +278,11 @@
           {% if soggetto.generalita.luogoNascita.localita != null %}
           Luogo nascita: <b>{{ soggetto.generalita.luogoNascita.localita.descrizioneLocalita }} ({{ soggetto.generalita.luogoNascita.localita.descrizioneStato }})</b><br>
           {% endif %}
-          Soggetto AIRE: <b>
+          Soggetto AIRE: 
             {% if "N" in soggetto.generalita.soggettoAIRE %}
-            No</b>
+            <b>No</b>
             {% else%}
-            Si</b>
-            {% endif %}
+            <b>Si</b>            {% endif %}
             <br>
             idANPR: <b>{{ soggetto.identificativi.idANPR }}</b><br>
             ID scheda ANPR: <b>{{ soggetto.generalita.idSchedaSoggettoANPR }}</b>
@@ -335,11 +329,10 @@
   <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
     <h5 class="it-card-title it-card-title-icon">Generalità di {{ data.0 }}</h5>
     {% if 'Codice fiscale non corretto' in data.1 or 'listaErrori' in data.1 %}
-    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;"></div>
       {% else %}
-      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
+      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;"></div>
         {% endif %}
-      </div>
       <div class="it-card-body">
         {% if 'Codice fiscale non corretto' in data.1 %}
         <p class="it-card-text">
@@ -402,12 +395,11 @@
             {% endif %}
           </b><br>
 
-          Soggetto AIRE: <b>
+          Soggetto AIRE: 
             {% if "N" in soggetto.generalita.soggettoAIRE %}
-            No</b>
+            <b>No</b>
             {% else%}
-            Si</b>
-            {% endif %}
+            <b>Si</b>            {% endif %}
             <br>
             idANPR: <b>{{ soggetto.identificativi.idANPR }}</b><br>
             ID scheda ANPR: <b>{{ soggetto.generalita.idSchedaSoggettoANPR }}</b>
@@ -427,11 +419,10 @@
     <h5 class="it-card-title it-card-title-icon">Matrimonio di {{ data.0 }}</h5>
 
     {% if 'Codice fiscale non corretto' in data.1 or 'listaErrori' in data.1 %}
-    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;"></div>
       {% else %}
-      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
+      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;"></div>
         {% endif %}
-      </div>
       <div class="it-card-body">
         {% if 'Codice fiscale non corretto' in data.1 %}
         <p class="it-card-text">
@@ -498,12 +489,11 @@
             {% endif %}
           </b>
           <br />
-          Soggetto AIRE: <b>
+          Soggetto AIRE: 
             {% if "N" in soggetto.generalita.soggettoAIRE %}
-            No</b>
+            <b>No</b>
             {% else%}
-            Si</b>
-            {% endif %}
+            <b>Si</b>            {% endif %}
             <br>
             idANPR: <b>{{ soggetto.identificativi.idANPR }}</b><br />
             ID scheda ANPR: <b>{{ soggetto.generalita.idSchedaSoggettoANPR }}</b><br />
@@ -583,11 +573,10 @@
   <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
     <h5 class="it-card-title it-card-title-icon">Cittadinanza di {{ data.0 }}</h5>
     {% if 'Codice fiscale non corretto' in data.1 or 'listaErrori' in data.1 %}
-    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;"></div>
       {% else %}
-      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
+      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;"></div>
         {% endif %}
-      </div>
       <div class="it-card-body">
         {% if 'Codice fiscale non corretto' in data.1 %}
         <p class="it-card-text">
@@ -612,12 +601,11 @@
             {% if soggetto.generalita.luogoNascita.localita != null %}
             Luogo nascita: <b>{{ soggetto.generalita.luogoNascita.localita.descrizioneLocalita }} ({{ soggetto.generalita.luogoNascita.localita.descrizioneStato }})</b><br>
             {% endif %}
-            Soggetto AIRE: <b>
+            Soggetto AIRE: 
               {% if "N" in soggetto.generalita.soggettoAIRE %}
-              No</b>
+              <b>No</b>
               {% else%}
-              Si</b>
-              {% endif %}
+              <b>Si</b>              {% endif %}
               <br>
               idANPR: <b>{{ soggetto.identificativi.idANPR }}</b><br>
               ID scheda ANPR: <b>{{ soggetto.generalita.idSchedaSoggettoANPR }}</b>
@@ -637,12 +625,11 @@
     <h5 class="it-card-title it-card-title-icon">Residenza di {{ data.0 }}</h5>
 
     {% if 'Codice fiscale non corretto' in data.1 or 'listaErrori' in data.1 %}
-    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;"></div>
 
       {% else %}
-      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
+      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;"></div>
         {% endif %}
-      </div>
       <div class="it-card-body">
         {% if 'Codice fiscale non corretto' in data.1 %}
         <p class="it-card-text">
@@ -691,12 +678,11 @@
           Stato: <b>{{ soggetto.generalita.luogoNascita.comune.nomeComune }} ({{ soggetto.generalita.luogoNascita.comune.stato }})</b><br>
           {% endif %}
 
-          Soggetto AIRE: <b>
+          Soggetto AIRE: 
             {% if "N" in soggetto.generalita.soggettoAIRE %}
-            No</b>
+            <b>No</b>
             {% else%}
-            Si</b>
-            {% endif %}
+            <b>Si</b>            {% endif %}
             <br>
             idANPR: <b>{{ soggetto.identificativi.idANPR }}</b><br>
             ID scheda ANPR: <b>{{ soggetto.generalita.idSchedaSoggettoANPR }}</b>
@@ -757,12 +743,11 @@
             {% if soggetto.generalita.luogoNascita.localita != null %}
             Luogo nascita: <b>{{ soggetto.generalita.luogoNascita.localita.descrizioneLocalita }} ({{ soggetto.generalita.luogoNascita.localita.descrizioneStato }})</b><br />
             {% endif %}
-            Soggetto AIRE: <b>
+            Soggetto AIRE: 
               {% if "N" in soggetto.generalita.soggettoAIRE %}
-              No</b>
+              <b>No</b>
               {% else%}
-              Si</b>
-              {% endif %}
+              <b>Si</b>              {% endif %}
               <br>
               idANPR: <b>{{ soggetto.identificativi.idANPR }}</b><br />
               ID scheda ANPR: <b>{{ soggetto.generalita.idSchedaSoggettoANPR }}</b><br />
@@ -892,11 +877,19 @@
       executeSearchBtn.disabled = !pronto;
     }
 
+    function aggiornaModalita() {
+      // Le due modalita' si abilitano solo per il caso d'uso scelto: i permessi sono per
+      // servizio E per modalita', e il form non puo' offrire una ricerca che il POST rifiuta.
+      const radio = servizioScelto();
+      modalitaSingola.disabled = !radio || radio.dataset.singola !== '1';
+      modalitaMassiva.disabled = !radio || radio.dataset.massiva !== '1';
+      if (modalitaSingola.disabled) modalitaSingola.checked = false;
+      if (modalitaMassiva.disabled) modalitaMassiva.checked = false;
+    }
+
     function aggiornaSezioni() {
       // stesso comportamento dei domicili digitali: prima il caso d'uso, poi la modalita'
-      const radio = servizioScelto();
-      if (radio && modalitaSingola.checked && radio.dataset.singola !== '1') modalitaSingola.checked = false;
-      if (radio && modalitaMassiva.checked && radio.dataset.massiva !== '1') modalitaMassiva.checked = false;
+      aggiornaModalita();
       inputSingola.classList.toggle('d-none', !modalitaSingola.checked);
       inputMassiva.classList.toggle('d-none', !modalitaMassiva.checked);
       fileInput.required = modalitaMassiva.checked;

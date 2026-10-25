@@ -153,6 +153,11 @@ INPS verifica DURC - OpenMSP - Multi Services Portal
         <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
       </svg><span>Esporta CSV</span>
     </button>
+    <a href="{% url 'inps_durc_export_excel' %}" class="m-1 btn btn-success">
+      <svg class="icon icon-sm icon-light" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+      </svg>  <span>Esporta Excel</span>
+    </a>
   </div>
 
 </div>

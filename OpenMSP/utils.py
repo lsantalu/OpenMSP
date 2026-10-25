@@ -1,14 +1,17 @@
 # pyright: reportAttributeAccessIssue=false
 # (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono)
-import re
 import csv
-import io
 import datetime
+import io
+import re
 from datetime import date
+
 import openpyxl
 import pytz
 from django.db import connection
-from impostazioni.models import Logs
+from django.utils.safestring import mark_safe
+
+from impostazioni.models import Logs, ServiziParametri
 
 _LOGS_COLUMNS = None
 
@@ -67,11 +70,10 @@ def converti_data(data):
     elif isinstance(data, list):
         for i in range(len(data)):
             data[i] = converti_data(data[i])
-    elif isinstance(data, str):
-        if date_pattern.match(data):
-            # Convertire la data nel formato DD-MM-YYYY
-            date_obj = datetime.datetime.strptime(data, '%Y-%m-%d')
-            return date_obj.strftime('%d-%m-%Y')
+    elif isinstance(data, str) and date_pattern.match(data):
+        # Convertire la data nel formato DD-MM-YYYY
+        date_obj = datetime.datetime.strptime(data, '%Y-%m-%d')
+        return date_obj.strftime('%d-%m-%Y')
     return data
 
 def normalizza_data(data_input):
@@ -151,6 +153,39 @@ def salva_log(utente, servizio, richiesta, purposeid=None, resp_status=None, tok
     with connection.cursor() as cursor:
         for colonna, valore in updates.items():
             cursor.execute(AGGIORNA_LOG[colonna], [valore, log.pk])
+
+
+def permessi_servizi(utente, tabella):
+    """Doppio gate (invariante 1) per le pagine unificate: domicili digitali, ANPR, Istruzione.
+
+    `tabella` e' un dict chiave -> {codice, flag, flag_massivo, label}. Ritorna
+    (servizi, permessi, utente_abilitato):
+      * `servizi` contiene SOLO gli eService attivi in servizi_parametri: se il servizio non e'
+        attivo l'operatore non lo vede proprio;
+      * `permessi[chiave][modalita']` e' il permesso dell'utente (attivo AND flag di
+        utenti_parametri): falso = voce mostrata ma disabilitata;
+      * le tre viste ri-validano il POST su `permessi`, quindi un form manomesso non ottiene un
+        servizio spento o non abilitato.
+    """
+    attivi = {servizio.codice_servizio: servizio.attivo for servizio in ServiziParametri.objects.all()}
+    # `attributi` e' una stringa gia' sicura: il template la inserisce nel tag senza {% if %} inline,
+    # che i validatore HTML non tollera dentro un multiline. Il motivo nel title, cosi' l'operatore
+    # capisce perche' la voce e' grigia senza dover aprire le impostazioni.
+    SENZA_PERMESSO = mark_safe('disabled title="L\'utente non e abilitato a questa interrogazione"')
+    servizi = []
+    permessi = {}
+    utente_abilitato = False
+    for chiave, conf in tabella.items():
+        attivo = bool(attivi.get(conf['codice'], False))
+        singola = attivo and bool(utente) and bool(getattr(utente, conf['flag'], False))
+        massiva = attivo and bool(utente) and bool(getattr(utente, conf['flag_massivo'], False))
+        permessi[chiave] = {'singola': singola, 'massiva': massiva}
+        if attivo:
+            servizi.append({'chiave': chiave, 'label': conf['label'],
+                            'singola': singola, 'massiva': massiva,
+                            'attributi': '' if (singola or massiva) else SENZA_PERMESSO})
+        utente_abilitato = utente_abilitato or singola or massiva
+    return servizi, permessi, utente_abilitato
 
 
 def svuota_none(oggetti):

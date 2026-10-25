@@ -25,27 +25,19 @@
             {% csrf_token %}
             
             <!-- Radio buttons for domicile type -->
+            <!-- Tipo di domicilio: una riga per eService attivo (invariante 1). Spento = non -->
+            <!-- compare; attivo ma senza permesso = disabilitato (attributi dal double gate). -->
             <div class="form-group my-3">
               <label class="active d-block mb-2">Tipo di domicilio</label>
               <div class="row">
-                <div class="col-4">
-                  <div class="form-check m-0">
-                    <input class="form-check-input tipo-domicilio-radio" type="radio" name="tipo_domicilio" id="tipo_ipa" value="ipa" />
-                    <label class="form-check-label" for="tipo_ipa">iPA (Amministrazioni)</label>
+                {% for servizio in servizi %}
+                  <div class="col-4">
+                    <div class="form-check m-0">
+                      <input class="form-check-input tipo-domicilio-radio" type="radio" name="tipo_domicilio" id="tipo_{{ servizio.chiave }}" value="{{ servizio.chiave }}" data-singola="{% if servizio.singola %}1{% else %}0{% endif %}" data-massiva="{% if servizio.massiva %}1{% else %}0{% endif %}" {{ servizio.attributi }} />
+                      <label class="form-check-label{% if servizio.attributi %} text-muted{% endif %}" for="tipo_{{ servizio.chiave }}">{{ servizio.label }}</label>
+                    </div>
                   </div>
-                </div>
-                <div class="col-4">
-                  <div class="form-check m-0">
-                    <input class="form-check-input tipo-domicilio-radio" type="radio" name="tipo_domicilio" id="tipo_inad" value="inad" />
-                    <label class="form-check-label" for="tipo_inad">INAD (Persone Fisiche)</label>
-                  </div>
-                </div>
-                <div class="col-4">
-                  <div class="form-check m-0">
-                    <input class="form-check-input tipo-domicilio-radio" type="radio" name="tipo_domicilio" id="tipo_inipec" value="inipec" />
-                    <label class="form-check-label" for="tipo_inipec">INI-PEC (Persone Giuridiche)</label>
-                  </div>
-                </div>
+                {% endfor %}
               </div>
             </div>
 
@@ -221,7 +213,7 @@
           </div>
         {% elif search_context.modalita == 'massiva' %}
           <div class="col-10 shadow-lg white-bg p-5 mt-4">
-            <table id="dataTable" class="table align-middle table-hover table-primary">
+            <table id="dataTableMassivo" class="table align-middle table-hover table-primary">
               <thead class="text-center">
                 <tr>
                   <th scope="col">#</th>
@@ -232,7 +224,7 @@
               </thead>
               <tbody>
                 {% for res in results %}
-                  <tr {% if '@' in res.dato|default:'' %}class="table-success"{% elif res.dato == 'Codice fiscale non corretto' %}class="table-warning"{% else %}class="table-danger"{% endif %}>
+                  <tr class="{{ res.classe }}">
                     <td class="text-center">{{ forloop.counter }}</td>
                     <td>{{ res.cf }}</td>
                     <td class="text-center">
@@ -322,16 +314,12 @@
               </svg><span>Esporta CSV</span>
             </button>
             {% if search_context.tipo == 'ipa' %}
-              <a href="{% url 'ipa_export_excel' %}" class="m-1 btn btn-success">
+              <a href="{% url 'ipa_export_excel' %}" class="m-1 btn btn-success"><svg class="icon icon-sm icon-light" aria-hidden="true"><use href="{% static 'svg/sprites.svg' %}#it-download"></use></svg><span>Esporta Excel</span></a>
             {% elif search_context.tipo == 'inad' %}
-              <a href="{% url 'inad_export_excel' %}" class="m-1 btn btn-success">
+              <a href="{% url 'inad_export_excel' %}" class="m-1 btn btn-success"><svg class="icon icon-sm icon-light" aria-hidden="true"><use href="{% static 'svg/sprites.svg' %}#it-download"></use></svg><span>Esporta Excel</span></a>
             {% else %}
-              <a href="{% url 'inipec_export_excel' %}" class="m-1 btn btn-success">
+              <a href="{% url 'inipec_export_excel' %}" class="m-1 btn btn-success"><svg class="icon icon-sm icon-light" aria-hidden="true"><use href="{% static 'svg/sprites.svg' %}#it-download"></use></svg><span>Esporta Excel</span></a>
             {% endif %}
-              <svg class="icon icon-sm icon-light" aria-hidden="true">
-                <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
-              </svg><span>Esporta Excel</span>
-            </a>
           </div>
         {% else %}
           <div class="row">
@@ -434,6 +422,16 @@
 
       const allowedExtensions = [".csv", ".xlsx", ".xls"];
 
+      // Le due modalita' si abilitano solo per il tipo scelto: i permessi sono per servizio
+      // E per modalita', e il form non puo' offrire una ricerca che il POST rifiuterebbe.
+      function aggiornaModalita() {
+        const radio = document.querySelector('.tipo-domicilio-radio:checked');
+        modalitaSingola.disabled = !radio || radio.dataset.singola !== "1";
+        modalitaMassiva.disabled = !radio || radio.dataset.massiva !== "1";
+        if (modalitaSingola.disabled) modalitaSingola.checked = false;
+        if (modalitaMassiva.disabled) modalitaMassiva.checked = false;
+      }
+
       function showOverlay() {
         if (loadingOverlay) {
           loadingOverlay.classList.add("show");
@@ -451,6 +449,7 @@
       }
 
       function updateVisibleSection() {
+        aggiornaModalita();
         const isSingola = modalitaSingola.checked;
         const isMassiva = modalitaMassiva.checked;
         const tipoDomicilio = getTipoDomicilioValue();
@@ -643,7 +642,7 @@
 
     (function() {
       function exportTableToCSV(filename) {
-        const table = document.getElementById('dataTable');
+        const table = document.getElementById('dataTable') || document.getElementById('dataTableMassivo');
         if (!table) return;
         const rows = table.querySelectorAll('tr');
         const csv = [];

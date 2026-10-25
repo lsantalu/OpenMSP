@@ -11,7 +11,7 @@ OpenMSP/__pycache__/*
 .env
 AGENTS.md
 db.sqlite3
-db copy.sqlite3
+db_copy.sqlite3
 db.sqlite3.backup
 OpenMSP.code-workspace
 TODO
@@ -19,3 +19,4 @@ TODO
 pyrightconfig.json
 copy.sqlite3
 *.bak*
+__pycache__/*

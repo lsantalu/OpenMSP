@@ -16,19 +16,17 @@ from .verifica_cf import verifica_cf
 import datetime
 from jose.constants import Algorithms
 
-import http.client, urllib.parse
+import http.client
+import urllib.parse
 import hashlib
 import random
 import base64
-import datetime
 import io
 import uuid
 import jwt
 import requests
 import json
 import re
-
-import openpyxl
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
 from openpyxl.utils import get_column_letter
@@ -61,8 +59,6 @@ def anpr_get_request(user_ID, id_anpr, id_caso):
     kid = parametri_anpr.kid
     alg = parametri_anpr.alg
     typ = parametri_anpr.typ
-    issuer = parametri_anpr.iss
-    subject = parametri_anpr.sub
     aud = parametri_anpr.aud
     purposeid = parametri_anpr.purposeid
     audience = parametri_anpr.audience
@@ -181,8 +177,11 @@ def anpr_get_request(user_ID, id_anpr, id_caso):
                 "Agid-JWT-Signature":signature
                 }
 
-    response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False, timeout=30)
-    
+    # ponytail: verify=False e' debito ereditato (AGENTS.md), non lo tolgo qui perche'
+    # cambierebbe il comportamento TLS del handshake AgID gia' a terra: S501 silenziato,
+    # upgrade = CA verificata in anpr_parametri.
+    response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False, timeout=30)  # noqa: S501
+
     # Estrae il token_id dal voucher (jti)
     try:
         decoded_token = jwt.decode(voucher, options={"verify_signature": False})
@@ -202,26 +201,35 @@ def anpr_get_request(user_ID, id_anpr, id_caso):
 # Un caso d'uso per riga: id su AnprParametri, i due flag RBAC (singolo e massivo), il titolo
 # della card e il nome di audit. Il nome di audit del massivo e' quello del singolo + " Massivo",
 # come gia' fanno i domicili digitali e la pagina unificata dell'istruzione.
+# `codice`/`flag`/`flag_massivo` sono le chiavi che permessi_servizi() (utils.py) usa per il
+# doppio gate: tabella servizi_parametri per l'attivazione, utenti_parametri per il permesso.
 ANPR_SERVIZI = {
-    'C001': {'id_caso': 1, 'label': 'C001 - Servizio notifica', 'titolo': 'Servizio notifica',
+    'C001': {'id_caso': 1, 'codice': 'anpr_c001', 'label': 'C001 - Servizio notifica',
+             'titolo': 'Servizio notifica',
              'flag': 'anpr_C001', 'flag_massivo': 'anpr_C001_massivo',
              'log': 'Verifica ANPR - C001 - Notifica'},
-    'C007': {'id_caso': 2, 'label': 'C007 - Esistenza in vita', 'titolo': 'Esistenza in vita',
+    'C007': {'id_caso': 2, 'codice': 'anpr_c007', 'label': 'C007 - Esistenza in vita',
+             'titolo': 'Esistenza in vita',
              'flag': 'anpr_C007', 'flag_massivo': 'anpr_C007_massivo',
              'log': 'Verifica ANPR - C007 - Esistenza in vita'},
-    'C015': {'id_caso': 3, 'label': 'C015 - Generalita', 'titolo': 'Generalità',
+    'C015': {'id_caso': 3, 'codice': 'anpr_c015', 'label': 'C015 - Generalita',
+             'titolo': 'Generalità',
              'flag': 'anpr_C015', 'flag_massivo': 'anpr_C015_massivo',
              'log': 'Verifica ANPR - C015 - Generalità'},
-    'C017': {'id_caso': 4, 'label': 'C017 - Matrimonio', 'titolo': 'Matrimonio',
+    'C017': {'id_caso': 4, 'codice': 'anpr_c017', 'label': 'C017 - Matrimonio',
+             'titolo': 'Matrimonio',
              'flag': 'anpr_C017', 'flag_massivo': 'anpr_C017_massivo',
              'log': 'Verifica ANPR - C017 - Matrimonio'},
-    'C018': {'id_caso': 5, 'label': 'C018 - Cittadinanza', 'titolo': 'Cittadinanza',
+    'C018': {'id_caso': 5, 'codice': 'anpr_c018', 'label': 'C018 - Cittadinanza',
+             'titolo': 'Cittadinanza',
              'flag': 'anpr_C018', 'flag_massivo': 'anpr_C018_massivo',
              'log': 'Verifica ANPR - C018 - Cittadinanza'},
-    'C020': {'id_caso': 6, 'label': 'C020 - Residenza', 'titolo': 'Residenza',
+    'C020': {'id_caso': 6, 'codice': 'anpr_c020', 'label': 'C020 - Residenza',
+             'titolo': 'Residenza',
              'flag': 'anpr_C020', 'flag_massivo': 'anpr_C020_massivo',
              'log': 'Verifica ANPR - C020 - Residenza'},
-    'C021': {'id_caso': 7, 'label': 'C021 - Stato di famiglia', 'titolo': 'Stato di famiglia',
+    'C021': {'id_caso': 7, 'codice': 'anpr_c021', 'label': 'C021 - Stato di famiglia',
+             'titolo': 'Stato di famiglia',
              'flag': 'anpr_C021', 'flag_massivo': 'anpr_C021_massivo',
              'log': 'Verifica ANPR - C021 - Stato famiglia'},
 }
@@ -599,13 +607,6 @@ def impostazioni_anpr(request):
     servizi_anpr = AnprServizi.objects.all()
     parametri_anpr = AnprParametri.objects.all()
     svuota_none(parametri_anpr)
-
-    service_active = ServiziParametri.objects.all()
-    i_serv=0
-    service_desc = ["" for _ in range(ServiziParametri.objects.count())]
-    for servizio in service_active:
-        service_desc[i_serv]= (servizio.attivo)
-        i_serv += 1
 
     if request.method == 'POST':
         active_tab = request.POST.get("active_tab", "").replace("tab", "")
