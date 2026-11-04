@@ -6,18 +6,16 @@ from impostazioni.models import UtentiParametri
 
 from .utils import salva_log
 from .utils import converti_data
+from .utils import normalizza_chiavi
 
 from .verifica_cf import verifica_cf_azienda
+from . import agid
 
 ##from datetime import datetime, date
-import datetime
-import uuid
 import xmltodict
 from xml.parsers.expat import ExpatError
 
-import jwt
 import requests
-import json
 import io
 import csv
 ###import re
@@ -78,7 +76,6 @@ def inipec_export_excel(request):
     response = HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename=EsitoDomiciliDigitaliAziende.xlsx'
     return response
-
 
 
 def inipec_singola(request):
@@ -174,69 +171,9 @@ def inipec_massiva(request):
 
 
 def registro_imprese_get_bearer():
-    parametri_registro_imprese = RegistroImpreseParametri.objects.get(id=1)
-    kid = parametri_registro_imprese.kid
-    alg = parametri_registro_imprese.alg
-    typ = parametri_registro_imprese.typ
-    issuer = parametri_registro_imprese.iss
-    subject = parametri_registro_imprese.sub
-    aud = parametri_registro_imprese.aud
-    purposeId = parametri_registro_imprese.purposeid
-    audience = parametri_registro_imprese.audience
-    baseurlauth = parametri_registro_imprese.baseurlauth
-    target = parametri_registro_imprese.target
-    clientid = parametri_registro_imprese.clientid
-
-
-    private_key = parametri_registro_imprese.private_key
-
-    issued = datetime.datetime.utcnow()
-    delta = datetime.timedelta(minutes=43200)
-    expire_in = issued + delta
-    jti = uuid.uuid4()
-    headers_rsa = {
-        "kid": kid,
-        "alg": alg,
-        "typ": typ
-    }
-
-    payload = {
-        "iss": issuer,
-        "sub": subject,
-        "aud": aud,
-        "purposeId": purposeId,
-        "jti": str(jti),
-        "iat": issued,
-        "exp": expire_in
-    }
-
-    asserzione = jwt.encode(payload, private_key, algorithm="RS256", headers=headers_rsa)
-
-    risposta = requests.post(
-        baseurlauth + "/token.oauth2",
-        data={
-            "client_id": issuer,
-            "client_assertion": asserzione,
-            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-            "grant_type": "client_credentials",
-            },
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        timeout=30,
-        )
-    try:
-        voucher = risposta.json()['access_token']
-    except (ValueError, KeyError):
-        # authority PDND non utilizzabile: il chiamante rendiconto l'errore invece di esplodere
-        voucher = ""
-    
-    # Estrae il token_id (jti) dal voucher
-    try:
-        decoded_token = jwt.decode(voucher, options={"verify_signature": False})
-        token_id = decoded_token.get('jti')
-    except jwt.PyJWTError:
-        token_id = None
-        
-    return voucher, token_id
+    """(voucher, token_id) verso l'autority di Registro Imprese; ('', None) se non risponde.
+    Client unico in OpenMSP/agid.py; il traffico e' congelato in OpenMSP/tests.py."""
+    return agid.voucher(RegistroImpreseParametri.objects.get(id=1))
 
 
 def registro_imprese(request):
@@ -415,17 +352,6 @@ def registro_imprese_verifica_utente(cf, bearer, token_id):
     response = requests.get(url, headers=headers, params=params, timeout=30)
     status_code = response.status_code
 
-    def modify_keys(d):
-        new_d = {}
-        for key, value in d.items():
-            if isinstance(value, dict):
-                value = modify_keys(value)
-            elif isinstance(value, list):
-                value = [modify_keys(item) if isinstance(item, dict) else item for item in value]
-            new_key = key.replace("-", "_").replace("@", "").replace("#", "")
-            new_d[new_key] = value
-        return new_d
-
     if response.status_code == 200:
         xml_data = response.content
         try:
@@ -433,27 +359,10 @@ def registro_imprese_verifica_utente(cf, bearer, token_id):
         except ExpatError:
             # 200 con body malformato: stesso esito di una risposta errata, niente 500
             return False, status_code, purposeid, token_id
-        modified_data = modify_keys(parsed_data)
+        modified_data = normalizza_chiavi(parsed_data)
         return modified_data, status_code, purposeid, token_id
     else:
         return False, status_code, purposeid, token_id
-
-
-def registro_imprese_valida_cf(cf):
-    numeri = [int(c) for c in cf]
-    somma = 0
-    # Posizioni dispari: 1,3,5,7,9 → indici 0,2,4,6,8
-    for i in [0, 2, 4, 6, 8]:
-        somma += numeri[i]
-    # Posizioni pari: 2,4,6,8,10 → indici 1,3,5,7,9
-    for i in [1, 3, 5, 7, 9]:
-        val = numeri[i] * 2
-        if val > 9:
-            val -= 9
-        somma += val
-    # Calcolo cifra di controllo
-    controllo = (10 - (somma % 10)) % 10
-    return controllo == numeri[10]
 
 
 def sostituisci_chiavi(json_data, mapping_array):

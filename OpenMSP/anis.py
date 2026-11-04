@@ -2,28 +2,19 @@
 # (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono; gli stub di
 #  openpyxl tipizzano Workbook.worksheets[0] come WriteOnlyWorksheet e requests.Response e'
 #  assignata dentro un try. Rumore di tipi su codice gia' a terra, nessun comportamento coinvolto)
-import base64
 import csv
 
 ##from datetime import datetime, date
 import datetime
-import hashlib
-import http.client
 import io
 import json
-import random
-import re
-import urllib.parse
-import uuid
 
-import jwt
 import openpyxl
 
 ###import subprocess
 import requests
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
-from jose.constants import Algorithms
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
 from openpyxl.utils import get_column_letter
@@ -35,6 +26,7 @@ from impostazioni.models import (
     UtentiParametri,
 )
 
+from . import agid
 from .utils import cf_da_file, converti_data, permessi_servizi, salva_log, svuota_none
 from .verifica_cf import verifica_cf
 
@@ -992,148 +984,40 @@ def istruzione(request):
     })
 
 
-def anis_get_voucher(clientid, baseurlauth, client_assertion):
-    params = urllib.parse.urlencode({
-        'client_id': clientid,
-        'client_assertion': client_assertion,
-        'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
-        'grant_type': 'client_credentials'
-    })
-
-    headers = {"Content-type": "application/x-www-form-urlencoded"}
-    conn = http.client.HTTPSConnection(re.sub(r'^https?://', '', baseurlauth))
-    conn.request("POST", "/token.oauth2", params, headers)
-    response = conn.getresponse()
-    resp_data = response.read()
-    voucher_json = json.loads(resp_data)
-    voucher = voucher_json.get("access_token")
-    if not voucher:
-        raise RuntimeError("Voucher non emesso da " + baseurlauth + ": "
-                           + str(voucher_json.get("error", resp_data))[:180])
-    token_id = None
-    try:
-        decoded_token = jwt.decode(voucher, options={"verify_signature": False})
-        token_id = decoded_token.get('jti')
-    except Exception:  # noqa: BLE001  # token_id e' solo audit: meglio None che far fallire l'interrogazione
-        token_id = None
-    return voucher, token_id
-
-
 def anis_verifica_utente(user_ID, cf, id_caso):
     parametri_anis = AnisParametri.objects.get(id=id_caso)
-    kid = parametri_anis.kid
-    alg = parametri_anis.alg
-    typ = parametri_anis.typ
-    aud = parametri_anis.aud
     purposeid = parametri_anis.purposeid
-    audience = parametri_anis.audience
-    baseurlauth = parametri_anis.baseurlauth
     target = parametri_anis.target
     clientid = parametri_anis.clientid
-    private_key = parametri_anis.private_key
-    userid = user_ID
-    location = 'PortaleOpenMSP'
-    loa = 'LoA2'
     if id_caso == 1 or id_caso == 2:
         richiesta = f'{{"tax_code":"{cf}"}}'
     else:
         richiesta = f'{{"codiceFiscale":"{cf}"}}'
 
-
-    # ponytail: iat/nbf/exp qui sono naive (utcnow) e il client AgID a terra li accetta:
-    # renderli aware cambierebbe il valore degli epoch gia' in uso, DTZ003 silenziato,
-    # upgrade = now(timezone.utc) verificato su un ambiente AgID reale.
-    issued = datetime.datetime.utcnow()  # noqa: DTZ003
-    delta = datetime.timedelta(minutes=43200)
-    expire_in = issued + delta
-    dnonce = random.randint(1000000000000, 9999999999999)
-
-    headers_rsa = {
-        "kid": kid,
-        "alg": alg,
-        "typ": typ
-    }
-
-    jti = uuid.uuid4()
-    audit_payload = {
-        "userID": userid,
-        "userLocation": location,
-        "LoA": loa,
-        "iss" : clientid,
-        "aud" : audience,
-        "purposeId": purposeid,
-        "dnonce" : dnonce,
-        "jti":str(jti),
-        "iat": issued,
-        "nbf" : issued,
-        "exp": expire_in
-        }
-
-    audit = jwt.encode(audit_payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
-    audit_hash = hashlib.sha256(audit.encode('UTF-8')).hexdigest()
-
-    jti = uuid.uuid4()
-    payload = {
-        "iss": clientid,
-        "sub": clientid,
-        "aud": aud,
-        "purposeId": purposeid,
-        "jti": str(jti),
-        "iat": issued,
-        "exp": expire_in,
-        "digest": {
-            "alg": "SHA256",
-            "value": audit_hash
-            }
-        }
-
-    client_assertion = jwt.encode(payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
-
+    # Client AgID unico (OpenMSP/agid.py): era la seconda copia, ora e' una chiamata.
+    # `verify=False` resta: debito dichiarato (AGENTS.md r2), non una scelta di questo codice.
+    emesso = datetime.datetime.utcnow()  # noqa: DTZ003
+    prova, hash_prova = agid.audit(parametri_anis, user_ID, emesso=emesso)
+    # `agid.voucher` lascia salire gli errori di rete (e' il contratto del client): quaggiu'
+    # HEAD li rendiconta come esito, e l'autority giu' dev'essere una card, non un 500
     try:
-        voucher, token_id = anis_get_voucher(clientid, baseurlauth, client_assertion)
-    except Exception as e:
-        return {"esito": {"codice": "voucher_error", "descrizione": str(e)[:200]}}, 500, purposeid, None
+        voucher, token_id = agid.voucher(
+            parametri_anis, issuer=clientid,
+            asserzione=agid.asserzione_client(parametri_anis, digest=hash_prova,
+                                             issuer=clientid, subject=clientid, emesso=emesso))
+    except requests.RequestException as e:
+        return {"esito": {"codice": "voucher_error",
+                          "descrizione": str(e)[:200]}}, 500, purposeid, None
+    if not voucher:
+        return {"esito": {"codice": "voucher_error",
+                          "descrizione": "L'autority non ha rilasciato il voucher"}}, 500, purposeid, None
 
-    # prepara il body per la richiesta e relativo digest
-    body = richiesta
-    type = 'application/json'
-    encoding = 'UTF-8'
-    body_digest = hashlib.sha256(body.encode('UTF-8'))
-    digest = 'SHA-256=' + base64.b64encode(body_digest.digest()).decode('UTF-8')
-
-    # crea signature
-    jti = uuid.uuid4()
-    payload = {
-        "iss" : clientid,
-        "aud" : audience,
-        "purposeId": purposeid,
-        "sub": clientid,
-        "jti": str(jti),
-        "iat": issued,
-        "nbf" : issued,
-        "exp": expire_in,
-        "signed_headers": [
-            {"digest": digest},
-            {"content-type": type},
-            {"content-encoding": encoding}
-            ]
-        }
-    signature = jwt.encode(payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
-    # effettua chiamata
-    api_url = target
-    headers =  {"Accept":"application/json",
-                "Content-Type":type,
-                "Content-Encoding":encoding,
-                "Digest":digest,
-                "Authorization":"Bearer " + voucher,
-                "Agid-JWT-TrackingEvidence":audit,
-                "Agid-JWT-Signature":signature
-                }
-
+    digest = agid.digest_body(richiesta)
     try:
-        # ponytail: verify=False e' debito ereditato (AGENTS.md); il timeout ora c'e', la verifica
-        # CA resta da fare su un ambiente AgID reale. S501 silenziato, non comportamentale.
-        response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False, timeout=30)  # noqa: S501
+        response = requests.post(target, data=richiesta.encode(agid.CODIFICA),
+                                 headers=agid.intestazioni(parametri_anis, voucher, prova,
+                                                          digest, emesso=emesso),
+                                 verify=False, timeout=30)  # noqa: S501
         status_code = response.status_code
         if response.status_code != 200:
             try:

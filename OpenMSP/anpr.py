@@ -11,22 +11,13 @@ from .utils import salva_log
 from .utils import svuota_none
 from .utils import converti_data
 from .verifica_cf import verifica_cf
+from . import agid
 
 ##from datetime import datetime, date
 import datetime
-from jose.constants import Algorithms
 
-import http.client
-import urllib.parse
-import hashlib
-import random
-import base64
 import io
-import uuid
-import jwt
 import requests
-import json
-import re
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
 from openpyxl.utils import get_column_letter
@@ -56,19 +47,8 @@ def anpr_get_request(user_ID, id_anpr, id_caso):
         caso = "C030"
 
 
-    kid = parametri_anpr.kid
-    alg = parametri_anpr.alg
-    typ = parametri_anpr.typ
-    aud = parametri_anpr.aud
     purposeid = parametri_anpr.purposeid
-    audience = parametri_anpr.audience
-    baseurlauth = parametri_anpr.baseurlauth
     target = parametri_anpr.target
-    clientid = parametri_anpr.clientid
-    private_key = parametri_anpr.private_key
-    userid = user_ID
-    location = 'PortaleOpenMSP'
-    loa = 'LoA2'
     if id_caso == 8: ##Recupero idANPR
         richiesta = f'{{"idOperazioneClient":"1","criteriRicerca":{{"codiceFiscale":"{id_anpr}"}},' \
             f'"datiRichiesta":{{"dataRiferimentoRichiesta":"{datetime.datetime.utcnow().strftime("%Y-%m-%d")}",' \
@@ -78,116 +58,32 @@ def anpr_get_request(user_ID, id_anpr, id_caso):
             f'"datiRichiesta":{{"dataRiferimentoRichiesta":"{datetime.datetime.utcnow().strftime("%Y-%m-%d")}",' \
             f'"motivoRichiesta":"Verifica_anagrafica","casoUso":"{caso}"}}}}'
 
-    issued = datetime.datetime.utcnow()
-    delta = datetime.timedelta(minutes=43200)
-    expire_in = issued + delta
-    dnonce = random.randint(1000000000000, 9999999999999)
-
-    headers_rsa = {
-        "kid": kid,
-        "alg": alg,
-        "typ": typ
-    }
-
-    jti = uuid.uuid4()
-    audit_payload = {
-        "userID": userid,
-        "userLocation": location,
-        "LoA": loa,
-        "iss" : clientid,
-        "aud" : audience,
-        "purposeId": purposeid,
-        "dnonce" : dnonce,
-        "jti":str(jti),
-        "iat": issued,
-        "nbf" : issued,
-        "exp": expire_in
-        }
-
-    audit = jwt.encode(audit_payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
-    audit_hash = hashlib.sha256(audit.encode('UTF-8')).hexdigest()
-
-    jti = uuid.uuid4()
-    payload = {
-        "iss": clientid,
-        "sub": clientid,
-        "aud": aud,
-        "purposeId": purposeid,
-        "jti": str(jti),
-        "iat": issued,
-        "exp": expire_in,
-        "digest": {
-            "alg": "SHA256",
-            "value": audit_hash
-            }
-        }
-
-    client_assertion = jwt.encode(payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
-
-    params = urllib.parse.urlencode({
-        'client_id': clientid,
-        'client_assertion': client_assertion,
-        'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
-        'grant_type': 'client_credentials'
-        })
-
-    headers = {"Content-type": "application/x-www-form-urlencoded"}
-    conn = http.client.HTTPSConnection(re.sub(r'^https?://', '', baseurlauth))
-    conn.request("POST", "/token.oauth2", params, headers)
-    response = conn.getresponse()
-    try:
-        voucher = json.loads(response.read())["access_token"]
-    except (ValueError, KeyError, TypeError):
+    # Client AgID unico (OpenMSP/agid.py): audit -> asserzione(col digest) -> voucher ->
+    # firma -> POST. `emesso` e' uno solo per i tre JWT, come nelle copie gia' migratesi.
+    # Il token ora passa da requests (prima http.client, senza alcun timeout): verify e'
+    # attivo, quindi il TLS dell'autority resta controllato come prima.
+    emesso = datetime.datetime.utcnow()
+    prova, hash_prova = agid.audit(parametri_anpr, user_ID, emesso=emesso)
+    voucher, token_id = agid.voucher(
+        parametri_anpr,
+        # famiglia firmata: emittente e soggetto sono `clientid`, qui e nel voucher
+        issuer=parametri_anpr.clientid,
+        asserzione=agid.asserzione_client(parametri_anpr, digest=hash_prova,
+                                          issuer=parametri_anpr.clientid,
+                                          subject=parametri_anpr.clientid, emesso=emesso))
+    if not voucher:
         # authority di ANPR non utilizzabile: stesso sentinel usato per le risposte errate
-        return 'ZZZZZZZZZ', 502, purposeid, None
+        return 'ZZZZZZZZZ', 502, purposeid, token_id
 
-    # prepara il body per la richiesta e relativo digest
-    body = richiesta
-    type = 'application/json'
-    encoding = 'UTF-8'
-    body_digest = hashlib.sha256(body.encode('UTF-8'))
-    digest = 'SHA-256=' + base64.b64encode(body_digest.digest()).decode('UTF-8')
-
-    # crea signature
-    jti = uuid.uuid4()
-    payload = {
-        "iss" : clientid,
-        "aud" : audience,
-        "purposeId": purposeid,
-        "sub": clientid,
-        "jti": str(jti),
-        "iat": issued,
-        "nbf" : issued,
-        "exp": expire_in,
-        "signed_headers": [
-            {"digest": digest},
-            {"content-type": type},
-            {"content-encoding": encoding}
-            ]
-        }
-    signature = jwt.encode(payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
-    # effettua chiamata
-    api_url = target
-    headers =  {"Accept":"application/json",
-                "Content-Type":type,
-                "Content-Encoding":encoding,
-                "Digest":digest,
-                "Authorization":"Bearer " + voucher,
-                "Agid-JWT-TrackingEvidence":audit,
-                "Agid-JWT-Signature":signature
-                }
-
-    # ponytail: verify=False e' debito ereditato (AGENTS.md), non lo tolgo qui perche'
+    digest = agid.digest_body(richiesta)
+    # ponytail: verify=False e' debito ereditato (AGENTS.md r2), non lo tolgo qui perche'
     # cambierebbe il comportamento TLS del handshake AgID gia' a terra: S501 silenziato,
     # upgrade = CA verificata in anpr_parametri.
-    response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False, timeout=30)  # noqa: S501
+    response = requests.post(target, data=richiesta.encode(agid.CODIFICA),
+                             headers=agid.intestazioni(parametri_anpr, voucher, prova,
+                                                       digest, emesso=emesso),
+                             verify=False, timeout=30)  # noqa: S501
 
-    # Estrae il token_id dal voucher (jti)
-    try:
-        decoded_token = jwt.decode(voucher, options={"verify_signature": False})
-        token_id = decoded_token.get('jti')
-    except jwt.PyJWTError:
-        token_id = None
 
     if id_caso == 8:
         aux = response.json()

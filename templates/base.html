@@ -656,6 +656,64 @@ OpenMSP - Multi Services Portal
 
 
         <li class="nav-item dropdown megamenu">
+          <button type="button" class="nav-link dropdown-toggle px-lg-2 px-xl-3" data-bs-toggle="dropdown" aria-expanded="false" id="dropdown-ANNCSU" aria-haspopup="true" data-focus-mouse="false">
+            <span>ANNCSU</span>
+            <svg role="img" class="icon icon-xs ms-1"><use href="{% static 'svg/sprites.svg' %}#it-expand"></use></svg>
+          </button>
+          <div class="dropdown-menu shadow-lg" role="region" aria-labelledby="dropdown-ANNCSU">
+            <div class="megamenu pb-5 pt-3 py-lg-0">
+              <div class="row">
+                <div class="col-xs-12 col-lg-4 px-0">
+                  <div class="col-12 it-vertical it-description pb-lg-3">
+                    <div class="description-content px-4 pt-3">
+                      <div class="ratio ratio-16x9 rounded pb-3">
+                        <figure class="figure">
+                          <img src="{% static "images/anncsu.png" %}" class="figure-img img-fluid rounded" alt="ANNCSU">
+                        </figure>
+                      </div>
+                      <p>
+                        Archivio Nazionale Numeri Civici Strade Urbane: <strong>Consultazione</strong>, <strong>Aggiornamento</strong> e <strong>Visura</strong>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-lg-8">
+                  <div class="link-list-wrapper">
+                    <ul class="link-list">
+                      {% if services_dict.anncsu.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anncsu_consultazione_comuni %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu_consultazione_comuni %} class="text-muted"{% endif %}>Consultazione per i COMUNI</span></a>
+                      </li>
+                      {% endif %}
+                      {% if services_dict.anncsu_accessi.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anncsu_accessi %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu_accessi' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu_accessi %} class="text-muted"{% endif %}>Aggiornamento accessi</span></a>
+                      </li>
+                      {% endif %}
+                      {% if services_dict.anncsu_coordinate.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anncsu_coordinate %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu_coordinate' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu_coordinate %} class="text-muted"{% endif %}>Aggiornamento coordinate</span></a>
+                      </li>
+                      {% endif %}
+                      {% if services_dict.anncsu_odonimi.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anncsu_odonimi %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu_odonimi' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu_odonimi %} class="text-muted"{% endif %}>Aggiornamento odonimi</span></a>
+                      </li>
+                      {% endif %}
+                      {% if services_dict.anncsu_visura.attivo %}
+                      <li>
+                        <a class="list-item dropdown-item{% if not user_perms.anncsu_visura %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu_visura' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu_visura %} class="text-muted"{% endif %}>Estratto di mappa per Visura</span></a>
+                      </li>
+                      {% endif %}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        <li class="nav-item dropdown megamenu">
           <button type="button" class="nav-link dropdown-toggle px-lg-2 px-xl-3" data-bs-toggle="dropdown" aria-expanded="false" id="dropdown-Varie" aria-haspopup="true" data-focus-mouse="false">
             <span>Varie</span>
             <svg role="img" class="icon icon-xs ms-1"><use href="{% static 'svg/sprites.svg' %}#it-expand"></use></svg>
@@ -712,13 +770,6 @@ OpenMSP - Multi Services Portal
                       {% if services_dict.cassa_forense.attivo %}
                       <li>
                         <a class="list-item dropdown-item{% if not user_perms.cassa_forense %} disabled" aria-disabled="true{% endif %}" href="{% url 'cassa_forense' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.cassa_forense %} class="text-muted"{% endif %}>Consiglio Nazionale Forense</span></a>
-                      </li>
-                      <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
-                      {% endif %}
-
-                      {% if services_dict.anncsu.attivo %}
-                      <li>
-                        <a class="list-item dropdown-item{% if not user_perms.anncsu %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu %} class="text-muted"{% endif %}>Consultazione ANNCSU</span></a>
                       </li>
                       <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
                       {% endif %}

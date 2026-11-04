@@ -6,10 +6,8 @@ from impostazioni.models import UtentiParametri
 
 from .utils import salva_log
 from .verifica_cf import verifica_cf
+from . import agid
 
-import datetime
-import uuid
-import jwt
 import requests
 import json
 import io
@@ -75,68 +73,9 @@ def inad_export_excel(request):
 
 
 def inad_get_bearer():
-    parametri_inad = InadParametri.objects.get(id=1)
-    kid = parametri_inad.kid
-    alg = parametri_inad.alg
-    typ = parametri_inad.typ
-    issuer = parametri_inad.iss
-    subject = parametri_inad.sub
-    aud = parametri_inad.aud
-    purposeId = parametri_inad.purposeid
-    audience = parametri_inad.audience
-    baseurlauth = parametri_inad.baseurlauth
-    target = parametri_inad.target
-    clientid = parametri_inad.clientid
-    private_key = parametri_inad.private_key
-    
-    
-    issued = datetime.datetime.utcnow()
-    delta = datetime.timedelta(minutes=43200)
-    expire_in = issued + delta
-    jti = uuid.uuid4()
-    headers_rsa = {
-        "kid": kid,
-        "alg": alg,
-        "typ": typ
-    }
-
-    payload = {
-        "iss": issuer,
-        "sub": subject,
-        "aud": aud,
-        "purposeId": purposeId,
-        "jti": str(jti),
-        "iat": issued,
-        "exp": expire_in
-    }
-    
-    asserzione = jwt.encode(payload, private_key, algorithm="RS256", headers=headers_rsa)
-
-    risposta = requests.post(
-        baseurlauth + "/token.oauth2",
-        data={
-            "client_id": issuer,
-            "client_assertion": asserzione,
-            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-            "grant_type": "client_credentials",
-            },
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        timeout=30,
-        )
-    try:
-        voucher = risposta.json()['access_token']
-    except (ValueError, KeyError):
-        # authority PDND non utilizzabile: il chiamante rendiconto l'errore invece di esplodere
-        voucher = ""
-    
-    # Estrae il token_id (jti) dal voucher
-    try:
-        decoded_token = jwt.decode(voucher, options={"verify_signature": False})
-        token_id = decoded_token.get('jti')
-    except jwt.PyJWTError:
-        token_id = None
-        
-    return voucher, token_id
+    """(voucher, token_id) verso l'autority di INAD; ('', None) se non risponde.
+    Client unico in OpenMSP/agid.py; il traffico e' congelato in OpenMSP/tests.py."""
+    return agid.voucher(InadParametri.objects.get(id=1))
 
 
 def inad_singola(request):

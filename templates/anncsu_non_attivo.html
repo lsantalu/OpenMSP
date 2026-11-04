@@ -1,0 +1,42 @@
+<!-- templates/anncsu_non_attivo.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+{{ servizio.etichetta }} - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>ANNCSU &mdash; {{ servizio.etichetta }}</h3>
+<h4>Archivio Nazionale dei Numeri Civici delle Strade Urbane</h4>
+<br />
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+<div class="col-10 shadow-lg white-bg p-4">
+  <div class="alert alert-info" role="alert">
+    Il servizio &laquo;{{ servizio.etichetta }}&raquo; non &egrave; ancora attivo su questo portale.
+  </div>
+  <p class="pb-3">
+    L'e-service &egrave; accreditato e le credenziali si possono gi&agrave; configurare nella
+    pagina <a href="{% url 'impostazioni_anncsu' %}#{{ servizio.tab }}">Impostazioni &rarr; ANNCSU</a>,
+    ma la pagina di interrogazione non &egrave; stata ancora implementata: mancano la specifica
+    dell'erogatore e i campi della richiesta.</p>
+  <div class="p-3 text-end">
+    <a href="{% url 'home' %}" class="btn btn-primary">Torna alla home</a>
+  </div>
+</div>
+{% else %}
+<div class="col-6 shadow-lg white-bg p-4">
+  <h4>Utente non abilitato</h4>
+  <p>L'utente non &egrave; abilitato all'utilizzo di questo servizio</p>
+  <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+  <div class="p-3 text-end">
+    <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+  </div>
+</div>
+{% endif %}
+{% else %}
+<h4>Utente non loggato</h4>
+{% endif %}
+{% endblock %}

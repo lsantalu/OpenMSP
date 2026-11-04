@@ -21,6 +21,12 @@ from .cassa_forense import cassa_forense
 from .cassa_forense import impostazioni_cassa_forense
 
 from .anncsu import anncsu_consultazione
+from .anncsu import anncsu_accessi
+from .anncsu import anncsu_coordinate
+from .anncsu import anncsu_odonimi
+from .anncsu import anncsu_visura
+from .anncsu import anncsu_export_csv
+from .anncsu import anncsu_export_excel
 from .anncsu import impostazioni_anncsu
 
 from .inad import inad_singola
@@ -182,6 +188,12 @@ urlpatterns = [
     path("cassa_forense/", cassa_forense, name="cassa_forense"),
     path("registro_imprese/", registro_imprese, name="registro_imprese"),
     path("anncsu/", anncsu_consultazione, name="anncsu"),
+    path("anncsu_accessi/", anncsu_accessi, name="anncsu_accessi"),
+    path("anncsu_coordinate/", anncsu_coordinate, name="anncsu_coordinate"),
+    path("anncsu_odonimi/", anncsu_odonimi, name="anncsu_odonimi"),
+    path("anncsu_visura/", anncsu_visura, name="anncsu_visura"),
+    path("anncsu_export_excel/", anncsu_export_excel, name="anncsu_export_excel"),
+    path("anncsu_export_csv/", anncsu_export_csv, name="anncsu_export_csv"),
 
     path("anis_iscrizioni_singola/", anis_iscrizioni_singola, name="anis_iscrizioni_singola"),
     path("anis_iscrizioni_massiva/", anis_iscrizioni_massiva, name="anis_iscrizioni_massiva"),

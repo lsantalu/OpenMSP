@@ -201,3 +201,20 @@ def svuota_none(oggetti):
             if getattr(o, nome, None) is None:
                 setattr(o, nome, "")
     return oggetti
+
+
+def normalizza_chiavi(d):
+    """Chiavi XML utilizzabili come nomi di campo: `-` -> `_`, via `@` e `#`.
+
+    Le risposte PDND passano da xmltodict, che mantiene i prefissi e gli attributi
+    del XML (`@xmlns`, `#text`): senza normalizzazione ogni servizio si ritrova a
+    fare lo stesso "replace" a valle. Ricorsiva su dict e liste di dict.
+    """
+    nuovo = {}
+    for chiave, valore in d.items():
+        if isinstance(valore, dict):
+            valore = normalizza_chiavi(valore)
+        elif isinstance(valore, list):
+            valore = [normalizza_chiavi(v) if isinstance(v, dict) else v for v in valore]
+        nuovo[chiave.replace("-", "_").replace("@", "").replace("#", "")] = valore
+    return nuovo

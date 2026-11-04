@@ -3,89 +3,105 @@
 
 {% load static %}
 
-{% block page_title %}
-Impostazioni ANNCSU - OpenMSP - Multi Services Portal
-{% endblock %}
+{% block page_title %} Impostazioni ANNCSU - OpenMSP - Multi Services Portal {% endblock %}
 
 {% block centered_container %}
-<h3>Impostazioni ANNCSU - Consultazione</h3>
-<br />
+<h3 id="page-title">Impostazioni ANNCSU</h3>
 <br />
 {% if user.is_authenticated %}
 
-<form class="needs-validation shadow-lg col-10 white-bg p-3 pt-5" id="parametri_anncsu" method="post">
+<form class="needs-validation shadow-lg col-10 white-bg" id="parametri_anncsu" method="post">
   {% csrf_token %}
+  <!-- La tab visibile al momento dell'invio dice quale riga di anncsu_parametri salvare. -->
+  <input type="hidden" name="active_tab" id="active_tab" value="tab1" />
   <div class="container">
-    <div class="row">
-      <div class="form-group col-6">
-        <label for="kid">kid (keyid):</label>
-        <input type="text" class="form-control" id="kid" name="kid" maxlength="64" value="{{ parametri_anncsu.0.kid }}" required />
+    <ul class="nav nav-tabs nav-tabs-cards neutral-2-bg p-4 shadow" id="sceltaAnncsu" role="tablist">
+      {% for servizio_anncsu in servizi_anncsu %}
+      <li class="nav-item">
+        <a class="nav-link{% if forloop.first %} active{% endif %}" id="tab{{ servizio_anncsu.id }}-tab"
+           data-bs-toggle="tab" href="#tab{{ servizio_anncsu.id }}" role="tab"
+           aria-controls="tab{{ servizio_anncsu.id }}" aria-selected="false">{{ servizio_anncsu.servizio }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <div class="tab-content" id="myTabContent">
+      <br />
+      {% for servizio_anncsu in servizi_anncsu %}
+      {% for parametro_anncsu in parametri_anncsu %}
+      {% if parametro_anncsu.servizio_id_id == servizio_anncsu.id %}
+      <div class="tab-pane p-4 fade{% if forloop.parentloop.first %} show active{% endif %}"
+           id="tab{{ servizio_anncsu.id }}" role="tabpanel" aria-labelledby="tab{{ servizio_anncsu.id }}-tab">
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="kid{{ servizio_anncsu.id }}">kid (keyid):</label>
+            <input type="text" class="form-control" id="kid{{ servizio_anncsu.id }}" name="kid{{ servizio_anncsu.id }}" maxlength="64" value="{{ parametro_anncsu.kid }}" />
+          </div>
+          <div class="form-group col-6">
+            <label for="alg{{ servizio_anncsu.id }}">alg:</label>
+            <input type="text" class="form-control" id="alg{{ servizio_anncsu.id }}" name="alg{{ servizio_anncsu.id }}" maxlength="10" value="{{ parametro_anncsu.alg }}" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="typ{{ servizio_anncsu.id }}">typ:</label>
+            <input type="text" class="form-control" id="typ{{ servizio_anncsu.id }}" name="typ{{ servizio_anncsu.id }}" maxlength="10" value="{{ parametro_anncsu.typ }}" />
+          </div>
+          <div class="form-group col-6">
+            <label for="iss{{ servizio_anncsu.id }}">iss:</label>
+            <input type="text" class="form-control" id="iss{{ servizio_anncsu.id }}" name="iss{{ servizio_anncsu.id }}" maxlength="36" value="{{ parametro_anncsu.iss }}" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="sub{{ servizio_anncsu.id }}">sub:</label>
+            <input type="text" class="form-control" id="sub{{ servizio_anncsu.id }}" name="sub{{ servizio_anncsu.id }}" maxlength="36" value="{{ parametro_anncsu.sub }}" />
+          </div>
+          <div class="form-group col-6">
+            <label for="aud{{ servizio_anncsu.id }}">aud assertion:</label>
+            <input type="text" class="form-control" id="aud{{ servizio_anncsu.id }}" name="aud{{ servizio_anncsu.id }}" maxlength="150" value="{{ parametro_anncsu.aud }}" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="purposeid{{ servizio_anncsu.id }}">purposeid:</label>
+            <input type="text" class="form-control" id="purposeid{{ servizio_anncsu.id }}" name="purposeid{{ servizio_anncsu.id }}" maxlength="36" value="{{ parametro_anncsu.purposeid }}" />
+          </div>
+          <div class="form-group col-6">
+            <label for="audience{{ servizio_anncsu.id }}">audience:</label>
+            <input type="text" class="form-control" id="audience{{ servizio_anncsu.id }}" name="audience{{ servizio_anncsu.id }}" maxlength="150" value="{{ parametro_anncsu.audience }}" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="baseurlauth{{ servizio_anncsu.id }}">baseurlauth:</label>
+            <input type="text" class="form-control" id="baseurlauth{{ servizio_anncsu.id }}" name="baseurlauth{{ servizio_anncsu.id }}" maxlength="150" value="{{ parametro_anncsu.baseurlauth }}" />
+          </div>
+          <div class="form-group col-6">
+            <label for="target{{ servizio_anncsu.id }}">target:</label>
+            <input type="text" class="form-control" id="target{{ servizio_anncsu.id }}" name="target{{ servizio_anncsu.id }}" maxlength="150" value="{{ parametro_anncsu.target }}" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-6">
+            <label for="clientid{{ servizio_anncsu.id }}">clientid:</label>
+            <input type="text" class="form-control" id="clientid{{ servizio_anncsu.id }}" name="clientid{{ servizio_anncsu.id }}" maxlength="50" value="{{ parametro_anncsu.clientid }}" />
+          </div>
+          <div class="form-group col-6">
+            <label for="ver_eservice{{ servizio_anncsu.id }}">versione e-service:</label>
+            <input type="text" class="form-control" id="ver_eservice{{ servizio_anncsu.id }}" name="ver_eservice{{ servizio_anncsu.id }}" maxlength="10" value="{{ parametro_anncsu.ver_eservice }}" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group col-10 shadow">
+            <label for="private_key{{ servizio_anncsu.id }}">private key:</label>
+            <textarea class="form-control font-monospace" id="private_key{{ servizio_anncsu.id }}" name="private_key{{ servizio_anncsu.id }}" rows="12" maxlength="2500">{{ parametro_anncsu.private_key }}</textarea>
+          </div>
+        </div>
       </div>
-      <div class="form-group col-6">
-        <label for="alg">alg:</label>
-        <input type="text" class="form-control" id="alg_visibile" name="alg_visibile" maxlength="10" value="{{ parametri_anncsu.0.alg }}" required disabled/>
-        <input type="hidden" name="alg" id="alg" value="{{ parametri_anncsu.0.alg }}">
-      </div>
-    </div>
-    <div class="row">
-      <div class="form-group col-6">
-        <label for="typ">typ:</label>
-        <input type="text" class="form-control" id="typ_visibile" name="typ_visibile" maxlength="10" value="{{ parametri_anncsu.0.typ }}" required disabled/>
-        <input type="hidden" name="typ" id="typ" value="{{ parametri_anncsu.0.typ }}">
-      </div>
-      <div class="form-group col-6">
-        <label for="iss">iss:</label>
-        <input type="text" class="form-control" id="iss" name="iss" maxlength="36" value="{{ parametri_anncsu.0.iss }}" required />
-      </div>
-    </div>
-    <div class="row">
-      <div class="form-group col-6">
-        <label for="sub">sub:</label>
-        <input type="text" class="form-control" id="sub" name="sub" maxlength="36" value="{{ parametri_anncsu.0.sub }}" required />
-      </div>
-      <div class="form-group col-6">
-        <label for="aud">aud assertion:</label>
-        <input type="text" class="form-control" id="aud_visibile" name="aud_visibile" maxlength="150" value="{{ parametri_anncsu.0.aud }}" required disabled/>
-        <input type="hidden" name="aud" id="aud" value="{{ parametri_anncsu.0.aud }}">
-      </div>
-    </div>
-    <div class="row">
-      <div class="form-group col-6">
-        <label for="purposeid">purposeid:</label>
-        <input type="text" class="form-control" id="purposeid" name="purposeid" maxlength="36" value="{{ parametri_anncsu.0.purposeid }}" required />
-      </div>
-      <div class="form-group col-6">
-        <label for="audience">audience:</label>
-        <input type="text" class="form-control" id="audience_visibile" name="audience_visibile" maxlength="150" value="{{ parametri_anncsu.0.audience }}" required disabled/>
-        <input type="hidden" name="audience" id="audience" value="{{ parametri_anncsu.0.audience }}">
-      </div>
-    </div>
-    <div class="row">
-      <div class="form-group col-6">
-        <label for="baseurlauth">baseurlauth:</label>
-        <input type="text" class="form-control" id="baseurlauth" name="baseurlauth" maxlength="150" value="{{ parametri_anncsu.0.baseurlauth }}" required />
-      </div>
-      <div class="form-group col-6">
-        <label for="target">target:</label>
-        <input type="text" class="form-control" id="target" name="target" maxlength="150" value="{{ parametri_anncsu.0.target }}" required />
-      </div>
-    </div>
-    <div class="row">
-      <div class="form-group col-6">
-        <label for="clientid">clientid:</label>
-        <input type="text" class="form-control" id="clientid" name="clientid" maxlength="50" value="{{ parametri_anncsu.0.clientid }}" required />
-      </div>
-      <div class="form-group col-6">
-        <label for="ver_eservice">versione e-service:</label>
-        <input type="text" class="form-control" id="ver_eservice_visibile" name="ver_eservice_visibile" maxlength="10" value="{{ parametri_anncsu.0.ver_eservice }}" required disabled/>
-        <input type="hidden" name="ver_eservice" id="ver_eservice" value="{{ parametri_anncsu.0.ver_eservice }}">
-      </div>
-    </div>
-    <div class="row">
-      <div class="form-group col-10 shadow">
-        <label for="private_key">private key:</label>
-        <textarea class="form-control font-monospace" id="private_key" name="private_key" rows="15" maxlength="2500">{{ parametri_anncsu.0.private_key }}</textarea>
-      </div>
+      {% endif %}
+      {% endfor %}
+      {% endfor %}
     </div>
   </div>
   <div class="p-3 text-end">
@@ -93,13 +109,30 @@ Impostazioni ANNCSU - OpenMSP - Multi Services Portal
     <a href="{% url 'home' %}" class="btn btn-danger">Annulla</a>
   </div>
 </form>
+
 {% else %}
 <h4>Utente non loggato</h4>
-<p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
-<a href="{% url 'login' %}" class="btn btn-primary">
-  <svg class="icon icon-sm icon-white" aria-hidden="true">
-    <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
-  </svg>Accedi
-</a>
 {% endif %}
+
+<script>
+  // I campi di protocollo (alg, typ, aud, baseurlauth, ver_eservice) sono compilati dal
+  // file di aggiornamento ma restano modificabili qui: su ANNCSU si e' gia' visto che
+  // l'URL pubblicato sulla specifica non coincide con l'e-service accreditato, e una
+  // casella bloccata non lasciava via d'uscita.
+  document.addEventListener("DOMContentLoaded", (event) => {
+    const hash = window.location.hash;
+    if (hash) {
+      const tabLink = document.querySelector(`a[href="${hash}"]`);
+      if (tabLink) {
+        new bootstrap.Tab(tabLink).show();
+        setTimeout(() => window.scrollTo({ top: 0, behavior: "auto" }), 50);
+      }
+    }
+    document.querySelectorAll('#sceltaAnncsu a[data-bs-toggle="tab"]').forEach((tabLink) => {
+      tabLink.addEventListener("shown.bs.tab", (event) => {
+        document.getElementById("active_tab").value = event.target.getAttribute("href").replace("#", "");
+      });
+    });
+  });
+</script>
 {% endblock %}

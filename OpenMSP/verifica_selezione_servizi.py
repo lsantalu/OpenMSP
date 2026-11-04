@@ -6,10 +6,10 @@ Rende i template veri e legge i radio usciti, perche' il bug di ANPR era proprio
 chiave diverso tra vista e template (servizi[].caso contro servizi[].chiave): un test
 sull'helper da solo non lo avrebbe visto.
 
-    env/bin/python verifica_selezione_servizi.py
+    env/bin/python -m OpenMSP.verifica_selezione_servizi
 
 Nessuna scrittura permanente: i flag di utenti_parametri sono finti e il flag di
-servizi_parametri viene solo spento e riacceso.
+servizi_parametri viene spento e poi ripristinato al valore che aveva prima.
 """
 import os
 import re
@@ -108,6 +108,10 @@ for nome_form, (vista, attesi, flag_accesi, abilitati, codici) in RIGHE.items():
 
     # eService spento: la voce non deve comparire affatto, nemmeno col permesso acceso
     spento = codici[0]
+    # Si ripristina il valore trovato, non True: su un ente che non ha ancora acceso
+    # l'eService, una riaccensione incondizionata sarebbe una scrittura permanente.
+    comera = bool(ServiziParametri.objects.filter(codice_servizio=spento)
+                  .values_list('attivo', flat=True).first())
     ServiziParametri.objects.filter(codice_servizio=spento).update(attivo=False)
     try:
         usciti = radio_renderizzati(
@@ -116,7 +120,7 @@ for nome_form, (vista, attesi, flag_accesi, abilitati, codici) in RIGHE.items():
             errori.append(f"{vista.__name__}/{attesi[0]}: con l'eService spento la voce "
                           'non deve comparire')
     finally:
-        ServiziParametri.objects.filter(codice_servizio=spento).update(attivo=True)
+        ServiziParametri.objects.filter(codice_servizio=spento).update(attivo=comera)
 
     # riga di utenti_parametri assente: la pagina non deve esplodere
     html_pagina(vista, None)

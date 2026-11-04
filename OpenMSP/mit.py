@@ -1,194 +1,82 @@
 # pyright: reportAttributeAccessIssue=false
 # (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono)
-from django.shortcuts import render, redirect
+import datetime
+import json
 
-from impostazioni.models import UtentiParametri
-from impostazioni.models import ServiziParametri
-from impostazioni.models import MitServizi
-from impostazioni.models import MitParametri
+import requests
+from django.shortcuts import redirect, render
 
-from .utils import salva_log
-from .utils import svuota_none
-from .utils import converti_data
+from impostazioni.models import (
+    MitParametri,
+    MitServizi,
+    ServiziParametri,
+    UtentiParametri,
+)
+
+from . import agid
+from .utils import converti_data, salva_log, svuota_none
 from .verifica_cf import verifica_cf
 
-##from datetime import datetime, date
-import datetime
-from jose.constants import Algorithms
-
-import http.client, urllib.parse
-import hashlib
-import random
-import base64
-import datetime
-import uuid
-import jwt
-import requests
-import json
-import re
-import sys
-import subprocess
+SKEW = 60               # MIT orologia stretta: il token nasce 60 secondi nel passato
+SCADENZA_VOUCHER = 5    # e dura 5 minuti, non i 30 giorni del default
 
 
 def mit_get_request(user_ID, cf, id_caso):
     parametri_mit = MitParametri.objects.get(id=id_caso)
-    userid= user_ID
 
-    caso = ''
-    if id_caso == 1: ##CUDE
-        caso = "CUDE"
-    elif id_caso == 2: ##Lista veicoli
-        caso = "LISTA_VEICOLI"
-    elif id_caso == 3: ##Whitelist
-        caso = "WHITELIST"
-    else: ##Targhe
-        caso = "TARGHE"
-
-    kid = parametri_mit.kid
-    alg = parametri_mit.alg
-    typ = parametri_mit.typ
-    issuer = parametri_mit.iss
-    subject = parametri_mit.sub
-    aud = parametri_mit.aud
     purposeid = parametri_mit.purposeid
-    audience = parametri_mit.audience
-    baseurlauth = parametri_mit.baseurlauth
     target = parametri_mit.target
     clientid = parametri_mit.clientid
-    private_key = parametri_mit.private_key
-    location = 'PortaleOpenMSP'
-    loa = 'LoA2'
     if id_caso == 4: ##Targhe
         richiesta_data = {
             "targa": cf,
-            "dataOraVerifica": datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "dataOraVerifica": datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),  # noqa: UP017  (datetime.UTC esiste da 3.11, docker/Dockerfile dichiara python:3.10-slim)
             "intervalloDiTolleranza": 0
         }
         richiesta = json.dumps(richiesta_data)
     else:
         richiesta = f'{{"codiceFiscale":"{cf}"}}'
 
-    ##issued = datetime.datetime.utcnow()
-    issued = int(datetime.datetime.now(datetime.timezone.utc).timestamp()) - 60
-    expire_in = issued + 300
-    dnonce = random.randint(1000000000000, 9999999999999)
-
-
-    headers_rsa = {
-        "kid": kid,
-        "alg": alg,
-        "typ": typ
-    }
-
-    jti = uuid.uuid4()
-    audit_payload = {
-        "userID": userid,
-        "userLocation": location,
-        "LoA": loa,
-        "iss" : clientid,
-        "aud" : audience,
-        "purposeId": purposeid,
-        "dnonce" : dnonce,
-        "jti":str(jti),
-        "iat": issued,
-        "nbf" : issued,
-        "exp": expire_in
-    }
-
-    audit = jwt.encode(audit_payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
-    audit_hash = hashlib.sha256(audit.encode('UTF-8')).hexdigest()
-
-    jti = uuid.uuid4()
-    payload = {
-        "iss": clientid,
-        "sub": clientid,
-        "aud": aud,
-        "purposeId": purposeid,
-        "jti": str(jti),
-        "iat": issued,
-        "exp": expire_in,
-        "digest": {
-            "alg": "SHA256",
-            "value": audit_hash
-            }
-        }
-
-
-    client_assertion = jwt.encode(payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
-
-    params = urllib.parse.urlencode({
-        'client_id': clientid,
-        'client_assertion': client_assertion,
-        'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
-        'grant_type': 'client_credentials'
-        })
-
-    headers = {"Content-type": "application/x-www-form-urlencoded"}
+    # MIT e' l'unico servizio con lo skew di clock: il token nasce 60 secondi nel
+    # passato e dura 5 minuti, non i 30 giorni del default (MIT orologia stretta).
+    emesso = datetime.datetime.utcnow() - datetime.timedelta(seconds=SKEW)  # noqa: DTZ003
+    prova, hash_prova = agid.audit(parametri_mit, user_ID, emesso=emesso,
+                                   scadenza_minuti=SCADENZA_VOUCHER)
+    # `agid.voucher` lascia salire gli errori di rete (e' il contratto del client): HEAD li
+    # rendiconta qui come TOKEN_ERR, e un'autority giu' dev'essere una card, non un 500
     try:
-        conn = http.client.HTTPSConnection(re.sub(r'^https?://', '', baseurlauth))
-        conn.request("POST", "/token.oauth2", params, headers)
-        response = conn.getresponse()
-        resp_data = response.read()
-        if response.status == 200:
-            voucher = json.loads(resp_data)["access_token"]
-            try:
-                decoded_token = jwt.decode(voucher, options={"verify_signature": False})
-                token_id = decoded_token.get('jti')
-            except:
-                token_id = None
-        else:
-            return {
-                "esito": {
-                    "codice": str(response.status),
-                    "descrizione": f"Errore richiesta Token: {resp_data.decode('UTF-8')[:200]}"
-                }
-            }
-    except Exception as e:
+        voucher, token_id = agid.voucher(
+            parametri_mit, issuer=clientid,
+            asserzione=agid.asserzione_client(parametri_mit, digest=hash_prova,
+                                             issuer=clientid, subject=clientid, emesso=emesso,
+                                             scadenza_minuti=SCADENZA_VOUCHER))
+    except requests.RequestException as e:
         return {
             "esito": {
                 "codice": "TOKEN_ERR",
                 "descrizione": f"Eccezione durante richiesta Token: {str(e)}"
             }
-        }
+        }, 500, purposeid, None
+    if not voucher:
+        return {
+            "esito": {
+                "codice": "TOKEN_ERR",
+                "descrizione": "L'autority non ha rilasciato il voucher"
+            }
+        }, 500, purposeid, None
 
-    # prepara il body per la richiesta e relativo digest
-    body = richiesta
-    type = 'application/json'
-    encoding = 'UTF-8'
-    body_digest = hashlib.sha256(body.encode('UTF-8'))
-    digest = 'SHA-256=' + base64.b64encode(body_digest.digest()).decode('UTF-8')
-
-    # crea signature
-    jti = uuid.uuid4()
-    payload = {
-        "iss" : clientid,
-        "aud" : audience,
-        "purposeId": purposeid,
-        "sub": clientid,
-        "jti": str(jti),
-        "iat": issued,
-        "nbf" : issued,
-        "exp": expire_in,
-        "signed_headers": [
-            {"digest": digest},
-            {"content-type": type},
-            {"content-encoding": encoding}
-            ]
-        }
-    signature = jwt.encode(payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
-    # effettua chiamata
-    api_url = target
-    headers =  {"Accept":"application/json",
-                "Content-Type":type,
-                "Content-Encoding":encoding,
-                "Digest":digest,
-                "Authorization":"Bearer " + voucher,
-                "Agid-JWT-TrackingEvidence":audit,
-                "Agid-JWT-Signature":signature
-                }
-
+    digest = agid.digest_body(richiesta)
+    # `status_code` nasce vuoto: i due `except` sotto lo rendono nel terzo valore, e se
+    # la POST esplode lui non e' mai stato assegnato (a HEAD quel ritorno rendeva 1
+    # valore e non ci arrivava mai, percio' il buco era invisibile)
+    status_code = None
+    response = None
     try:
-        response = requests.post(api_url, data=body.encode('UTF-8'), headers=headers, verify=False)
+        response = requests.post(target, data=richiesta.encode(agid.CODIFICA),
+                                 headers=agid.intestazioni(parametri_mit, voucher, prova,
+                                                          digest, emesso=emesso,
+                                                          scadenza_minuti=SCADENZA_VOUCHER),
+                                 verify=False, timeout=30)  # noqa: S501
         status_code = response.status_code
         if response.status_code != 200:
             return {
@@ -202,19 +90,21 @@ def mit_get_request(user_ID, cf, id_caso):
         return {
             "esito": {
                 "codice": "JSON_ERR",
-                "descrizione": f"Risposta non valida dal server (non JSON): {response.text[:200]}"
+                "descrizione": f"Risposta non valida dal server (non JSON): "
+                               f"{(response.text if response else '')[:200]}"
             }
-        }
+        }, status_code, purposeid, token_id
     except Exception as e:
         return {
             "esito": {
                 "codice": "network_error",
                 "descrizione": str(e)
             }
-        }
+        }, status_code, purposeid, token_id
 
 
 def mit_dettaglio_cude(request):
+    utente_abilitato = False        # un anonimo non deve esplodere in UnboundLocalError
     if request.user.id:
         utente_sessione = UtentiParametri.objects.get(id=request.user.id)
         utente_abilitato = utente_sessione.mit_cude
@@ -274,6 +164,7 @@ def mit_lista_veicoli(request):
 
 
 def mit_verifica_targa(request):
+    utente_abilitato = False        # un anonimo non deve esplodere in UnboundLocalError
     if request.user.id:
         utente_sessione = UtentiParametri.objects.get(id=request.user.id)
         utente_abilitato = utente_sessione.mit_targa
@@ -300,11 +191,9 @@ def impostazioni_mit(request):
     svuota_none(parametri_mit)
 
     service_active = ServiziParametri.objects.all()
-    i_serv=0
     service_desc = ["" for _ in range(ServiziParametri.objects.count())]
-    for servizio in service_active:
-        service_desc[i_serv]= (servizio.attivo)
-        i_serv += 1
+    for i_serv, servizio in enumerate(service_active):
+        service_desc[i_serv] = servizio.attivo
 
     if request.method == 'POST':
         active_tab = request.POST.get("active_tab", "").replace("tab", "")

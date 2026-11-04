@@ -1,100 +1,49 @@
-from django.shortcuts import render
-from django.http import JsonResponse, HttpResponse
-from django.contrib.auth.decorators import login_required
-from impostazioni.models import TracingParametri
-from impostazioni.models import Logs
-from .utils import salva_log
-from django.db.models import Count
-
-import datetime
-from django.conf import settings
-from jose.constants import Algorithms
-import http.client, urllib.parse
-import hashlib
-import random
 import base64
+import csv
+import datetime
+import hashlib
 import uuid
+
 import jwt
 import requests
-import json
-import re
-import urllib3
-import csv
+from django.contrib.auth.decorators import login_required
+from django.conf import settings
+from django.db.models import Count
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render
+from jose.constants import Algorithms
+from impostazioni.models import Logs, TracingParametri
+
+from . import agid
+from .utils import salva_log
+
+SCADENZA_VOUCHER = 15   # il voucher tracing dura 15 minuti, non i 30 giorni del default
 
 
 def get_tracing_bearer(parametri_tracing, user_id):
-    kid = parametri_tracing.kid
-    alg = parametri_tracing.alg
-    typ = parametri_tracing.typ
-    aud = parametri_tracing.aud
-    purposeid = parametri_tracing.purposeid
-    # tracing_audience è l'aud corretto per la tracing API (es. att.interop.pagopa.it/tracing)
-    # audience è per gli e-service normali (eservices.att.interop.pagopa.it)
-    tracing_audience = parametri_tracing.tracing_audience or parametri_tracing.audience
-    baseurlauth = parametri_tracing.baseurlauth
+    """Voucher + audit per la tracing API.
+
+    Due particolarita' di tracing, entrambe passate a mano e non lasciate al default:
+    il voucher dura SCADENZA_VOUCHER minuti e l'audit va su `tracing_audience`, perche' la
+    tracing API ha un `aud` diverso dagli e-service normali (audience e' per quelli).
+    L'audit e' il ritorno: la response della tracing API va verificata contro questo JWT.
+    """
+    emesso = datetime.datetime.utcnow()  # noqa: DTZ003
     clientid = parametri_tracing.clientid
-    private_key = parametri_tracing.private_key
-    location = 'PortaleOpenMSP'
-    loa = 'LoA2'
-
-    issued = datetime.datetime.utcnow()
-    delta = datetime.timedelta(minutes=15)
-    expire_in = issued + delta
-    dnonce = random.randint(1000000000000, 9999999999999)
-
-    headers_rsa = {"kid": kid, "alg": alg, "typ": typ}
-
-    # Costruisce l'audit con tracing_audience (aud per la tracing API)
-    jti_audit = uuid.uuid4()
-    audit_payload = {
-        "userID": user_id,
-        "userLocation": location,
-        "LoA": loa,
-        "iss": clientid,
-        "sub": clientid,
-        "aud": tracing_audience,
-        "purposeId": purposeid,
-        "dnonce": dnonce,
-        "jti": str(jti_audit),
-        "iat": issued,
-        "nbf": issued,
-        "exp": expire_in
-    }
-    audit = jwt.encode(audit_payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
-    audit_hash = hashlib.sha256(audit.encode('UTF-8')).hexdigest()
-
-    # Costruisce la client_assertion con l'hash dell'audit
-    jti_ca = uuid.uuid4()
-    client_assertion_payload = {
-        "iss": clientid,
-        "sub": clientid,
-        "aud": aud,
-        "purposeId": purposeid,
-        "jti": str(jti_ca),
-        "iat": issued,
-        "exp": expire_in,
-        "digest": {"alg": "SHA256", "value": audit_hash}
-    }
-    client_assertion = jwt.encode(client_assertion_payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
-
-    params = urllib.parse.urlencode({
-        'client_id': clientid,
-        'client_assertion': client_assertion,
-        'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
-        'grant_type': 'client_credentials'
-    })
-    headers = {"Content-type": "application/x-www-form-urlencoded"}
-    conn = http.client.HTTPSConnection(re.sub(r'^https?://', '', baseurlauth), timeout=30)
-    conn.request("POST", "/token.oauth2", params, headers)
-    corpo = conn.getresponse().read()
-    conn.close()
-    try:
-        voucher = json.loads(corpo)["access_token"]
-    except Exception as e:
+    prova, hash_prova = agid.audit(parametri_tracing, user_id, emesso=emesso,
+                                  scadenza_minuti=SCADENZA_VOUCHER,
+                                  subject=clientid,
+                                  audience=parametri_tracing.tracing_audience
+                                                  or parametri_tracing.audience)
+    voucher, token_id = agid.voucher(
+        parametri_tracing, issuer=clientid, scadenza_minuti=SCADENZA_VOUCHER,
+        asserzione=agid.asserzione_client(parametri_tracing, digest=hash_prova,
+                                         issuer=clientid, subject=clientid, emesso=emesso,
+                                         scadenza_minuti=SCADENZA_VOUCHER))
+    if not voucher:
         # authority guasta: un errore leggibile qui evita un 500 nudo chiamante
-        raise RuntimeError(f"Authority tracing non ha rilasciato un voucher: {corpo[:200]!r}") from e
-
-    return voucher, audit
+        raise RuntimeError('Authority tracing non ha rilasciato un voucher')
+    return voucher, prova
 
 
 def confronta_identificatori(claims, parametri_tracing):
@@ -116,7 +65,7 @@ def verifica_status_tracing(request):
         parametri_tracing = TracingParametri.objects.get(id=1)
     except TracingParametri.DoesNotExist:
         return {"errore": "Parametri non configurati"}
-    
+
     kid = parametri_tracing.kid
     alg = parametri_tracing.alg
     typ = parametri_tracing.typ
@@ -172,7 +121,7 @@ def verifica_status_tracing(request):
         ]
     }
     signature = jwt.encode(payload, private_key, algorithm=Algorithms.RS256, headers=headers_rsa)
-    
+
     # effettua chiamata
     headers =  {
         "Accept": "application/json",
@@ -220,7 +169,6 @@ def chiamata_api_tracing(request, method, endpoint, params=None, data=None, file
     alg = parametri_tracing.alg
     typ = parametri_tracing.typ
     clientid = parametri_tracing.clientid
-    audience = parametri_tracing.audience
     purposeid = parametri_tracing.purposeid
     private_key = parametri_tracing.private_key
 
@@ -355,16 +303,16 @@ def chiamata_api_tracing(request, method, endpoint, params=None, data=None, file
 def ajax_submit_tracing(request):
     if request.method != 'POST':
         return JsonResponse({"errore": "Metodo non consentito"}, status=405)
-    
+
     file_obj = request.FILES.get('file')
     date = request.POST.get('date')
-    
+
     if not file_obj or not date:
         return JsonResponse({"errore": "File e data obbligatori"}, status=400)
-    
+
     files = {'file': (file_obj.name, file_obj.read(), 'text/csv')}
     data = {'date': date}
-    
+
     risultato = chiamata_api_tracing(request, "POST", "/tracings/submit", data=data, files=files)
     return JsonResponse(risultato, safe=False)
 
@@ -374,11 +322,11 @@ def ajax_get_tracings(request):
     states = request.GET.get('states')
     offset = request.GET.get('offset', 0)
     limit = request.GET.get('limit', 50)
-    
+
     params = {'offset': offset, 'limit': limit}
     if states:
         params['states'] = states
-        
+
     risultato = chiamata_api_tracing(request, "GET", "/tracings", params=params)
     return JsonResponse(risultato, safe=False)
 
@@ -387,7 +335,7 @@ def ajax_get_tracings(request):
 def ajax_get_tracing_errors(request, tracing_id):
     offset = request.GET.get('offset', 0)
     limit = request.GET.get('limit', 50)
-    
+
     params = {'offset': offset, 'limit': limit}
     risultato = chiamata_api_tracing(request, "GET", f"/tracings/{tracing_id}/errors", params=params)
     return JsonResponse(risultato, safe=False)
@@ -397,11 +345,11 @@ def ajax_get_tracing_errors(request, tracing_id):
 def ajax_recover_tracing(request, tracing_id):
     if request.method != 'POST':
         return JsonResponse({"errore": "Metodo non consentito"}, status=405)
-    
+
     file_obj = request.FILES.get('file')
     if not file_obj:
         return JsonResponse({"errore": "File obbligatorio"}, status=400)
-        
+
     files = {'file': (file_obj.name, file_obj.read(), 'text/csv')}
     risultato = chiamata_api_tracing(request, "POST", f"/tracings/{tracing_id}/recover", files=files)
     return JsonResponse(risultato, safe=False)
@@ -411,11 +359,11 @@ def ajax_recover_tracing(request, tracing_id):
 def ajax_replace_tracing(request, tracing_id):
     if request.method != 'POST':
         return JsonResponse({"errore": "Metodo non consentito"}, status=405)
-    
+
     file_obj = request.FILES.get('file')
     if not file_obj:
         return JsonResponse({"errore": "File obbligatorio"}, status=400)
-        
+
     files = {'file': (file_obj.name, file_obj.read(), 'text/csv')}
     risultato = chiamata_api_tracing(request, "POST", f"/tracings/{tracing_id}/replace", files=files)
     return JsonResponse(risultato, safe=False)
@@ -508,7 +456,7 @@ def impostazioni_tracing(request):
         )
         dati.save()
         salva_log(request.user, "Impostazioni Tracing", "modifica parametri")
-        
+
     parametri_tracing = TracingParametri.objects.all()
 
     return render(request, 'impostazioni_tracing.html', {'parametri_tracing': parametri_tracing})

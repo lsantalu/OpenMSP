@@ -10,13 +10,12 @@ from .utils import salva_log
 from .utils import converti_data
 from .verifica_cf import verifica_cf
 from .verifica_cf import verifica_cf_azienda
+from . import agid
 
 import xmltodict
 import urllib.parse
 import base64
 import datetime
-import uuid
-import jwt
 import requests
 import json
 import io
@@ -212,56 +211,6 @@ def _extract_first_indicator(ordinario):
 
     return None, {}
 
-def _get_inps_token(parametri):
-    issued = datetime.datetime.utcnow()
-    delta = datetime.timedelta(minutes=43200)
-    expire_in = issued + delta
-    jti = uuid.uuid4()
-
-    headers_rsa = {
-        "kid": parametri.kid,
-        "alg": parametri.alg,
-        "typ": parametri.typ
-    }
-
-    payload = {
-        "iss": parametri.iss,
-        "sub": parametri.sub,
-        "aud": parametri.aud,
-        "purposeId": parametri.purposeid,
-        "jti": str(jti),
-        "iat": issued,
-        "exp": expire_in
-    }
-
-    asserzione = jwt.encode(payload, parametri.private_key, algorithm="RS256", headers=headers_rsa)
-
-    risposta = requests.post(
-        parametri.baseurlauth + "/token.oauth2",
-        data={
-            "client_id": parametri.iss,
-            "client_assertion": asserzione,
-            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-            "grant_type": "client_credentials",
-            },
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        timeout=30,
-        )
-    try:
-        voucher = risposta.json().get('access_token', '')
-    except ValueError:
-        # authority INPS non utilizzabile: il chiamante rendiconto l'errore invece di esplodere
-        voucher = ""
-
-    # Estrae il token_id (jti) dal voucher
-    try:
-        decoded_token = jwt.decode(voucher, options={"verify_signature": False})
-        token_id = decoded_token.get('jti')
-    except jwt.PyJWTError:
-        token_id = None
-
-    return voucher, token_id
-
 
 def inps_isee(request):
     selected_prestazione = ''
@@ -304,7 +253,7 @@ def inps_isee(request):
 
 def inps_isee_get_bearer():
     parametri_inps_isee = InpsIseeParametri.objects.get(id=1)
-    return _get_inps_token(parametri_inps_isee)
+    return agid.voucher(parametri_inps_isee)
 
 
 def RichiestaIsee(cf, bearer, prestazione_da_erogare="A1.01"):
@@ -469,7 +418,7 @@ def RichiestaIsee(cf, bearer, prestazione_da_erogare="A1.01"):
 
 def inps_durc_get_bearer():
     parametri_inps_durc = InpsDurcParametri.objects.get(id=1)
-    return _get_inps_token(parametri_inps_durc)
+    return agid.voucher(parametri_inps_durc)
 
 
 def inps_durc_singolo(request):

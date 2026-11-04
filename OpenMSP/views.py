@@ -151,15 +151,22 @@ def home(request):
             'description': 'Interrogazione anagrafe istruzione.',
         },
         {
-            'title': 'Consultazione ANNCSU',
-            # un solo gate per tutti e otto le operazioni: l'e-service su PDND e' uno soltanto,
-            # il permesso in utenti_parametri e' il singolo flag anncsu
-            'service_links': [('anncsu', 'anncsu', ('anncsu',))],
+            'title': 'ANNCSU',
+            # un link per e-service, come la card ANPR: vince il primo attivo e consentito,
+            # cosi' card e megamenu dicono la stessa cosa (invariante 1). Gli ultimi quattro
+            # sono ancora senza client: la pagina risponde, ma rende 'servizio non ancora attivo'.
+            'service_links': [
+                ('anncsu', 'anncsu', ('anncsu_consultazione_comuni',)),
+                ('anncsu_accessi', 'anncsu_accessi', ('anncsu_accessi',)),
+                ('anncsu_coordinate', 'anncsu_coordinate', ('anncsu_coordinate',)),
+                ('anncsu_odonimi', 'anncsu_odonimi', ('anncsu_odonimi',)),
+                ('anncsu_visura', 'anncsu_visura', ('anncsu_visura',)),
+            ],
             # icona dedicata in static/images/: in dev Django serve gli statici dal finder, in
             # deploy passa da collectstatic (lo fa gia' l'update script) prima di rendere la home
             'image': 'images/anncsu.png',
             'alt': 'ANNCSU',
-            'description': 'Verifica odonimi e accessi nell’Archivio Nazionale dei Numeri Civici delle Strade Urbane.',
+            'description': 'Numeri civici e odonimi nell’Archivio Nazionale delle Strade Urbane.',
         },
         {
             'title': 'INPS',

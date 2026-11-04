@@ -64,7 +64,11 @@ class UtentiParametri(models.Model):
     anist_frequenze_massivo = models.BooleanField(default=False)
     anist_titoli_singolo = models.BooleanField(default=False)
     anist_titoli_massivo = models.BooleanField(default=False)
-    anncsu = models.BooleanField(default=False)
+    anncsu_consultazione_comuni = models.BooleanField(default=False)
+    anncsu_accessi = models.BooleanField(default=False)
+    anncsu_coordinate = models.BooleanField(default=False)
+    anncsu_odonimi = models.BooleanField(default=False)
+    anncsu_visura = models.BooleanField(default=False)
     app_io_composer = models.BooleanField(default=False)
     app_io_storico_messaggi = models.BooleanField(default=False)
     # C030 escluso: e' strumentale alla risoluzione del CF in idANPR, non una interrogazione
@@ -333,8 +337,9 @@ class AnncsuServizi(models.Model):
 
 
 class AnncsuParametri(models.Model):
-    # Unica riga (id=1): le 8 operazioni di ANNCSU - Consultazione sono path sullo stesso
-    # target, quindi un solo set di credenziali AgID (a differenza di ANPR, un caso = una riga)
+    # Una riga per e-service di ANNCSU (id = servizio_id, da 1 a 5), come anpr_parametri:
+    # ogni e-service ha accreditazione, purposeid, kid e chiave proprie. La 1 e' la
+    # Consultazione per i Comuni (8 operazioni = path sullo stesso target).
     id = models.IntegerField(blank=True, primary_key=True)
     servizio_id = models.ForeignKey(AnncsuServizi, models.DO_NOTHING, db_column='servizio_id')
     kid = models.CharField(max_length=64)

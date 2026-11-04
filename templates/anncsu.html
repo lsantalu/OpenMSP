@@ -13,42 +13,109 @@ Consultazione ANNCSU - OpenMSP - Multi Services Portal
 <br />
 {% if user.is_authenticated %}
 {% if utente_abilitato %}
-<div class="col-10 shadow-lg white-bg p-4">
-  <p>
-    Il servizio consente la consultazione dell&rsquo;Archivio Nazionale dei Numeri Civici delle
-    Strade Urbane (ANNCSU), archivio informatizzato contenente gli stradari (le denominazioni
-    delle aree di circolazione aperte al pubblico) e gli indirizzari (i numeri civici e le
-    indicazioni metriche eventualmente corredati di esponente e specificit&agrave;) dei Comuni
-    italiani che li hanno certificati e ne gestiscono l&rsquo;aggiornamento.
-  </p>
-  <p>
-    L&rsquo;interrogazione &egrave; sincrona e le risposte sono sempre in JSON. Trattandosi di un
-    servizio di ricerca, gli esiti negativi sono trattati secondo lo standard HTTP.
-  </p>
-  <div class="alert alert-info" role="alert">
-    Il servizio &egrave; in attivazione: questa pagina rende per ora solo la descrizione
-    dell&rsquo;e-service. Le interrogazioni non sono ancora disponibili dal portale.
-  </div>
-  <h5>Operazioni esposte dall&rsquo;e-service</h5>
-  <table class="table" summary="Operazioni disponibili su ANNCSU - Consultazione">
-    <thead>
-      <tr>
-        <th scope="col">Operazione</th>
-        <th scope="col">Descrizione</th>
-        <th scope="col">Dati in ingresso</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for nome, descrizione, input in operazioni %}
-      <tr>
-        <td><code>{{ nome }}</code></td>
-        <td>{{ descrizione }}</td>
-        <td>{{ input }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div id="loadingOverlay">
+  <div class="spinner"></div>
 </div>
+<div class="col-10 shadow-lg white-bg p-4">
+  <p class="pb-3">
+    Il servizio consente la consultazione dell&rsquo;Archivio Nazionale dei Numeri Civici delle
+    Strade Urbane (ANNCSU)</p>
+  
+  {% if error %}
+  <div class="alert alert-danger" role="alert">{{ error }}</div>
+  {% endif %}
+
+  <form class="needs-validation" id="anncsu_form" method="post">
+    {% csrf_token %}
+    <div class="form-group mt-3 mb-5">
+      <label class="active d-block mb-2">Interrogazione</label>
+      <div class="row">
+        {% for op in operazioni %}
+        <div class="col-6">
+          <div class="form-check m-0">
+            <input class="form-check-input anncsu-operazione" type="radio" name="operazione"
+                   id="op_{{ op.chiave }}" value="{{ op.chiave }}"
+                   {% if op.chiave == operazione_scelta %}checked{% endif %} />
+            <label class="form-check-label" for="op_{{ op.chiave }}">
+              {{ op.titolo }} <span class="text-muted"><code>{{ op.chiave }}</code></span>
+            </label>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% for campo in campi %}
+    <div class="form-group mb-3 anncsu-campo col-6" data-operazioni="{{ campo.operazioni }}">
+      <label for="in_{{ campo.nome }}">{{ campo.etichetta }}</label>
+      <input type="text" class="form-control" id="in_{{ campo.nome }}" name="{{ campo.nome }}"
+             maxlength="{{ campo.maxlength }}" value="{{ campo.valore }}"
+             oninput="this.value = this.value.toUpperCase();" />
+      <small class="form-note">{{ campo.hint }}</small>
+    </div>
+    {% endfor %}
+
+    <div class="mt-4">
+      <button class="btn btn-primary" id="executeSearchBtn" type="submit" disabled>
+        <svg class="icon icon-sm icon-white" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-search"></use>
+        </svg>Avvia ricerca
+      </button>
+    </div>
+  </form>
+
+</div>
+
+{% if risultati.tipo == 'bool' %}
+<br />
+<div class="col-10 shadow-lg white-bg p-4">
+  <h5>{{ risultati.titolo }}</h5>
+  {% if risultati.positivo %}
+  <div class="alert alert-success" role="alert"><b>Esistenza verificata.</b></div>
+  {% else %}
+  <div class="alert alert-danger" role="alert"><b>Esistenza non verificata.</b></div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if risultati.tipo == 'tabella' %}
+<br />
+<div class="col-12 shadow-lg white-bg p-4">
+  <h5>{{ risultati.titolo }} &mdash; {{ risultati.righe|length }} risultati</h5>
+  <div class="table-responsive">
+    <table class="table table-striped" summary="Esito dell'interrogazione ANNCSU">
+      <thead>
+        <tr>
+          {% for intestazione in risultati.intestazioni %}
+          <th scope="col">{{ intestazione }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for riga in risultati.righe %}
+        <tr>
+          {% for cella in riga %}
+          <td>{{ cella }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="d-flex justify-content">
+    <a href="{% url 'anncsu_export_csv' %}" class="m-1 btn btn-secondary">
+      <svg class="icon icon-sm icon-light" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+      </svg><span>Esporta CSV</span>
+    </a>
+    <a href="{% url 'anncsu_export_excel' %}" class="m-1 btn btn-success">
+      <svg class="icon icon-sm icon-light" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+      </svg><span>Esporta Excel</span>
+    </a>
+  </div>
+</div>
+{% endif %}
 {% else %}
 <div class="col-6">
   <h4>Utente non abilitato</h4>
@@ -68,4 +135,49 @@ Consultazione ANNCSU - OpenMSP - Multi Services Portal
   </svg>Accedi
 </a>
 {% endif %}
+
+<script>
+  (function () {
+    const form = document.querySelector("#anncsu_form");
+    if (!form) return;
+    const campi = document.querySelectorAll(".anncsu-campo");
+    const bottone = document.querySelector("#executeSearchBtn");
+    const overlay = document.querySelector("#loadingOverlay");
+
+    function operazioneScelta() {
+      return document.querySelector(".anncsu-operazione:checked");
+    }
+
+    // Un campo serve a piu' operazioni (codcom a cinque): ogni input sa per quali esiste
+    // (data-operazioni), cosi' il form espone una sola chiavi per name e il POST resta previsto.
+    function aggiornaVista() {
+      const scelta = operazioneScelta();
+      campi.forEach(function (campo) {
+        const necessario = !!scelta && campo.dataset.operazioni.split(" ").includes(scelta.value);
+        campo.classList.toggle("d-none", !necessario);
+        campo.querySelector("input").required = necessario;
+      });
+      aggiornaBottone();
+    }
+
+    function aggiornaBottone() {
+      const compilati = Array.prototype.every.call(
+        document.querySelectorAll(".anncsu-campo:not(.d-none) input"),
+        function (input) { return input.value.trim() !== ""; });
+      bottone.disabled = !operazioneScelta() || !compilati;
+    }
+
+    document.querySelectorAll(".anncsu-operazione").forEach(function (radio) {
+      radio.addEventListener("change", aggiornaVista);
+    });
+    campi.forEach(function (campo) {
+      campo.querySelector("input").addEventListener("input", aggiornaBottone);
+    });
+    form.addEventListener("submit", function () {
+      if (overlay) overlay.classList.add("show");
+    });
+
+    aggiornaVista();
+  })();
+</script>
 {% endblock %}
