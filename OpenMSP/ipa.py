@@ -22,11 +22,12 @@ from django.http import HttpResponse
 def ipa_export_excel(request):
     data = request.session.get("multi_data", [])  # Oppure recuperalo come preferisci
     wb = Workbook()
-    ws = wb.active
-    ws.append(["#", "CF", "Verifica", "Domicilio digitale"])
+    ws = wb.active or wb.create_sheet()
+    intestazione = ["#", "CF", "Verifica", "Domicilio digitale"]
+    ws.append(intestazione)
 
     # Dizionario per la larghezza massima di ogni colonna
-    max_lengths = [len(str(cell.value)) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
+    max_lengths = [len(str(x)) for x in intestazione]  # Larghezze iniziali: l'intestazione e' gia' in mano
 
     if not data:
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
@@ -65,7 +66,8 @@ def ipa_export_excel(request):
         fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
 
         # Append senza normalizzare: preserva i newline in Domicilio
-        ws.append([i, Ente, Verifica, Domicilio])
+        riga = [i, Ente, Verifica, Domicilio]
+        ws.append(riga)
 
         # Applica fill a tutta la riga corrente
         current_row = ws.max_row
@@ -74,8 +76,8 @@ def ipa_export_excel(request):
                 cell.fill = fill
 
         # Calcola larghezze: per Domicilio, stima la larghezza orizzontale ignorando newline (solo per colonne)
-        for j, cell in enumerate(ws[current_row]):
-            value_str = str(cell.value) if cell.value is not None else ""
+        for j, valore in enumerate(riga):
+            value_str = str(valore) if valore is not None else ""
             # Per colonna D (indice 3), usa join con spazio per stimare larghezza max lineare
             if j == 3:  # Colonna Domicilio
                 value_length = len(' '.join(value_str.split()))  # Ignora newline per larghezza orizzontale
@@ -253,6 +255,8 @@ def ipa_massiva(request):
             elif csv_file.name.endswith('.xlsx') or csv_file.name.endswith('.XLSX') or csv_file.name.endswith('.Xlsx'):
                 wb = openpyxl.load_workbook(csv_file)
                 sheet = wb.active
+                if sheet is None:
+                    return HttpResponse("Foglio vuoto nel file XLSX", status=400)
                 for row in sheet.iter_rows(min_row=1, values_only=True):
                     if row[0]:
                         row = list(row)

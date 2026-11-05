@@ -49,11 +49,12 @@ def app_io_storico_pagina_export_excel(request):
 
 
     wb = Workbook()
-    ws = wb.active
-    ws.append(["ID Msg", "Servizio", "Titolo messaggio", "CF Destinatario", "Data invio", "Utente mitt.", "Esito"])
+    ws = wb.active or wb.create_sheet()
+    intestazione = ["ID Msg", "Servizio", "Titolo messaggio", "CF Destinatario", "Data invio", "Utente mitt.", "Esito"]
+    ws.append(intestazione)
 
     # Dizionario per la larghezza massima di ogni colonna
-    max_lengths = [len(cell.value) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
+    max_lengths = [len(str(x)) for x in intestazione]  # Larghezze iniziali: l'intestazione e' gia' in mano
 
     if not messaggi:
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
@@ -100,11 +101,12 @@ def app_io_storico_full_export_excel(request):
     messaggi = request.session.get("multi_messaggi", [])  # Oppure recuperalo come preferisci
 
     wb = Workbook()
-    ws = wb.active
-    ws.append(["ID Msg", "Servizio", "Titolo messaggio", "CF Destinatario", "Data invio", "Utente mitt.", "Esito"])
+    ws = wb.active or wb.create_sheet()
+    intestazione = ["ID Msg", "Servizio", "Titolo messaggio", "CF Destinatario", "Data invio", "Utente mitt.", "Esito"]
+    ws.append(intestazione)
 
     # Dizionario per la larghezza massima di ogni colonna
-    max_lengths = [len(cell.value) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
+    max_lengths = [len(str(x)) for x in intestazione]  # Larghezze iniziali: l'intestazione e' gia' in mano
 
     if not messaggi:
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
@@ -146,11 +148,12 @@ def app_io_storico_full_export_excel(request):
 def app_io_composer_export_excel(request):
     data = request.session.get("multi_data", [])  # Oppure recuperalo come preferisci
     wb = Workbook()
-    ws = wb.active
-    ws.append(["Servizio", "Titolo messaggio", "CF Destinatario", "Data invio", "Utente mitt.", "Esito"])
+    ws = wb.active or wb.create_sheet()
+    intestazione = ["Servizio", "Titolo messaggio", "CF Destinatario", "Data invio", "Utente mitt.", "Esito"]
+    ws.append(intestazione)
 
     # Dizionario per la larghezza massima di ogni colonna
-    max_lengths = [len(cell.value) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
+    max_lengths = [len(str(x)) for x in intestazione]  # Larghezze iniziali: l'intestazione e' gia' in mano
 
     if not data:
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
@@ -194,11 +197,12 @@ def app_io_composer_export_excel(request):
 def app_io_massivo_export_excel(request):
     data = request.session.get("multi_data", [])  # Oppure recuperalo come preferisci
     wb = Workbook()
-    ws = wb.active
-    ws.append(["#", "CF", "Verifica CF", "Esito invio", "ID/Errore"])
+    ws = wb.active or wb.create_sheet()
+    intestazione = ["#", "CF", "Verifica CF", "Esito invio", "ID/Errore"]
+    ws.append(intestazione)
 
     # Dizionario per la larghezza massima di ogni colonna
-    max_lengths = [len(cell.value) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
+    max_lengths = [len(str(x)) for x in intestazione]  # Larghezze iniziali: l'intestazione e' gia' in mano
 
     if not data:
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
@@ -242,11 +246,12 @@ def app_io_massivo_export_excel(request):
 def app_io_verifica_massivo_export_excel(request):
     data = request.session.get("multi_data", [])  # Oppure recuperalo come preferisci
     wb = Workbook()
-    ws = wb.active
-    ws.append(["#", "CF", "Verifica", "Stato App IO"])
+    ws = wb.active or wb.create_sheet()
+    intestazione = ["#", "CF", "Verifica", "Stato App IO"]
+    ws.append(intestazione)
 
     # Dizionario per la larghezza massima di ogni colonna
-    max_lengths = [len(cell.value) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
+    max_lengths = [len(str(x)) for x in intestazione]  # Larghezze iniziali: l'intestazione e' gia' in mano
 
     if not data:
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
@@ -317,19 +322,13 @@ def app_io_invio_messaggio(url, cf, chiave_servizio, titolo, messaggio, dataScad
     if not 80 < len(messaggio) < 10000:
         return HttpResponse('92', status=200)
 
-    if comandobottone1 is not None :
-        if isinstance(comandobottone1, (int, float)):
-            comandobottone1 = str(comandobottone1)
-        if comandobottone1.isdigit() :
-            if not comandobottone1.startswith("+"):
-                comandobottone1 = "+" + comandobottone1
-
-    if comandobottone1 is not None and comandobottone2 is not None :
-        if isinstance(comandobottone2, (int, float)):
-            comandobottone2 = str(comandobottone2)
-        if comandobottone2.isdigit() :
-            if not comandobottone2.startswith("+"):
-                comandobottone2 = "+" + comandobottone2
+    # da qui in poi comandobottone e' sempre str: i chiamanti passano str, None o un numero
+    comandobottone1 = "" if comandobottone1 is None else str(comandobottone1)
+    comandobottone2 = "" if comandobottone2 is None else str(comandobottone2)
+    if comandobottone1.isdigit() and not comandobottone1.startswith("+"):
+        comandobottone1 = "+" + comandobottone1
+    if comandobottone2.isdigit() and not comandobottone2.startswith("+"):
+        comandobottone2 = "+" + comandobottone2
 
     messaggio_CTA = ""
     messaggio_CTA1 = ""
@@ -383,6 +382,9 @@ def app_io_invio_messaggio(url, cf, chiave_servizio, titolo, messaggio, dataScad
     dataScadenzaPulita = ""
     if dataScadenza != None and dataScadenza != "":
         dataScadenzaAux = normalizza_data(dataScadenza)
+        if dataScadenzaAux is None:
+            # data non interpretabile: respinta come i titoli non validi, non 500
+            return HttpResponse('93', status=200)
         if isinstance(dataScadenzaAux, datetime.datetime):
             oggi = datetime.datetime.today()
         else:
@@ -463,6 +465,10 @@ def app_io_singolo(request):
             data = []
             if conferma: ##ricevuto da conferma.html
                 correttezza_cf = verifica_cf(cf)
+                # `response` esiste solo nel ramo del CF corretto: inizializzato qui perche'
+                # va testato `is not None` sotto (un requests.Response su 4xx/5xx e' falso,
+                # e con `if response:` lo stato dell'errore sparirebbe dal log)
+                response = None
                 if  correttezza_cf == 2: #CODICE FISCALE MINORENNE
                     data = "CF di persona minorenne"
                 elif correttezza_cf == -1: ##CODICE FISCALE SBAGLIATO
@@ -496,7 +502,7 @@ def app_io_singolo(request):
 
                     app_io_salva_messaggio(request.user, servizioScelto, cf, titolo, messaggio, dataScadenza, input_IUV, mezzo1, testobottone1, comandobottone1, mezzo2, testobottone2, comandobottone2, id_messaggio)
 
-                status_code = response.status_code if 'response' in locals() else None
+                status_code = response.status_code if response is not None else None
                 salva_log(request.user, "App IO singolo", "Invio messaggio del servizio " + servizioScelto.servizio + " a " + cf, resp_status=status_code)
                 return render(request, 'app_io_singolo.html', {'data': data, 'utente_abilitato': utente_abilitato })
             else:
@@ -623,6 +629,8 @@ def app_io_massivo(request):
             elif csv_file.name.endswith('.xlsx') or csv_file.name.endswith('.XLSX') or csv_file.name.endswith('.Xlsx'):
                 wb = openpyxl.load_workbook(csv_file)
                 sheet = wb.active
+                if sheet is None:
+                    return HttpResponse("Foglio vuoto nel file XLSX", status=400)
                 for row in sheet.iter_rows(min_row=2, values_only=True):
                     if row[0]:
                         cf = row[0].strip().upper()
@@ -853,6 +861,8 @@ def app_io_composer(request):
                 elif csv_file.name.endswith('.xlsx') or csv_file.name.endswith('.XLSX') or csv_file.name.endswith('.Xlsx'):
                     wb = openpyxl.load_workbook(csv_file)
                     sheet = wb.active
+                    if sheet is None:
+                        return HttpResponse("Foglio vuoto nel file XLSX", status=400)
                     prima_riga = [cell.value for cell in sheet[1]]
 
                     # controlla se la prima_riga ha i seguenti campi (CF,Scadenza,IUV,Mezzo1,TestoBottone1,Comando1,Mezzo2,TestoBottone2,Comando2)
@@ -1057,6 +1067,8 @@ def app_io_composer_conferma(request):
 def app_io_composer_esito(request):
     app_io_parametri = AppIoParametri.objects.get(id=1)
     url = app_io_parametri.api_url + '/messages'
+    data = []
+    utente_abilitato = False
 
     if request.user.id:
         titoliVariabiliTesto = request.session.get("titoliVariabiliTesto", [])
@@ -1069,7 +1081,6 @@ def app_io_composer_esito(request):
         utente_sessione = UtentiParametri.objects.get(id=request.user.id)
         utente_abilitato = utente_sessione.app_io_composer
 
-        data = []
         contatore = 0
 
         for row in elencoMessaggi:
@@ -1080,11 +1091,12 @@ def app_io_composer_esito(request):
                 data.append((row[0].strip().upper(), correttezza_cf , correttezza_cf, "Codice fiscale errato"))
             else:
                 risposta = app_io_verifica_utente_attivo(row[0].strip().upper(), servizioSceltoObj.chiave_api)
+                # se l'utente non e' attivo si salva comunque l'esito: i testi restano quelli del catalogo
+                titolo_personalizzato = titolo
+                testo_personalizzato = testo_messaggio
                 if  risposta == 1: ##UTENTE ATTIVO
-                    titolo_personalizzato = titolo
                     for i, variabile in enumerate(titoliVariabiliTesto):
                         titolo_personalizzato = titolo_personalizzato.replace('[['+variabile+']]', str(row[i+9]))
-                    testo_personalizzato = testo_messaggio
                     for i, variabile in enumerate(titoliVariabiliTesto):
                         testo_personalizzato = testo_personalizzato.replace('[['+variabile+']]', str(row[i+9]))
                     testo_personalizzato = html2text.html2text(testo_personalizzato)
@@ -1199,6 +1211,8 @@ def app_io_verifica_massivo(request):
             elif csv_file.name.endswith('.xlsx') or csv_file.name.endswith('.XLSX') or csv_file.name.endswith('.Xlsx'):
                 wb = openpyxl.load_workbook(csv_file)
                 sheet = wb.active
+                if sheet is None:
+                    return HttpResponse("Foglio vuoto nel file XLSX", status=400)
                 for row in sheet.iter_rows(min_row=1, values_only=True):
                     if row[0]:
                         correttezza_cf = verifica_cf(row[0].strip().upper())
@@ -1326,20 +1340,22 @@ def app_io_salva_messaggio(utente, servizio_id, cf_destinatario, titolo, messagg
 
     if scadenza != "" and scadenza is not None:
         dataScadenzaAux = normalizza_data(scadenza)
-        if isinstance(dataScadenzaAux, datetime.datetime):
-            oggi = datetime.datetime.today()
-        else:
-            oggi = datetime.date.today()
-        if dataScadenzaAux < oggi:
-            dataScadenzaAux = oggi + datetime.timedelta(days=365)
+        if dataScadenzaAux is not None:
+            # se la data non si interpreta si salva grezza: qui non c'e' risposta da dare
+            if isinstance(dataScadenzaAux, datetime.datetime):
+                oggi = datetime.datetime.today()
+            else:
+                oggi = datetime.date.today()
+            if dataScadenzaAux < oggi:
+                dataScadenzaAux = oggi + datetime.timedelta(days=365)
 
-        timezone = 'Europe/Rome'
-        if is_daylight_saving(dataScadenzaAux, timezone):
-            dataScadenzaPulita = dataScadenzaAux.strftime('%Y-%m-%d')
-        else:
-            dataScadenzaPulita = dataScadenzaAux.strftime('%Y-%m-%d')
+            timezone = 'Europe/Rome'
+            if is_daylight_saving(dataScadenzaAux, timezone):
+                dataScadenzaPulita = dataScadenzaAux.strftime('%Y-%m-%d')
+            else:
+                dataScadenzaPulita = dataScadenzaAux.strftime('%Y-%m-%d')
 
-        scadenza = dataScadenzaPulita
+            scadenza = dataScadenzaPulita
 
     log_messaggio = AppIoElencoMessaggi(
         utente_id=utente,

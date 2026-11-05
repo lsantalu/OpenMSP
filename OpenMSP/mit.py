@@ -190,11 +190,6 @@ def impostazioni_mit(request):
     parametri_mit = MitParametri.objects.all()
     svuota_none(parametri_mit)
 
-    service_active = ServiziParametri.objects.all()
-    service_desc = ["" for _ in range(ServiziParametri.objects.count())]
-    for i_serv, servizio in enumerate(service_active):
-        service_desc[i_serv] = servizio.attivo
-
     if request.method == 'POST':
         active_tab = request.POST.get("active_tab", "").replace("tab", "")
 

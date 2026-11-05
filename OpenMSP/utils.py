@@ -4,6 +4,7 @@ import csv
 import datetime
 import io
 import re
+from typing import Any
 from datetime import date
 
 import openpyxl
@@ -62,7 +63,7 @@ def cf_da_file(allegato):
     return None
 
 
-def converti_data(data):
+def converti_data(data: Any) -> Any:
     date_pattern = re.compile(r'^\d{4}-\d{2}-\d{2}$')
     if isinstance(data, dict):
         for key, value in data.items():

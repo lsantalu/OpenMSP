@@ -30,11 +30,12 @@ from django.http import HttpResponse
 def inipec_export_excel(request):
     data = request.session.get("multi_data", [])  # Oppure recuperalo come preferisci
     wb = Workbook()
-    ws = wb.active
-    ws.append(["#", "CF", "Verifica", "Domicilio digitale"])
+    ws = wb.active or wb.create_sheet()
+    intestazione = ["#", "CF", "Verifica", "Domicilio digitale"]
+    ws.append(intestazione)
 
     # Dizionario per la larghezza massima di ogni colonna
-    max_lengths = [len(cell.value) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
+    max_lengths = [len(str(x)) for x in intestazione]  # Larghezze iniziali: l'intestazione e' gia' in mano
 
     if not data:
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
@@ -140,6 +141,8 @@ def inipec_massiva(request):
             elif csv_file.name.endswith('.xlsx') or csv_file.name.endswith('.XLSX') or csv_file.name.endswith('.Xlsx'):
                 wb = openpyxl.load_workbook(csv_file)
                 sheet = wb.active
+                if sheet is None:
+                    return HttpResponse("Foglio vuoto nel file XLSX", status=400)
                 for row in sheet.iter_rows(min_row=1, values_only=True):
                     if row[0]:
                         row = list(row)

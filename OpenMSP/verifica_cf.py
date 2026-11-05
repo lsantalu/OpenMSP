@@ -1,17 +1,15 @@
-from django.shortcuts import render
+import csv
+import io
 from datetime import date
 
-from .utils import salva_log
-from .utils import converti_data
-
-
-import io
-import csv
 import openpyxl
-from openpyxl import Workbook
-from openpyxl.styles import PatternFill, Alignment
-from openpyxl.utils import get_column_letter
 from django.http import HttpResponse
+from django.shortcuts import render
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill
+from openpyxl.utils import get_column_letter
+
+from .utils import salva_log
 
 
 def verifica_cf(request):
@@ -36,14 +34,11 @@ def verifica_cf(request):
         else:
             return -1 #CODICE FISCALE SBAGLIATO
 
-    try:
-        if mesi[cf[8:9]]:
-            month = mesi[cf[8:9]]
-        pass
-    except KeyError:
+    month = mesi.get(cf[8:9])
+    if not month:                       # mese assente o non una lettera: CF sbagliato
         return -1 #CODICE FISCALE SBAGLIATO
 
-    if not s % 26 != ord(cf[15]) - ord('A'): #CODICE FISCALE CORRETTO
+    if s % 26 == ord(cf[15]) - ord('A'): #CODICE FISCALE CORRETTO
         year = int(cf[6:8])
         if year > date.today().year % 100:
             year += 1900
@@ -54,7 +49,7 @@ def verifica_cf(request):
             day = day - 40
         birth_date = date(year, month, day)
         age = date.today() - birth_date
-        
+
         if age.days < 365 * 18:
             return 2 #CODICE FISCALE MINORENNE
         return 1 #CODICE FISCALE MAGGIORENNE
@@ -85,21 +80,22 @@ def verifica_cf_azienda(request):
             double = int(c) * 2
             s += double if double < 10 else double - 9
 
-    return 1 if s % 10 == 0 else -1  # Verifica di correttezza        
+    return 1 if s % 10 == 0 else -1  # Verifica di correttezza
 
 
 def verifica_cf_export_excel(request):
     data = request.session.get("multi_data", [])  # Oppure recuperalo come preferisci
     wb = Workbook()
-    ws = wb.active
-    ws.append(["#", "CF", "Verifica"])
+    ws = wb.active or wb.create_sheet()
+    intestazione = ["#", "CF", "Verifica"]
+    ws.append(intestazione)
 
     # Dizionario per la larghezza massima di ogni colonna
-    max_lengths = [len(cell.value) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
-    
+    max_lengths = [len(str(x)) for x in intestazione]  # Larghezze iniziali: l'intestazione e' gia' in mano
+
     if not data:
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
-    
+
     for i, row in enumerate(data, 1):
         split_row = row.split()
         stato = split_row[1]
@@ -159,6 +155,8 @@ def verifica_cf_massivo(request):
         elif csv_file.name.endswith('.xlsx') or csv_file.name.endswith('.XLSX') or csv_file.name.endswith('.Xlsx'):
             wb = openpyxl.load_workbook(csv_file)
             sheet = wb.active
+            if sheet is None:
+                return HttpResponse("Foglio vuoto nel file XLSX", status=400)
             for row in sheet.iter_rows(min_row=1, values_only=True):
                 if row[0]:
                     data.append(row[0].strip().upper() +" "+ str(verifica_cf(row[0].strip().upper())))
@@ -166,7 +164,7 @@ def verifica_cf_massivo(request):
             if request.user.id:
                 salva_log(request.user,"Verifica correttezza CF massivo", "Verificati n. " + str(contatore) + " CF")
             request.session["multi_data"] = data  # <--- Salva i dati nella sessione
-            return render(request, 'verifica_cf.html', {'data': data})         
+            return render(request, 'verifica_cf.html', {'data': data})
         else:
             if request.user.id:
                 salva_log(request.user,"Verifica correttezza CF massivo", "Errore caricamento file CSV")
@@ -195,6 +193,8 @@ def verifica_cf_aziende_massivo(request):
         elif csv_file.name.endswith('.xlsx') or csv_file.name.endswith('.XLSX') or csv_file.name.endswith('.Xlsx'):
             wb = openpyxl.load_workbook(csv_file)
             sheet = wb.active
+            if sheet is None:
+                return HttpResponse("Foglio vuoto nel file XLSX", status=400)
             for row in sheet.iter_rows(min_row=1, values_only=True):
                 if row[0]:
                     row = list(row)
@@ -207,7 +207,7 @@ def verifica_cf_aziende_massivo(request):
                 if request.user.id:
                     salva_log(request.user,"Verifica correttezza CF aziende massivo", "Verificati n. " + str(contatore) + " CF")
             request.session["multi_data"] = data  # <--- Salva i dati nella sessione
-            return render(request, 'verifica_cf_aziende.html', {'data': data})                  
+            return render(request, 'verifica_cf_aziende.html', {'data': data})
         else:
             if request.user.id:
                 salva_log(request.user,"Verifica correttezza CF aziende massivo", "Errore caricamento file CSV")
@@ -218,15 +218,16 @@ def verifica_cf_aziende_massivo(request):
 def verifica_cf_aziende_export_excel(request):
     data = request.session.get("multi_data", [])  # Oppure recuperalo come preferisci
     wb = Workbook()
-    ws = wb.active
-    ws.append(["#", "CF", "Verifica"])
+    ws = wb.active or wb.create_sheet()
+    intestazione = ["#", "CF", "Verifica"]
+    ws.append(intestazione)
 
     # Dizionario per la larghezza massima di ogni colonna
-    max_lengths = [len(cell.value) for cell in ws[1]]  # Larghezze iniziali dall'intestazione
-    
+    max_lengths = [len(str(x)) for x in intestazione]  # Larghezze iniziali: l'intestazione e' gia' in mano
+
     if not data:
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
-    
+
     for i, row in enumerate(data, 1):
         split_row = row.split()
         stato = split_row[1]

@@ -20,12 +20,6 @@ def custom_context(request):
 
     services_dict = {servizio.codice_servizio: servizio for servizio in service_active}
 
-    i_serv = 0
-    service_desc = ["" for _ in range(ServiziParametri.objects.count())]
-    for servizio in service_active:
-        service_desc[i_serv]= (servizio.codice_servizio, servizio.id,servizio.descrizione, servizio.gruppo_id, servizio.attivo)
-        i_serv += 1
-
     # Funzione helper per recuperare lo stato di un servizio in modo sicuro
     def get_service_status(code):
         service = services_dict.get(code)
@@ -92,7 +86,6 @@ def custom_context(request):
             'user_perms': user_perms,
             'service_active': service_active,
             'services_dict': services_dict,
-            'service_desc' : service_desc,
             'descrizioni_eservices': descrizioni_eservices,
             'my_ente': dati_comune.nome,
             'my_cf': dati_comune.cf,
