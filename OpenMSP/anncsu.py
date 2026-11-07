@@ -1,43 +1,44 @@
 # pyright: reportAttributeAccessIssue=false
 # (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono)
-from django.shortcuts import redirect, render
-from django.http import HttpResponse
-
-from impostazioni.models import AnncsuParametri
-from impostazioni.models import AnncsuServizi
-from impostazioni.models import ServiziParametri
-from impostazioni.models import UtentiParametri
-
-from .utils import salva_log
-from . import agid
-
-import datetime
-
 import csv
+import datetime
 import io
-import jwt
-import requests
 import json
 import re
-from openpyxl import Workbook
+from itertools import zip_longest
+
+import jwt
+import requests
+from django.http import HttpResponse
+from django.shortcuts import redirect, render
+from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
 
+from impostazioni.models import (
+    AnncsuParametri,
+    AnncsuServizi,
+    ServiziParametri,
+    UtentiParametri,
+)
+
+from . import agid
+from .utils import converti_data, normalizza_data, salva_log
 
 # --- i cinque e-service ANNCSU -----------------------------------------------------------
 # Unica fonte di verita' per gate, menu, card di home, impostazioni e route: il doppio gate
 # (invariante 1) legge servizi_parametri.attivo (chiave `codice`) AND il flag dell'utente
 # (chiave `flag`), e la riga di anncsu_parametri ha lo stesso id di anncsu_servizi.
-# `implementato` vale True solo per la Consultazione: per gli altri quattro il client AgID non
-# e' ancora scritto perche' non c'e' la specifica (docs/ ha solo quella della Consultazione).
+# `implementato` vale False solo per la Visura: per i restanti tre la specifica c'e' (docs/)
+# e il client e' scritto qui sotto; la Visura resta lo stub `anncsu_non_attivo`.
 ANNCSU_SERVIZI = (
     {'id': 1, 'codice': 'anncsu', 'flag': 'anncsu_consultazione_comuni', 'url': 'anncsu',
      'etichetta': 'Consultazione per i COMUNI', 'tab': 'tab1', 'implementato': True},
     {'id': 2, 'codice': 'anncsu_accessi', 'flag': 'anncsu_accessi', 'url': 'anncsu_accessi',
-     'etichetta': 'Aggiornamento accessi', 'tab': 'tab2', 'implementato': False},
+     'etichetta': 'Aggiornamento accessi', 'tab': 'tab2', 'implementato': True},
     {'id': 3, 'codice': 'anncsu_coordinate', 'flag': 'anncsu_coordinate', 'url': 'anncsu_coordinate',
-     'etichetta': 'Aggiornamento coordinate', 'tab': 'tab3', 'implementato': False},
+     'etichetta': 'Aggiornamento coordinate', 'tab': 'tab3', 'implementato': True},
     {'id': 4, 'codice': 'anncsu_odonimi', 'flag': 'anncsu_odonimi', 'url': 'anncsu_odonimi',
-     'etichetta': 'Aggiornamento odonimi', 'tab': 'tab4', 'implementato': False},
+     'etichetta': 'Aggiornamento odonimi', 'tab': 'tab4', 'implementato': True},
     {'id': 5, 'codice': 'anncsu_visura', 'flag': 'anncsu_visura', 'url': 'anncsu_visura',
      'etichetta': 'Estratto di mappa per Visura', 'tab': 'tab5', 'implementato': False},
 )
@@ -203,53 +204,6 @@ def _problema(payload, status):
     return f"ANNCSU ha risposto {status} senza dettagli."
 
 
-def anncsu_richiesta(user_id, operazione, campi, valori):
-    """POST {target}/{operazione} con body JSON e firma AgID.
-
-    Ritorna (payload, status_code, purposeid, token_id); payload e' None se l'authority non
-    rilascia il voucher o se la risposta non e' JSON (stesso sentinel di anpr_get_request).
-    I dati di input viaggiano gia' validati da anncsu_valida.
-    """
-    # Client AgID unico (OpenMSP/agid.py): questa era la nona copia, ora e' una chiamata.
-    # `verifica` resta attivo (default True): ANNCSU e' l'unico servizio che non eredita il
-    # debito del verify=False (AGENTS.md r2), e la catena di modipa.agenziaentrate.gov.it e'
-    # pubblica. `subject` sull'audit e' proprio di ANNCSU: le altre famiglie non lo mandano.
-    parametri = AnncsuParametri.objects.get(id=ANNCSU_CONSULTAZIONE['id'])
-    emesso = datetime.datetime.utcnow()
-    prova, hash_prova = agid.audit(parametri, user_id, emesso=emesso,
-                                   subject=parametri.clientid)
-    voucher, token_id = agid.voucher(
-        parametri, issuer=parametri.clientid,
-        asserzione=agid.asserzione_client(parametri, digest=hash_prova,
-                                          issuer=parametri.clientid,
-                                          subject=parametri.clientid, emesso=emesso))
-    if not voucher:
-        return None, 502, parametri.purposeid, None   # authority non utilizzabile
-
-    # un 403 con aud divergente e' quasi sempre purposeid/target disallineati, non un guasto:
-    # il claim del voucher se lo legge qui, perche' e' una diagnosi di ANNCSU, non del trasporto
-    try:
-        aud_voucher = str(jwt.decode(voucher, options={'verify_signature': False})
-                          .get('aud') or '')
-    except jwt.PyJWTError:
-        aud_voucher = ''
-
-    body = json.dumps({'req': operazione, **{nome: valori[nome] for nome in campi}})
-    digest = agid.digest_body(body)
-    response = requests.post(f"{parametri.target}/{operazione}",
-                             data=body.encode(agid.CODIFICA),
-                             headers=agid.intestazioni(parametri, voucher, prova, digest,
-                                                       emesso=emesso),
-                             timeout=30)  # verify attivo: la catena di modipa e' pubblica
-    try:
-        payload = response.json()
-    except ValueError:
-        payload = None
-    if response.status_code == 403:
-        payload = anncsu_finalita_divergente(aud_voucher, parametri.target) or payload
-    return payload, response.status_code, parametri.purposeid, token_id
-
-
 def anncsu_abilitato(utente, codice='anncsu'):
     """Doppio gate (invariante 1): attivo in servizi_parametri AND il flag dell'utente per
     quell'e-service. `codice` e' quello di servizi_parametri, non il nome del flag: la
@@ -300,7 +254,6 @@ def anncsu_consultazione(request):
         else:
             error = anncsu_valida(operazione['campi'], valori)
             if error is None:
-                body = {nome: valori[nome] for nome in operazione['campi']}
                 payload, status, purp_id, tok_id = anncsu_richiesta(
                     request.user.username, operazione_scelta, operazione['campi'], valori)
                 # invarianti 2 e 8: una riga in logs per interrogazione, solo metadati
@@ -403,8 +356,591 @@ def anncsu_export_csv(request):
     return response
 
 
+# --- i tre servizi di aggiornamento ------------------------------------------------------
+# POST {target}{percorso} con body {"richiesta": {...}}: un solo elemento per richiesta (tutti e
+# tre i PDF: 'Ogni richiesta ... riferita ad un unico elemento'). Risposta {idRichiesta, esito,
+# messaggio, dati} sul successo, {id, codice, messaggio} sul rifiuto: `codice` e' quello dei PDF.
+#
+# L'endpoint NON e' una colonna: accessi e coordinate condividono la base URL (cambia solo il
+# path) e `target` deve restare la base, perche' e' li' che punta il claim `aud` del voucher e
+# anncsu_finalita_divergente confronta proprio lui: un target col path dentro farebbe scattare
+# il falso allarme 'Finalita' non coerente' su ogni chiamata.
+#
+# `path` e' il punto del body (separato da .), `req` quando il campo e' obbligatorio, `solo` le
+# operazioni che lo ammettono: vengono dalle note dell'OpenAPI e dai codici errore dei PDF
+# (55/60/80 accessi, 105/110/115/125/130/135 coordinate, 200/210/235/260/270/325 odonimi).
+# Form, validazione ed elenco CSV leggono tutti questa tabella: non possono divergere.
+
+_OPS = ('I', 'R', 'S')
+_SEMPRE = '*'
+_OPC = r'^[IRS]$'
+_DATA = r'^[0-9]{2}/[0-9]{2}/[0-9]{4}$'
+_METODO = r'^[1-4]$'
+_FLAG = r'^[0-4]$'
+
+
+def _num(lunghezza):
+    return rf'^[0-9]{{1,{lunghezza}}}$'
+
+
+def _txt(lunghezza, maiuscole=True):
+    intervallo = 'A-Z0-9À-ſ' if maiuscole else 'A-Za-z0-9À-ſ'
+    return '^[' + intervallo + rf" .,'&/()-]{{1,{lunghezza}}}$"
+
+
+_COORD = r'^-?[0-9]{1,3}(\.[0-9]{1,12})?$'
+_QUOTA = r'^-?[0-9]{1,7}$'
+_PROTOCOLLO = _txt(70, False)
+
+
+def _campo(nome, path, etichetta, hint, pattern, maxlength, req=(), solo=()):
+    """Descrittore di un campo del body, usato identico dal form, dalla validazione dal CSV."""
+    return {'nome': nome, 'path': path, 'etichetta': etichetta, 'hint': hint,
+            'pattern': pattern, 'maxlength': maxlength, 'req': req, 'solo': solo}
+
+
+_CAMPI_ACCESSI = (
+    _campo('codcom', 'codcom', 'Codice nazionale comune', 'Quattro caratteri, es. H501',
+           _CODCOM, 4, req=_SEMPRE),
+    _campo('progr_nazionale', 'progr_nazionale', "Progressivo nazionale dell'area",
+           'Solo cifre, es. 2000449', _num(10), 10, req=_SEMPRE),
+    _campo('operazione_civico', 'accesso.operazione_civico', "Operazione sull'accesso",
+           'I=inserimento, R=aggiornamento, S=soppressione', _OPC, 1, req=_SEMPRE),
+    _campo('progr_civico', 'accesso.progr_civico', "Progressivo nazionale dell'accesso",
+           'Solo cifre; obbligatorio per R e S, mai per I', _num(15), 15,
+           req=('R', 'S'), solo=('R', 'S')),
+    _campo('codice_civico_comunale', 'accesso.codice_civico_comunale',
+           "Codice dell'accesso assegnato dal comune", 'Massimo 30 caratteri',
+           _txt(30, False), 30, solo=('I', 'R')),
+    _campo('numero', 'accesso.numero', 'Numero civico',
+           'Sistema ordinale: si usa in alternativa al valore metrico', _num(5), 5,
+           req=('I', 'R'), solo=('I', 'R')),
+    _campo('metrico', 'accesso.metrico', 'Valore metrico',
+           'Sistema metrico: si usa in alternativa al numero civico', _num(6), 6,
+           solo=('I', 'R')),
+    _campo('esponente', 'accesso.esponente', 'Esponente', 'Es. A', _txt(15), 15,
+           solo=('I', 'R')),
+    _campo('specificita', 'accesso.specificita', 'Specificita', 'Es. ROSSO', _txt(5), 5,
+           solo=('I', 'R')),
+    _campo('sezione_censimento', 'accesso.sezione_censimento', 'Sezione di censimento',
+           'Solo cifre, deve esistere tra quelle del comune', _num(13), 13, solo=('I', 'R')),
+    _campo('isolato', 'accesso.isolato', 'Codice isolato', 'Massimo 4 caratteri', _txt(4), 4,
+           solo=('I', 'R')),
+    _campo('x', 'accesso.coordinate.x', 'Longitudine', 'Sessagesimale col punto, da 6 a 18',
+           _COORD, 12, solo=('I', 'R')),
+    _campo('y', 'accesso.coordinate.y', 'Latitudine', 'Sessagesimale col punto, da 36 a 47',
+           _COORD, 12, solo=('I', 'R')),
+    _campo('z', 'accesso.coordinate.z', 'Quota', 'Metri sul livello, solo con le coordinate',
+           _QUOTA, 7, solo=('I', 'R')),
+    _campo('metodo', 'accesso.coordinate.metodo', 'Metodo di rilevazione',
+           'Da 1 a 4, obbligatorio quando le coordinate c sono', _METODO, 1, solo=('I', 'R')),
+    _campo('data_valid_amm', 'accesso.data_valid_amm', "Data di validita' amministrativa",
+           'gg/mm/aaaa; vuota = data corrente; per S e la fine validita', _DATA, 10),
+)
+
+_CAMPI_COORDINATE = (
+    _campo('codcom', 'accesso.codcom', 'Codice nazionale comune', 'Quattro caratteri, es. H501',
+           _CODCOM, 4, req=_SEMPRE),
+    _campo('progr_civico', 'accesso.progr_civico', "Progressivo nazionale dell'accesso",
+           "L'accesso dell'indirizzario a cui appartengono le coordinate", _num(15), 15,
+           req=_SEMPRE),
+    _campo('x', 'accesso.coordinate.x', 'Longitudine', 'Sessagesimale col punto, da 6 a 18',
+           _COORD, 12, req=_SEMPRE),
+    _campo('y', 'accesso.coordinate.y', 'Latitudine', 'Sessagesimale col punto, da 36 a 47',
+           _COORD, 12, req=_SEMPRE),
+    _campo('z', 'accesso.coordinate.z', 'Quota', 'Metri sul livello, solo con le coordinate',
+           _QUOTA, 7),
+    _campo('metodo', 'accesso.coordinate.metodo', 'Metodo di rilevazione', 'Da 1 a 4',
+           _METODO, 1, req=_SEMPRE),
+)
+
+# Un'unica tipologia di operazione: il posizionamento existente non viene storicizzato, ma
+# sovrascritto (PDF coordinate, Introduzione). Per questo qui non c'e' campo operazione.
+
+_CAMPI_ODONIMI = (
+    _campo('codcom', 'codcom', 'Codice nazionale comune', 'Quattro caratteri, es. H501',
+           _CODCOM, 4, req=_SEMPRE),
+    _campo('tipo_operazione', 'tipo_operazione', "Operazione sull'odonimo",
+           'I=inserimento, R=aggiornamento, S=soppressione', _OPC, 1, req=_SEMPRE),
+    _campo('progr_nazionale', 'progr_nazionale', "Progressivo nazionale dell'area",
+           'Obbligatorio per R e S, mai per I (codice errore 325)', _num(10), 10,
+           req=('R', 'S'), solo=('R', 'S')),
+    _campo('codice_comunale', 'codice_comunale', "Codice dell'area assegnato dal comune",
+           'Massimo 30 caratteri, il maiuscolo non viene applicato', _txt(30, False), 30,
+           solo=('I', 'R')),
+    _campo('dug', 'dug', 'DUG', 'Es. VIA; obbligatoria per I e R, non ammessa per S',
+           _txt(30), 30, req=('I', 'R'), solo=('I', 'R')),
+    _campo('denom_delibera', 'denom_delibera', 'Denominazione da delibera',
+           'Massimo 120 caratteri, senza la DUG', _txt(120), 120, req=('I', 'R'),
+           solo=('I', 'R')),
+    _campo('denom_in_lingua_1', 'denom_in_lingua_1', 'Odonimo in prima lingua',
+           'Solo per comuni bi/tri lingue; comprende la DUG', _txt(150), 150, solo=('I', 'R')),
+    _campo('denom_in_lingua_2', 'denom_in_lingua_2', 'Odonimo in seconda lingua',
+           'Solo per comuni tri lingue; comprende la DUG', _txt(150), 150, solo=('I', 'R')),
+    _campo('denom_localita', 'denom_localita', 'Denominazione localita',
+           'Massimo 151 caratteri', _txt(151), 151, solo=('I', 'R')),
+    _campo('flag_delibera', 'provvedimento.flag_delibera', 'Flag delibera',
+           'Da 0 a 4; con 0 o 1 data e protocollo del provvedimento diventano obbligatori',
+           _FLAG, 1, solo=('I', 'R')),
+    _campo('data_prov', 'provvedimento.data', 'Data del provvedimento',
+           'gg/mm/aaaa, non successiva a oggi', _DATA, 10, solo=('I', 'R')),
+    _campo('protocollo', 'provvedimento.protocollo', 'Protocollo del provvedimento',
+           'Massimo 70 caratteri, il maiuscolo non viene applicato', _PROTOCOLLO, 70,
+           solo=('I', 'R')),
+    _campo('data_pref', 'aut_prefettura.data_pref', 'Data autorizzazione di Prefettura',
+           'gg/mm/aaaa, in coppia col protocollo', _DATA, 10, solo=('I', 'R')),
+    _campo('protocollo_pref', 'aut_prefettura.protocollo_pref',
+           'Protocollo autorizzazione di Prefettura', 'In coppia con la data', _PROTOCOLLO, 70,
+           solo=('I', 'R')),
+    _campo('data_valid_amm', 'data_valid_amm', "Data di validita' amministrativa",
+           'gg/mm/aaaa; per S e la data conclusiva, non puo essere futura', _DATA, 10),
+)
+
+# Colonne di RispostaOperazione.dati: e' quello che l'archivio contiene dopo l'aggiornamento,
+# e il template lo mostra com'e' (invariante 4: le date le passa converti_data).
+_COLONNE_ESITO_ACCESSO = (
+    ('progr_civico', 'Progressivo civico'), ('codice_civico_comunale', 'Codice comunale'),
+    ('numero', 'Numero civico'), ('esponente', 'Esponente'), ('specificita', 'Specificita'),
+    ('metrico', 'Metrico'), ('sez_censimento', 'Sezione di censimento'),
+    ('progr_nazionale', 'Progressivo nazionale'), ('codcom', 'Codice comune'),
+    ('coordinata_x_comune', 'Longitudine'), ('coordinata_y_comune', 'Latitudine'),
+    ('coordinata_z_comune', 'Quota'), ('metodo', 'Metodo'), ('isolato', 'Isolato'),
+    ('data_inizio', 'Data inizio'), ('data_fine', 'Data fine'),
+    ("data_ini_valid_amm", 'Inizio validita amministrativa'),
+    ("data_fine_valid_amm", 'Fine validita amministrativa'),
+)
+_COLONNE_ESITO_ODO = (
+    ('codcom', 'Codice comune'), ('progr_nazionale', 'Progressivo nazionale'),
+    ('codice_comunale', 'Codice comunale'), ('dug', 'DUG'),
+    ('denom_delibera', 'Denominazione da delibera'), ('denom_in_lingua_1', 'Lingua 1'),
+    ('denom_in_lingua_2', 'Lingua 2'), ('data_inizio', 'Data inizio'), ('data_fine', 'Data fine'),
+    ("data_ini_valid_amm", 'Inizio validita amministrativa'),
+    ("data_fine_valid_amm", 'Fine validita amministrativa'),
+)
+
+
+def _coordinato(valore):
+    try:
+        return float(valore)
+    except (TypeError, ValueError):
+        return None
+
+
+def _coordinate_coerenti(valori):
+    """Le sei regole dei PDF (105/110/115/125/130/135) in un punto solo, per i due servizi."""
+    x, y = _coordinato(valori.get('x')), _coordinato(valori.get('y'))
+    if valori.get('x') and x is None:
+        return ['Longitudine: valore numerico decimale col punto come separatore.']
+    if valori.get('y') and y is None:
+        return ['Latitudine: valore numerico decimale col punto come separatore.']
+    if bool(x) != bool(y):
+        return ['Longitudine e latitudine si indicano in coppia: il servizio non accetta '
+                'l\'una senza l\'altra.']
+    if valori.get('z') and x is None:
+        return ['Quota: si indica solo insieme a longitidine e latitudine.']
+    if x is not None and not valori.get('metodo'):
+        return ['Metodo di rilevazione: obbligatorio quando le coordinate c sono.']
+    if x is not None and y is not None and not (6.0 <= x <= 18.0 and 36.0 <= y <= 47.0):
+        return ['Longitudine e latitudine indicate individuano un punto fuori dall Italia.']
+    return []
+
+
+def _non_futura(valori, nome, etichetta):
+    """Formato e coerenza della data: l'erogatore vuole dd/mm/yyyy e non la vuole futura."""
+    data = normalizza_data(valori.get(nome, ''))
+    if data is None:
+        return [f'{etichetta}: formato non riconosciuto, serve dd/mm/yyyy.']
+    if data > datetime.date.today():
+        return [f'{etichetta}: non puo essere successiva alla data corrente.']
+    return []
+
+
+def _regole_accessi(valori):
+    errori = _coordinate_coerenti(valori)
+    if valori.get('operazione_civico') in ('I', 'R') and \
+            bool(valori.get('numero')) == bool(valori.get('metrico')):
+        errori.append('Numero civico e valore metrico: l\'accesso si identifica con l\'uno '
+                      'o con l\'altro, non con entrambi e non senza nessuno dei due.')
+    if valori.get('data_valid_amm'):
+        errori += _non_futura(valori, 'data_valid_amm', "Data di validita' amministrativa")
+    return errori
+
+
+def _regole_odonimi(valori):
+    errori = []
+    if valori.get('flag_delibera') in ('0', '1') and \
+            not (valori.get('data_prov') and valori.get('protocollo')):
+        errori.append('Con flag delibera 0 o 1 la data e il protocollo del provvedimento '
+                      'sono obbligatori.')
+    if bool(valori.get('data_pref')) != bool(valori.get('protocollo_pref')):
+        errori.append("Data e protocollo dell'autorizzazione di Prefettura si indicano "
+                      'entrambi, o nessuno dei due.')
+    for nome, etichetta in (('data_prov', 'Data del provvedimento'),
+                            ('data_pref', "Data autorizzazione di Prefettura"),
+                            ('data_valid_amm', "Data di validita' amministrativa")):
+        if valori.get(nome):
+            errori += _non_futura(valori, nome, etichetta)
+    return errori
+
+
+ANNCSU_AGGIORNAMENTI = {
+    'anncsu_accessi': {'id': 2, 'percorso': '/accessi', 'operazione': 'operazione_civico',
+                       'servizio': 'Aggiornamento accessi ANNCSU', 'campi': _CAMPI_ACCESSI,
+                       'regole': _regole_accessi, 'colonne': _COLONNE_ESITO_ACCESSO},
+    # le coordinate non hanno operazione: un solo modo di aggiornare, il posizionamento si
+    # sovrascrive (PDF coordinate, Introduzione)
+    'anncsu_coordinate': {'id': 3, 'percorso': '/gestionecoordinate', 'operazione': '',
+                          'servizio': 'Aggiornamento coordinate ANNCSU',
+                          'campi': _CAMPI_COORDINATE, 'regole': _coordinate_coerenti,
+                          'colonne': _COLONNE_ESITO_ACCESSO},
+    'anncsu_odonimi': {'id': 4, 'percorso': '/odonimi', 'operazione': 'tipo_operazione',
+                       'servizio': 'Aggiornamento odonimi ANNCSU', 'campi': _CAMPI_ODONIMI,
+                       'regole': _regole_odonimi, 'colonne': _COLONNE_ESITO_ODO},
+}
+
+
+def _nidifica(corpo, path, valore):
+    """Mette `valore` al punto `path` di `corpo`, creando i rami che mancano."""
+    parti = path.split('.')
+    nodo = corpo
+    for parte in parti[:-1]:
+        nodo = nodo.setdefault(parte, {})
+    nodo[parti[-1]] = valore
+
+
+def anncsu_corpo(specifica, valori):
+    """Body {"richiesta": {...}} con i soli campi valorizzati.
+
+    Un campo vuoto si omette del tutto, non si manda come stringa vuota: l'erogatore lo
+    leggerebbe come un valore indicato a vuoto e risponderebbe 400 su un modulo incompleto.
+    """
+    richiesta = {}
+    for campo in specifica['campi']:
+        if valori.get(campo['nome']):
+            _nidifica(richiesta, campo['path'], valori[campo['nome']])
+    return {'richiesta': richiesta}
+
+
+def anncsu_valida_aggiornamento(specifica, valori):
+    """Lista di errori, vuota = si puo' spendere un voucher (invariante 3).
+
+    Forma, obbligatori e regole incrociate: un campo malformato qui costa un messaggio
+    all'operatore, dal erogatore costa un token e un codice numerico da cercare sui PDF.
+    """
+    errori = []
+    op = valori.get(specifica['operazione']) or ''
+    if specifica['operazione'] and op not in _OPS:
+        errori.append('Operazione non valida: scegliere inserimento, aggiornamento o '
+                      'soppressione.')
+    for campo in specifica['campi']:
+        valore = valori.get(campo['nome'], '')
+        obbligatorio = campo['req'] == _SEMPRE or (campo['req'] and op in campo['req'])
+        if obbligatorio and not valore:
+            errori.append(f"{campo['etichetta']}: obbligatorio.")
+            continue
+        if not valore:
+            continue
+        if campo['solo'] and op not in campo['solo']:
+            errori.append(f"{campo['etichetta']}: non ammesso per l'operazione scelta "
+                          f"(ammessa per {', '.join(campo['solo'])}).")
+        elif not re.match(campo['pattern'], valore):
+            errori.append(f"{campo['etichetta']}: valore non valido ({campo['hint']}).")
+    return errori + specifica['regole'](valori)
+
+
+def _post_firmata(parametri, url, corpo, user_id):
+    """Audit -> asserzione(digest) -> voucher -> POST firmata: la sequenza AgID di ANNCSU.
+
+    Una copia sola, condivisa fra la Consultazione e i tre aggiornamenti (AGENTS.md: una decima
+    copia e' fuori questione). Ritorna (payload, status, purposeid, token_id); payload e' None
+    se l'authority non rilascia il voucher (502) o se la risposta non e' JSON.
+    """
+    emesso = datetime.datetime.utcnow()
+    prova, hash_prova = agid.audit(parametri, user_id, emesso=emesso, subject=parametri.clientid)
+    voucher, token_id = agid.voucher(
+        parametri, issuer=parametri.clientid,
+        asserzione=agid.asserzione_client(parametri, digest=hash_prova,
+                                          issuer=parametri.clientid,
+                                          subject=parametri.clientid, emesso=emesso))
+    if not voucher:
+        return None, 502, parametri.purposeid, None      # authority non utilizzabile
+
+    # un 403 con aud divergente e' quasi sempre purposeid/target disallineati, non un guasto
+    try:
+        aud_voucher = str(jwt.decode(voucher, options={'verify_signature': False})
+                          .get('aud') or '')
+    except jwt.PyJWTError:
+        aud_voucher = ''
+
+    response = requests.post(url, data=corpo.encode(agid.CODIFICA),
+                             headers=agid.intestazioni(parametri, voucher, prova,
+                                                      agid.digest_body(corpo), emesso=emesso),
+                             timeout=30)                 # verify attivo: la catena e' pubblica
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+    if response.status_code == 403:
+        payload = anncsu_finalita_divergente(aud_voucher, parametri.target) or payload
+    return payload, response.status_code, parametri.purposeid, token_id
+
+
+def anncsu_richiesta(user_id, operazione, campi, valori):
+    """POST {target}/{operazione} della Consultazione, con body JSON e firma AgID.
+
+    Client AgID unico (OpenMSP/agid.py): questa era la nona copia, ora e' una chiamata.
+    `verifica` resta attivo (default True): ANNCSU e' l'unico servizio che non eredita il
+    debito del verify=False (AGENTS.md r2), e la catena di modipa.agenziaentrate.gov.it e'
+    pubblica. `subject` sull'audit e' proprio di ANNCSU: le altre famiglie non lo mandano.
+    """
+    parametri = AnncsuParametri.objects.get(id=ANNCSU_CONSULTAZIONE['id'])
+    corpo = json.dumps({'req': operazione, **{nome: valori[nome] for nome in campi}})
+    return _post_firmata(parametri, f'{parametri.target}/{operazione}', corpo, user_id)
+
+
+def anncsu_aggiorna(request, chiave, valori):
+    """Una richiesta di aggiornamento: POST firmata, una riga in logs, esito da rendere.
+
+    Un elemento per chiamata, come lo chiedono i tre PDF: la modalita' massiva della pagina e'
+    una coda di chiamate singole, non un body con piu' elementi.
+    """
+    specifica = ANNCSU_AGGIORNAMENTI[chiave]
+    parametri = AnncsuParametri.objects.get(id=specifica['id'])
+    payload, status, purp_id, tok_id = _post_firmata(
+        parametri, parametri.target + specifica['percorso'],
+        json.dumps(anncsu_corpo(specifica, valori)), request.user.username)
+    # invarianti 2 e 8: una riga per richiesta, e solo metadati (quale operazione, con che esito)
+    salva_log(request.user, specifica['servizio'],
+              valori.get(specifica['operazione'], '') or specifica['percorso'].strip('/'),
+              purposeid=purp_id, resp_status=status, token_id=tok_id)
+    return anncsu_esito(payload, status, specifica)
+
+
+def anncsu_esito(payload, status, specifica):
+    """Risposta dell'erogatore -> {positivo, titoli, messaggi, colonne, righe} per il template.
+
+    `esito` '0' e' il successo; `codice` arriva sui 400/404/500 ed e' il numero che l'operatore
+    deve leggere, perche' e' lo stesso dei PDF di specifica.
+    """
+    if payload is None:
+        return {'positivo': False, 'titolo': 'Nessuna risposta',
+                'messaggi': ["L'authority non ha rilasciato un voucher, oppure l'erogatore ha "
+                             'risposto senza un JSON interpretabile.']}
+    if not isinstance(payload, dict):
+        return {'positivo': False, 'titolo': 'Risposta non leggibile',
+                'messaggi': [_problema(payload, status)]}
+
+    if status != 200 or payload.get('codice'):
+        messaggio = str(payload.get('messaggio') or '').strip() or _problema(payload, status)
+        if payload.get('codice'):
+            messaggio = f"Codice errore {payload['codice']}: {messaggio}"
+        return {'positivo': False, 'titolo': 'Aggiornamento rifiutato', 'messaggi': [messaggio]}
+
+    esito = str(payload.get('esito', '')).strip()
+    messaggi = []
+    if esito not in ('', '0'):
+        messaggi.append(str(payload.get('messaggio') or 'Esito negativo').strip())
+    righe = []
+    for riga in _dati(payload):
+        normalizzato = converti_data({str(k).lower(): v for k, v in riga.items()})
+        righe.append([_valore(normalizzato, chiave) for chiave, _ in specifica['colonne']])
+    return {'positivo': not messaggi,
+            'titolo': f"Aggiornamento eseguito, id richiesta {payload.get('idRichiesta', '')}",
+            'messaggi': messaggi, 'colonne': [e for _, e in specifica['colonne']],
+            'righe': righe}
+
+
+def _dati(payload):
+    """RispostaOperazione.dati: la guida mostra un array, l'OpenAPI puo' rispondere un oggetto."""
+    dati = payload.get('dati')
+    if isinstance(dati, dict):
+        return [dati]
+    return [riga for riga in (dati or []) if isinstance(riga, dict)]
+
+MAX_RIGHE = 200
+# shortcut: una POST per riga con 30 secondi di timeout l'una; oltre ~200 righe il worker
+# gunicorn muore prima della fine. Se serve di piu', serve un lavoro in coda, non un numero
+# piu' grande scritto qui.
+
+
+def _valori(specifica, dati):
+    """Pulisce l'input: maiuscolo dove l'erogatore lo applica, date in dd/mm/yyyy, spazi via.
+
+    Il maiuscolo non si forza dove la specifica dice 'non viene applicato l'uppercase' (il
+    pattern del campo lo ammette): sono i codici comunali e i protocolli, e forzarlo vorrebbe
+    dire mandare un valore diverso da quello indicato dall'operatore.
+    """
+    valori = {}
+    for campo in specifica['campi']:
+        valore = (dati.get(campo['nome']) or '').strip()
+        if valore and 'A-Za-z' not in campo['pattern']:
+            valore = valore.upper()
+        if valore and campo['pattern'] == _DATA:
+            data = normalizza_data(valore)          # accetta il yyyy-mm-dd del type=date
+            if data:
+                valore = data.strftime('%d/%m/%Y')
+        valori[campo['nome']] = valore
+    return valori
+
+
+def anncsu_leggi(allegato, specifica):
+    """(righe, errore): l'elenco normalizzato, o il perche' non si puo' usare.
+
+    Stessa convenzione di utils.cf_da_file (';', utf-8-sig, XLSX sul primo foglio); qui pero'
+    le colonne sono piu' d'una, quindi l'intestazione serve e una colonna sconosciuta e' un
+    errore: ignorarla vorrebbe dire saltare un campo in silenzio.
+    """
+    nome = allegato.name.lower()
+    if nome.endswith('.csv'):
+        letture = list(csv.reader(io.TextIOWrapper(allegato.file, encoding='utf-8-sig'),
+                                  delimiter=';'))
+    elif nome.endswith('.xlsx'):
+        letture = [[('' if cella is None else str(cella)) for cella in riga]
+                   for riga in load_workbook(allegato).worksheets[0].iter_rows(values_only=True)]
+    else:
+        return [], 'Formato non supportato: caricare un CSV delimitato da punti e virgole o un XLSX.'
+    if len(letture) < 2:
+        return [], 'L\'elenco non ha righe: la prima deve essere l\'intestazione delle colonne.'
+
+    chiavi = {c['nome'] for c in specifica['campi']}
+    intestazione = [str(t).strip().lower() for t in letture[0]]
+    sconosciute = [t for t in intestazione if t and t not in chiavi]
+    if sconosciute:
+        return [], ('Colonne non riconosciute: ' + ', '.join(sconosciute) +
+                    '. Le colonne si chiamano come i campi del formulario.')
+    if 'codcom' not in intestazione:
+        return [], 'Manca la colonna codcom: ogni riga deve indicare il codice del comune.'
+    if len(letture) - 1 > MAX_RIGHE:
+        return [], (f'Troppe righe: {len(letture) - 1}, il massimo per un invio e {MAX_RIGHE} '
+                    '(l\'erogatore processa un elemento per richiesta).')
+
+    righe = []
+    for numero, lettura in enumerate(letture[1:], start=2):
+        # una riga corta (Excel ne scrive cosi', le celle vuote in coda cadono) si completa
+        # di vuoti: non e' un errore, e' un elemento con quei campi non indicati
+        cella = dict(zip_longest(intestazione, lettura, fillvalue=''))
+        if not any(str(v or '').strip() for v in cella.values()):
+            continue                                      # riga vuota di Excel: non e' un elemento
+        valori = _valori(specifica, cella)
+        valori['riga'] = numero
+        righe.append(valori)
+    return righe, None
+
+
+def _riga_report(valori, specifica, esito=None, errori=None):
+    """Una riga di resoconto: la vede l'operatore in pagina e la ritrova nell'XLSX."""
+    return {'riga': valori['riga'],
+            'operazione': valori.get(specifica['operazione'], '') or 'R',
+            'esito': (('OK' if esito['positivo'] else 'RIFIUTATO') if esito else
+                      # in simulazione una riga valida non e' rifiutata: non e' proprio partita
+                      ('NON INVIATA' if errori else 'DA INVIARE')),
+            'messaggi': errori or (esito.get('messaggi') if esito else []) or [],
+            'codice': (esito or {}).get('codice', ''),
+            'id_richiesta': (esito or {}).get('id_richiesta', ''),
+            'progressivo': esito['righe'][0][0] if esito and esito.get('righe') else ''}
+
+
+def _xlsx(nome, intestazioni, righe):
+    """XLSX in memoria: niente disco (invariante 5), il file esce nella risposta."""
+    wb = Workbook()
+    foglio = wb.worksheets[0]
+    foglio.append(list(intestazioni))
+    for riga in righe:
+        foglio.append(list(riga))
+    for indice in range(1, len(intestazioni) + 1):
+        foglio.column_dimensions[get_column_letter(indice)].width = 22
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument'
+                                             '.spreadsheetml.sheet',
+                        headers={'Content-Disposition': f'attachment; filename={nome}.xlsx'})
+
+
+def _anncsu_elenco(request, chiave, specifica):
+    """Elenco: 'Simula' valida e basta, 'Invia' esegue una POST per riga e risponde il XLSX.
+
+    Ritorna un HttpResponse (il file) oppure (errore, report) da rendere nella pagina. Fra i due
+    pulsanti non c'e' nulla da tenere in sessione: le sessioni di Django qui sono cookie
+    (`settings.py` non imposta `SESSION_ENGINE`) e non conterrebbero ne l'elenco ne gli esiti.
+    """
+    righe, errore = anncsu_leggi(request.FILES['allegato'], specifica)
+    if errore:
+        return errore, None
+
+    report, invalida = [], 0
+    for valori in righe:
+        errori = anncsu_valida_aggiornamento(specifica, valori)
+        invalida += bool(errori)
+        report.append(_riga_report(valori, specifica, errori=errori))
+    if request.POST.get('azione') == 'simula':
+        return None, report
+    if invalida or not righe:
+        return ('Elenco non inviato: ' + (f'{invalida} righe non valide, usare Simula prima.'
+                                         if invalida else 'nessuna riga da inviare.')), report
+
+    esiti = []
+    for valori in righe:
+        esiti.append(_riga_report(valori, specifica, anncsu_aggiorna(request, chiave, valori)))
+    return _xlsx(f'Esiti{chiave}',
+                 ('Riga', 'Operazione', 'Esito', 'Messaggio', 'Codice', 'Id richiesta',
+                  'Progressivo'),
+                 [[r['riga'], r['operazione'], r['esito'], '; '.join(r['messaggi']), r['codice'],
+                   r['id_richiesta'], r['progressivo']] for r in esiti]), None
+
+
+def _anncsu_aggiornamento(request, chiave):
+    """Pagina dei tre aggiornamenti: form, riepilogo di conferma, esito ed elenco.
+
+    Il primo POST non chiama nessuno: se i campi passano i controlli rende il riepilogo e chiede
+    una conferma esplicita (sono scritture su un'anagrafe nazionale, e un click su 'sopprimi'
+    non puo bastare); il POST con azione=invia e' quello che parla all'erogatore.
+    """
+    servizio = ANNCSU_PER_URL[chiave]
+    specifica = ANNCSU_AGGIORNAMENTI[chiave]
+    utente = (UtentiParametri.objects.filter(id=request.user.id).first()
+              if request.user.is_authenticated else None)
+    utente_abilitato = anncsu_abilitato(utente, servizio['codice'])
+
+    valori, errori, esito, report, conferma = {}, [], None, None, False
+    if request.method == 'POST' and utente_abilitato:
+        if request.FILES.get('allegato'):
+            risposta = _anncsu_elenco(request, chiave, specifica)
+            if isinstance(risposta[0], HttpResponse):
+                return risposta[0]
+            errore, report = risposta
+            errori = [errore] if errore else []
+        else:
+            valori = _valori(specifica, request.POST)
+            errori = anncsu_valida_aggiornamento(specifica, valori)
+            if not errori and request.POST.get('azione') == 'invia':
+                esito = anncsu_aggiorna(request, chiave, valori)
+            elif not errori:
+                conferma = True
+
+    # si rende la pagina (che estende base.html), non il corpo condiviso: renderando il partial
+    # escono i soli contenuti nudi, senza <head> ne Bootstrap Italia
+    return render(request, f'{chiave}.html', {
+        'servizio': servizio,
+        'utente_abilitato': utente_abilitato,
+        'operazione': specifica['operazione'],
+        'operazioni': (('I', 'Inserimento'), ('R', 'Aggiornamento'), ('S', 'Soppressione'))
+                      if specifica['operazione'] else (),
+        'campi': [dict(c, valore=valori.get(c['nome'], ''),
+                       operazioni=' '.join(c['solo'] or _OPS),
+                       richiesti=' '.join(c['req'] if isinstance(c['req'], tuple) else _OPS))
+                  for c in specifica['campi']],
+        'valore_op': valori.get(specifica['operazione'], ''),
+        'conferma': conferma,
+        'errori': errori,
+        'esito': esito,
+        'report': report,
+        'max_righe': MAX_RIGHE,
+        'url_name': chiave,
+    })
+
 def _anncsu_non_attivo(request, url_name):
-    """Pagina di servizio per i quattro e-service ancora senza client.
+    """Pagina di servizio per l'e-service ancora senza client (Visura: nessuna specifica in docs/).
 
     Il gate gira uguale (invariante 1): l'operatore autorizzato vede 'servizio non ancora
     attivo', chi non lo e' vede lo stesso avviso di 'non abilitato' della pagina di
@@ -420,15 +956,15 @@ def _anncsu_non_attivo(request, url_name):
 
 
 def anncsu_accessi(request):
-    return _anncsu_non_attivo(request, 'anncsu_accessi')
+    return _anncsu_aggiornamento(request, 'anncsu_accessi')
 
 
 def anncsu_coordinate(request):
-    return _anncsu_non_attivo(request, 'anncsu_coordinate')
+    return _anncsu_aggiornamento(request, 'anncsu_coordinate')
 
 
 def anncsu_odonimi(request):
-    return _anncsu_non_attivo(request, 'anncsu_odonimi')
+    return _anncsu_aggiornamento(request, 'anncsu_odonimi')
 
 
 def anncsu_visura(request):
@@ -436,7 +972,7 @@ def anncsu_visura(request):
 
 
 def impostazioni_anncsu(request):
-    """Una tab per e-service (pattern impostazioni_anpr): i name dei campi sono suffissati
+    """Una tab per e-service
     dall'id della riga, e il POST salva solo la riga della tab attiva.
 
     Gli id delle FK si passano solo per posizione: il campo si chiama servizio_id quanto la
@@ -449,7 +985,8 @@ def impostazioni_anncsu(request):
         except ValueError:
             riga = None
         if any(s['id'] == riga for s in ANNCSU_SERVIZI):
-            preso = lambda nome: request.POST.get(f'{nome}{riga}') or ''
+            def preso(nome):
+                return request.POST.get(f'{nome}{riga}') or ''
             valori = [preso(c) for c in
                       ('kid', 'alg', 'typ', 'iss', 'sub', 'aud', 'purposeid', 'audience',
                        'baseurlauth', 'target', 'clientid')]

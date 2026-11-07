@@ -1,32 +1,32 @@
-from django.shortcuts import render
-from django.http import HttpResponse
-
-from impostazioni.models import UtentiParametri
-from impostazioni.models import InpsIseeParametri
-from impostazioni.models import InpsDurcParametri
-from impostazioni.models import DatiEnte
-
-from .utils import salva_log
-from .utils import converti_data
-from .verifica_cf import verifica_cf
-from .verifica_cf import verifica_cf_azienda
-from . import agid
-
-import xmltodict
-import urllib.parse
 import base64
-import datetime
-import requests
-import json
-import io
 import csv
-import sys
+import datetime
+import io
+import json
+import urllib.parse
+import zipfile
+from contextlib import suppress
+from decimal import Decimal, InvalidOperation
+
 import openpyxl
+import requests
+import xmltodict
+from django.http import HttpResponse
+from django.shortcuts import render
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
 from openpyxl.utils import get_column_letter
-from decimal import Decimal, InvalidOperation
 
+from impostazioni.models import (
+    DatiEnte,
+    InpsDurcParametri,
+    InpsIseeParametri,
+    UtentiParametri,
+)
+
+from . import agid
+from .utils import converti_data, salva_log
+from .verifica_cf import verifica_cf, verifica_cf_azienda
 
 TIPO_PRESTAZIONE_DA_EROGARE = [
     ("A1.01", "Assegno per il nucleo familiare erogati dai comuni"),
@@ -351,7 +351,7 @@ def RichiestaIsee(cf, bearer, prestazione_da_erogare="A1.01"):
                         tipo_isee, indicator_section = _extract_first_indicator(ordinario)
                         indicator_values = indicator_section.get('Valori', {}) if isinstance(indicator_section, dict) else {}
                         modalita_key = next(
-                            (key for key in indicator_section.keys() if key.startswith('ModalitaCalcolo')),
+                            (key for key in indicator_section if key.startswith('ModalitaCalcolo')),
                             None
                         ) if isinstance(indicator_section, dict) else None
                         modalita_values = indicator_section.get(modalita_key, {}) if modalita_key else {}
@@ -439,13 +439,11 @@ def inps_durc_singolo(request):
                 bearer, tok_id = inps_durc_get_bearer()
                 res_data, status, purp_id = inps_durc_verifica_impresa(cf, bearer)
                 if res_data and 'del' in res_data:
-                    try:
+                    with suppress(Exception):
                         date_str = res_data['del'].split('T')[0]
                         date_obj = datetime.datetime.strptime(date_str, '%Y-%m-%d')
                         scadenza = date_obj + datetime.timedelta(days=120)
                         res_data['scadenza'] = scadenza.strftime('%Y-%m-%d')
-                    except Exception as e:
-                        pass
                 data.append(res_data)
                 data = converti_data(data)
                 salva_log(request.user, "Verifica INPS - DURC", "Verificato utente " + cf, purposeid=purp_id, resp_status=status, token_id=tok_id)
@@ -581,6 +579,46 @@ def inps_durc_export_excel(request):
     return response
 
 
+def inps_durc_export_zip(request):
+    # ZIP di tutti i PDF linkati nella colonna "Azioni" dell'ultima ricerca massiva.
+    if request.user.id:
+        utente_sessione = UtentiParametri.objects.get(id=request.user.id)
+        if not utente_sessione.inps_durc_massivo:
+            return HttpResponse("Utente non abilitato", status=403)
+    else:
+        return HttpResponse("Utente non autenticato", status=403)
+
+    data = request.session.get("durc_data", [])
+    # Un protocollo una volta sola, nell'ordine in cui sta in tabella
+    protocolli = list(dict.fromkeys(
+        item['res_data']['protocollo']
+        for item in data
+        if (item.get('res_data') or {}).get('protocollo')))
+    if not protocolli:
+        return HttpResponse("Nessun DURC da scaricare", status=400)
+
+    bearer, tok_id = inps_durc_get_bearer()
+    output = io.BytesIO()
+    errori = []
+    # shortcut: un PDF alla volta in sequenza, sopra qualche centinaio di CF serve un job asincrono
+    with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for protocollo in protocolli:
+            risposta = inps_durc_download(request, protocollo, (bearer, tok_id))
+            if risposta.status_code == 200 and risposta.content:
+                zf.writestr(f"DURC_{protocollo}.pdf", risposta.content)
+            else:
+                errori.append(f"{protocollo}: {risposta.content.decode('utf-8', 'replace')}")
+        if errori:
+            zf.writestr("errori.txt", "\n".join(errori))
+        # self-check: ogni DURC linkato finisce nello ZIP, da pdf o come riga di errore
+        assert sum(1 for n in zf.namelist() if n.endswith('.pdf')) + len(errori) == len(protocolli)
+
+    response = HttpResponse(output.getvalue(), content_type='application/zip')
+    response['Content-Disposition'] = 'attachment; filename=DURC_Massiva.zip'
+    salva_log(request.user, "Verifica INPS - DURC massivo", f"ZIP di {len(protocolli)} DURC, {len(errori)} errori", token_id=tok_id)
+    return response
+
+
 def inps_durc_verifica_impresa(cf, bearer):
     inps_durc_parametri = InpsDurcParametri.objects.get(id=1)
     url = inps_durc_parametri.target + '/getDurcInCorsoDiValidita'
@@ -629,11 +667,12 @@ def impostazioni_inps_isee(request):
     return render(request, 'impostazioni_inps_isee.html', {'parametri_inps_isee': parametri_inps_isee})
 
 
-def inps_durc_download(request, protocollo):
+def inps_durc_download(request, protocollo, token=None):
+    """`token`: coppia (bearer, tok_id) gia` emessa, per non rifare il voucher a ogni PDF."""
     if request.user.id:
         utente_sessione = UtentiParametri.objects.get(id=request.user.id)
         if utente_sessione.inps_durc_singolo or utente_sessione.inps_durc_massivo:
-            bearer, tok_id = inps_durc_get_bearer()
+            bearer, tok_id = token or inps_durc_get_bearer()
             inps_durc_parametri = InpsDurcParametri.objects.get(id=1)
             dati_ente = DatiEnte.objects.first()
 

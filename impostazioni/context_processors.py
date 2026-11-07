@@ -1,17 +1,16 @@
-from django.utils import timezone
-from django.contrib.auth.models import User
 from django.conf import settings
+from django.contrib.auth.models import User
 
-from impostazioni.models import DatiEnte
-from impostazioni.models import UtentiParametri
-from impostazioni.models import ServiziParametri
+from impostazioni.models import DatiEnte, ServiziParametri, UtentiParametri
 
 
 def custom_context(request):
 
     try:
         user_perms = UtentiParametri.objects.get(id=request.user.id)
-    except:
+    except Exception:
+        # non solo DoesNotExist: su un deploy con lo schema disallineato (vedi Invarianti)
+        # anche un errore di tabella deve lasciare la pagina utilizzabile, non dare un 500
         user_perms = None
 
     dati_comune = DatiEnte.objects.first()
@@ -61,7 +60,14 @@ def custom_context(request):
         ('anis_IFS03_singolo', 'ANIS IFS03 Singolo', *get_service_status('anis_IFS03')),
         ('anis_IFS03_massivo', 'ANIS IFS03 Massivo', *get_service_status('anis_IFS03')),
         ('cassa_forense', 'Consiglio Nazionale Forense', *get_service_status('cassa_forense')),
-        ('anncsu', 'Consultazione ANNCSU', *get_service_status('anncsu')),
+        # il nome del campo deve essere un BooleanField di UtentiParametri: e' quello che il
+        # template legge con `getattribute` e che salva_permessi scrive. 'anncsu' non esiste,
+        # quindi il toggle della Consultazione non risultava mai attivo e non veniva salvato.
+        ('anncsu_consultazione_comuni', 'Consultazione ANNCSU', *get_service_status('anncsu')),
+        ('anncsu_accessi', 'Aggiornamento accessi', *get_service_status('anncsu_accessi')),
+        ('anncsu_coordinate', 'Aggiornamento coordinate', *get_service_status('anncsu_coordinate')),
+        ('anncsu_odonimi', 'Aggiornamento odonimi', *get_service_status('anncsu_odonimi')),
+        ('anncsu_visura', 'Estratto di mappa per Visura', *get_service_status('anncsu_visura')),
         ('app_io_verifica_singolo', 'App IO Verifica Singolo', *get_service_status('app_io')),
         ('app_io_verifica_massivo', 'App IO Verifica Massivo', *get_service_status('app_io')),
         ('app_io_singolo', 'App IO Singolo', *get_service_status('app_io')),
@@ -73,7 +79,7 @@ def custom_context(request):
         ('app_io_composer', 'App IO Composer', *get_service_status('app_io')),
         ('app_io_storico_messaggi', 'App IO Storico Messaggi', *get_service_status('app_io')),
     ]
-    
+
     user_has_2fa = False
     if request.user.is_authenticated:
         from two_factor.utils import default_device

@@ -3,7 +3,8 @@
 set -euo pipefail
 
 # Upgrade schema/dati OpenMSP DB fino alla 1.5.0: audience e target di anncsu_parametri passano
-# da .../anncsu-consultazione/v1 a .../anncsu-consultazione-comune/v1.
+# da .../anncsu-consultazione/v1 a .../anncsu-consultazione-comune/v1, e le tre righe degli
+# e-service di scrittura (accessi, coordinate, odonimi) vengono create e precompilate.
 #
 # Incrementale, come i file fratelli: da un DB fermo alla 1.0.0 / 1.1.0 / 1.2.0 / 1.3.0 questo
 # script richiama update_to_1.4.sh, che a sua volta richiama il 1.3, il 1.2 e l'1.1. Non serve
@@ -201,6 +202,36 @@ DEFINIZIONI
                       WHERE codice_servizio LIKE 'anncsu%' AND descrizione LIKE 'ANNCSU - %';"
 }
 
+# Le righe 2-4 di anncsu_parametri nascono vuote da allarga_anncsu (le credenziali sono
+# dell'ente: invariante 6). Qui si precompila solo quello che la specifica pubblica dice --
+# target, audience, autority, alg, typ, versione -- e solo dove la colonna e' vuota, per non
+# sovrascrivere cio' che l'ente ha gia' messo dalla pagina impostazioni. Idempotente.
+#
+# ATENZIONE all'host: le tre specifiche (docs/Specifica API-ANNCSU - Aggiornamento *.yaml)
+# dicono modipa.agenziaentrate.it, mentre la riga della Consultazione, che funziona, usa
+# modipa.agenziaentrate.gov.it. Se la prima chiamata fallisce per connessione/TLS l'host e' il
+# primo indiziato: si corregge da impostazioni_anncsu, e purposeid va comunque messo
+# dall'ente perche' arriva dall'accreditamento AgID e non sta in nessuna specifica.
+prefilla_anncsu_aggiornamenti() {
+  local accessi='https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate/anncsuaccessi/v1'
+  local odonimi='https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate-PDND/anncsu-aggiornamento-odonimi/v1'
+  local coppia id url
+  for coppia in "2|$accessi" "3|$accessi" "4|$odonimi"; do
+    id="${coppia%%|*}"
+    url="${coppia#*|}"
+    sqlite3 "$DB_PATH" <<SQL
+UPDATE anncsu_parametri
+   SET target        = CASE WHEN COALESCE(target,'')       = '' THEN '$url'  ELSE target        END,
+       audience      = CASE WHEN COALESCE(audience,'')     = '' THEN '$url'  ELSE audience      END,
+       baseurlauth   = CASE WHEN COALESCE(baseurlauth,'')  = '' THEN 'https://auth.interop.pagopa.it' ELSE baseurlauth END,
+       alg           = CASE WHEN COALESCE(alg,'')          = '' THEN 'RS256' ELSE alg           END,
+       typ           = CASE WHEN COALESCE(typ,'')          = '' THEN 'JWT'   ELSE typ           END,
+       ver_eservice  = CASE WHEN COALESCE(ver_eservice,'') = '' THEN '1'     ELSE ver_eservice  END
+ WHERE id = $id;
+SQL
+  done
+}
+
 URL_VECCHIO='/anncsu-consultazione/v1'
 URL_NUOVO='/anncsu-consultazione-comune/v1'
 
@@ -223,6 +254,7 @@ if [[ "$(table_exists dati_ente)" == "1" ]]; then
     echo "Database già alla versione 1.5.0: riallineo le versioni e-service ANPR e ANNCSU."
     allinea_versioni_anpr
     allarga_anncsu
+    prefilla_anncsu_aggiornamenti
     exit 0
     ;;
   "1.4.0")
@@ -260,6 +292,9 @@ allinea_versioni_anpr
 echo "ANNCSU da 1 a 5 e-service (flag utente, tabelle e servizi di menu)..."
 allarga_anncsu
 
+echo "Precompila target/audience dei tre aggiornamenti (solo dove vuoto)..."
+prefilla_anncsu_aggiornamenti
+
 da_allineare="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM anncsu_parametri WHERE audience LIKE '%${URL_VECCHIO}%' OR target LIKE '%${URL_VECCHIO}%';")"
 if [[ "$da_allineare" == "0" ]]; then
   echo "Nessuna riga da allineare (audience e target non puntano piu' a $URL_VECCHIO): registro solo la versione."
@@ -280,6 +315,15 @@ UPDATE anncsu_parametri
 COMMIT;
 PRAGMA foreign_keys = ON;
 SQL
+
+# Verifica: le tre righe di scrittura devono avere un target, altrimenti le pagine dicono
+# solo 'authorith non utilizzabile' e l'operatore non capisce che mancano i parametri.
+scoperte="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM anncsu_parametri WHERE id IN (2,3,4) AND COALESCE(target,'') = '';")"
+if [[ "$scoperte" != "0" ]]; then
+  echo "Errore: $scoperte righe di anncsu_parametri (2-4) sono ancora senza target."
+  echo "Ripristinare il backup se necessario: $BACKUP_PATH"
+  exit 1
+fi
 
 # Bump in una chiamata separata: se dati_ente non c'e', il UPDATE fa fallire l'intero
 # heredoc e il ROLLBACK si porterebbe via anche la correzione di audience/target.

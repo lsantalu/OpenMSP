@@ -1,0 +1,199 @@
+<!-- templates/anncsu_aggiornamento.html -->
+{# Corpo condiviso dai tre e-service di aggiornamento: il contesto decide campi ed operazioni. #}
+{% load static %}
+
+<h3>ANNCSU &mdash; {{ servizio.etichetta }}</h3>
+<h4>Archivio Nazionale dei Numeri Civici delle Strade Urbane</h4>
+<br />
+
+{% if not utente_abilitato %}
+<div class="col-6 shadow-lg white-bg p-4">
+  <h4>Utente non abilitato</h4>
+  <p>L'utente non &egrave; abilitato all'utilizzo di questo servizio</p>
+  <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+  <div class="p-3 text-end">
+    <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+  </div>
+</div>
+{% else %}
+
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+</div>
+
+<div class="col-10 shadow-lg white-bg p-4">
+  <p class="pb-3">
+    Richiesta di aggiornamento dell&rsquo;{{ servizio.etichetta|lower }}. L&rsquo;erogatore processa
+    <b>un solo elemento per richiesta</b>: la pagina invia una chiamata per elemento e risponde con
+    i dati presenti in ANNCSU dopo l&rsquo;aggiornamento.</p>
+
+  {% for errore in errori %}
+  <div class="alert alert-danger" role="alert">{{ errore }}</div>
+  {% endfor %}
+
+  {% if esito %}
+  <div class="alert alert-{{ esito.positivo|yesno:'success,danger' }} mb-4" role="alert">
+    <b>{{ esito.titolo }}</b>
+    {% for messaggio in esito.messaggi %}<div>{{ messaggio }}</div>{% endfor %}
+  </div>
+  {% if esito.righe %}
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>{% for colonna in esito.colonne %}<th scope="col">{{ colonna }}</th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        {% for riga in esito.righe %}
+        <tr>{% for cella in riga %}<td>{{ cella }}</td>{% endfor %}</tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  {% if report %}
+  <h5 class="mt-4">Esito elenco ({% if report %}{{ report|length }} righe{% endif %})</h5>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr><th scope="col">Riga</th><th scope="col">Operazione</th><th scope="col">Esito</th>
+            <th scope="col">Messaggio</th></tr>
+      </thead>
+      <tbody>
+        {% for riga in report %}
+        <tr>
+          <td>{{ riga.riga }}</td>
+          <td>{{ riga.operazione }}</td>
+          <td>{{ riga.esito }}</td>
+          <td>{{ riga.messaggi|join:' &middot; ' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <form class="needs-validation mt-4" id="anncsu_agg_form" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {% if operazioni %}
+    <div class="form-group mt-3 mb-4">
+      <label class="active d-block mb-2">Operazione</label>
+      <div class="row">
+        {% for valore, etichetta in operazioni %}
+        <div class="col-4">
+          <div class="form-check m-0">
+            <input class="form-check-input anncsu-operazione" type="radio" name="{{ operazione }}"
+                   id="op_{{ valore }}" value="{{ valore }}"
+                   {% if valore == valore_op %}checked{% endif %} />
+            <label class="form-check-label" for="op_{{ valore }}">{{ etichetta }}</label>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <input type="hidden" name="operazione" value="R" />
+    {% endif %}
+
+    <div class="row">
+      {% for campo in campi %}
+      <div class="form-group mb-3 anncsu-campo col-6"
+           data-operazioni="{{ campo.operazioni }}" data-richiesti="{{ campo.richiesti }}">
+        <label for="in_{{ campo.nome }}">{{ campo.etichetta }}</label>
+        <input class="form-control" id="in_{{ campo.nome }}" name="{{ campo.nome }}"
+               type="text" maxlength="{{ campo.maxlength }}"
+               value="{{ campo.valore }}" />
+        <small class="form-note">{{ campo.hint }}</small>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if conferma %}
+    <div class="alert alert-warning" role="alert">
+      <b>Conferma l&rsquo;invio.</b> I valori qui sopra verranno scritti in ANNCSU: un
+      aggiornamento non &egrave; reversibile dal portale. Premi <i>Conferma e invia</i> per
+      procedere, o cambia i valori e ricarica la pagina per annullare.
+    </div>
+    {% endif %}
+
+    <div class="mt-4 d-flex gap-2">
+      <button class="btn btn-outline-primary" type="submit" name="azione" value="verifica">
+        Verifica e prepara l&rsquo;invio
+      </button>
+      {% if conferma %}
+      <button class="btn btn-primary" id="confermaInvio" type="submit" name="azione" value="invia">
+        <svg class="icon icon-sm icon-white" aria-hidden="true">
+          <use href="{% static 'svg/sprites.svg' %}#it-check"></use>
+        </svg>Conferma e invia
+      </button>
+      {% endif %}
+    </div>
+  </form>
+
+  <hr class="my-5" />
+  <h5>Aggiornamento multiplo</h5>
+  <p class="pb-3">
+    Un file CSV (delimitato da <code>;</code>) o XLSX con l&rsquo;intestazione delle colonne: una
+    riga equivale a una richiesta. Colonne ammesse:
+    <code>{% for campo in campi %}{{ campo.nome }}{% if not forloop.last %}, {% endif %}{% endfor %}</code>.
+    Massimo {{ max_righe }} righe per invio.
+  </p>
+  <form id="anncsu_elenco_form" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="form-group mb-3">
+      <label for="in_allegato">Elenco da inviare</label>
+      <input class="form-control" type="file" id="in_allegato" name="allegato"
+             accept=".csv,.xlsx" required />
+    </div>
+    <div class="mt-4 d-flex gap-2">
+      <button class="btn btn-outline-primary" type="submit" name="azione" value="simula">
+        Simula: controlla senza scrivere nulla
+      </button>
+      <button class="btn btn-primary" type="submit" name="azione" value="invia"
+              data-confirm="L&rsquo;elenco viene scritto in ANNCSU, riga per riga. Continuare?">
+        Invia ed esporta gli esiti
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+  (function () {
+    const form = document.querySelector("#anncsu_agg_form");
+    if (!form) return;
+    const campi = document.querySelectorAll(".anncsu-campo");
+    const overlay = document.querySelector("#loadingOverlay");
+
+    function scelta() {
+      return document.querySelector(".anncsu-operazione:checked");
+    }
+
+    // Come in anncsu.html: ogni campo sa per quali operazioni esiste e per quali e' obbligatorio,
+    // cosi' il form espone una sola chiavi per name e l'operatore non compila campi inutili.
+    function aggiornaVista() {
+      const op = scelta() ? scelta().value : "";
+      campi.forEach(function (campo) {
+        const amesso = !op || campo.dataset.operazioni.split(" ").includes(op);
+        campo.classList.toggle("d-none", !amesso);
+        campo.querySelector("input").required =
+            amesso && !!op && campo.dataset.richiesti.split(" ").includes(op);
+      });
+    }
+
+    document.querySelectorAll(".anncsu-operazione").forEach(function (radio) {
+      radio.addEventListener("change", aggiornaVista);
+    });
+    form.addEventListener("submit", function () {
+      if (overlay) overlay.classList.add("show");
+    });
+    document.querySelectorAll("[data-confirm]").forEach(function (bottone) {
+      bottone.addEventListener("click", function (evento) {
+        if (!window.confirm(bottone.dataset.confirm)) evento.preventDefault();
+      });
+    });
+
+    aggiornaVista();
+  })();
+</script>
+{% endif %}
