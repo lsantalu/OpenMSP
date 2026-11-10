@@ -5,10 +5,12 @@ import datetime
 import io
 import json
 import re
+import unicodedata
 from itertools import zip_longest
 
 import jwt
 import requests
+from django.contrib.staticfiles import finders
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from openpyxl import Workbook, load_workbook
@@ -17,6 +19,7 @@ from openpyxl.utils import get_column_letter
 from impostazioni.models import (
     AnncsuParametri,
     AnncsuServizi,
+    DatiEnte,
     ServiziParametri,
     UtentiParametri,
 )
@@ -59,8 +62,8 @@ _VALORE = r"^[A-Z0-9 .,'&/()-]{1,20}$"
 _NUMERO = r'^[0-9]{1,12}$'
 
 ANNCSU_CAMPI = {
-    'codcom': {'etichetta': 'Codice nazionale comune (Belfiore)', 'maxlength': 4,
-               'hint': 'Quattro caratteri alfanumerici maiuscoli, es. H501', 'pattern': _CODCOM},
+    'codcom': {'etichetta': 'Comune', 'maxlength': 4, 'lookup': 'comuni',
+               'hint': 'Nome del comune o codice Belfiore, es. Roma o H501', 'pattern': _CODCOM},
     'denom': {'etichetta': 'Denominazione completa dell\'odonimo', 'maxlength': 100,
               'hint': 'Es. VIA MARIO CARUCCI',
               'pattern': _TESTO},
@@ -130,11 +133,21 @@ ANNCSU_COLONNE = {
 
 def anncsu_valida(campi, valori):
     """Campi obbligatori e formato, PRIMA di chiedere un voucher (invariante 3, lo stesso
-    principio di verifica_cf: non si spende un token per una richiesta malformata)."""
+    principio di verifica_cf: non si spende un token per una richiesta malformata).
+
+    Su `codcom` il formato non basta: quattro maiuscole a caso passano, e ANNCSU risponde 'data:
+    false' a un comune che non conosce. La Consultazione lo mostrerebbe come 'Esistenza non
+    verificata', cioe' come una risposta dell'anagrafe invece che come una richiesta senza senso.
+    """
     for nome in campi:
-        pattern = ANNCSU_CAMPI[nome]['pattern']
-        if not re.match(pattern, valori.get(nome, '')):
-            return f"{ANNCSU_CAMPI[nome]['etichetta']}: valore non valido o mancante."
+        conf = ANNCSU_CAMPI[nome]
+        valore = valori.get(nome, '')
+        if not re.match(conf['pattern'], valore):
+            return f"{conf['etichetta']}: valore non valido o mancante."
+        codici = _lista_comuni()[2] if conf.get('lookup') == 'comuni' else set()
+        if codici and valore not in codici:
+            return (f"{conf['etichetta']}: '{valore}' non e' il codice di un comune. "
+                    f"{conf['hint']}.")
     return None
 
 
@@ -163,16 +176,19 @@ def _valore(item, chiave):
     return '' if valore is None else str(valore).strip()
 
 
-def anncsu_righe(esito, payload):
-    """Risposta -> (intestazioni, righe) con le colonne di ANNCSU_COLONNE[esito]."""
-    intestazioni = ANNCSU_COLONNE[esito]
+def _dati_consultazione(payload):
+    """`data` della risposta di Consultazione: la guida mostra un array, l'OpenAPI un oggetto."""
     dati = payload.get('data')
     if isinstance(dati, dict):
         dati = [dati]                      # prognaz*: un solo oggetto, la guida mostra un array
-    righe = []
-    for item in dati or []:
-        if isinstance(item, dict):
-            righe.append([_valore(item, chiave) for chiave, _ in intestazioni])
+    return [item for item in (dati or []) if isinstance(item, dict)]
+
+
+def anncsu_righe(esito, payload):
+    """Risposta -> (intestazioni, righe) con le colonne di ANNCSU_COLONNE[esito]."""
+    intestazioni = ANNCSU_COLONNE[esito]
+    righe = [[_valore(item, chiave) for chiave, _ in intestazioni]
+             for item in _dati_consultazione(payload)]
     return [etichetta for _, etichetta in intestazioni], righe
 
 
@@ -216,13 +232,98 @@ def anncsu_abilitato(utente, codice='anncsu'):
     return attivo and bool(utente) and bool(getattr(utente, servizio['flag'], False))
 
 
+# --- il comune dell'ente come default ------------------------------------------------------
+# `dati_ente.citta` e' testo libero compilato nel backoffice e vale 'Roma (RM)': il token fra
+# parentesi va tolto prima di confrontarlo coi nomi della lista. La lista vive in
+# static/comuni.json (7894 comuni, fonte e rinnovo in docs/): e' dati pubblici di sola
+# lettura, una tabella nel DB avrebbe chiesto update/*.sh e bump di versione per niente.
+_COMUNI = None
+
+
+def _lista_comuni():
+    """(lista, indice, codici, nomi) da static/comuni.json, una volta sola.
+
+    L'indice e' il nome normalizzato (per il default dell'ente), `codici` e' l'insieme dei
+    Belfiore validi: serve a `anncsu_valida`, perche' il solo pattern ammette ogni sequenza di
+    quattro caratteri maiuscoli, 'ROMA' compreso. `nomi` e' il codice -> nome, per rendere il
+    campo del comune dell'ente leggibile (`_etichetta_comune`).
+    """
+    global _COMUNI
+    if _COMUNI is None:
+        try:
+            percorso = str(finders.find('comuni.json') or '')
+            with open(percorso, encoding='utf-8') as file:
+                lista = json.load(file)
+        except (TypeError, OSError, ValueError):
+            lista = []            # file assente o rotto: i campi restano input di testo
+        indice, codici, nomi = {}, set(), {}
+        for voce in lista:
+            indice.setdefault(_chiave_comune(voce['n']), []).append(voce['c'])
+            codici.add(voce['c'])
+            nomi[voce['c']] = voce['n']
+        _COMUNI = (lista, indice, codici, nomi)
+    return _COMUNI
+
+
+def _chiave_comune(nome):
+    """Il nome come lo si confronta: maiuscolo, senza accenti, punteggiatura o spazi."""
+    senza = re.sub(r'\s*\([A-Za-z]{2}\)\s*$', '', nome or '')   # 'Roma (RM)' -> 'Roma'
+    senza = unicodedata.normalize('NFKD', senza)
+    senza = ''.join(c for c in senza if not unicodedata.combining(c)).upper()
+    return re.sub(r'[^A-Z0-9]', '', senza)
+
+
+def anncsu_comune_ente():
+    """Codice Belfiore del comune dell'ente, e solo se il suo nome e' un colpo unico.
+
+    E' il default del campo `codcom`: se `citta` e' una frazione, un indirizzo o un nome ambiguo
+    il default non c'e' e l'operatore sceglie. Non si tira a indovinare: scrivere nell'ANCSU
+    costa una scrittura irreversibile.
+    """
+    ente = DatiEnte.objects.first()
+    chiave = _chiave_comune(ente.citta if ente else '')
+    if not chiave:
+        return ''
+    colpi = _lista_comuni()[1].get(chiave, [])
+    return colpi[0] if len(colpi) == 1 else ''
+
+
+def _etichetta_comune(codice):
+    """'Roma (H501)' dal Belfiore: il nome lo legge l'operatore, il codice e' quello che parte.
+
+    Un codice che non e' nell'elenco se rende da solo: il campo e' disabilitato, un nome
+    inventato sarebbe peggio di niente.
+    """
+    nome = _lista_comuni()[3].get(codice)
+    return f'{nome} ({codice})' if nome else codice
+
+
+def _valore_da_rendere(campo, valori):
+    """Cosa finirebbe nell'input: il valore invocato, o il comune dell'ente se il campo non c'era.
+
+    La distinzione e' fra `non c'era` (GET, prima resa) e `c'era ed e' vuoto` (POST): un campo
+    che l'operatore ha svuotato non deve riempirsi di nuovo prima del `azione=invia`.
+    Un campo fisso invece non ha un valore invocato: e' sempre il comune dell'ente, reso col
+    nome perche' a un campo spento l'operatore deve capire cosa guarda.
+    """
+    nome = campo['nome']
+    if campo.get('fisso'):
+        return _etichetta_comune(anncsu_comune_ente())
+    if valori.get(nome):
+        return valori[nome]
+    if campo.get('lookup') == 'comuni' and nome not in valori:
+        return anncsu_comune_ente()
+    return ''
+
+
 def _campi_da_rendere(valori):
     """Un input per ogni campo, non uno per operazione (codcom compare in cinque): il JS
     nasconde quelli che non servono, il POST riceve sempre le stesse chiavi."""
     campi = []
     for nome, conf in ANNCSU_CAMPI.items():
         dove = [chiave for chiave, op in ANNCSU_OPERAZIONI.items() if nome in op['campi']]
-        campi.append({'nome': nome, **conf, 'valore': valori.get(nome, ''),
+        campo = {'nome': nome, **conf}
+        campi.append({**campo, 'valore': _valore_da_rendere(campo, valori),
                       'operazioni': ' '.join(dove)})
     return campi
 
@@ -378,6 +479,16 @@ _DATA = r'^[0-9]{2}/[0-9]{2}/[0-9]{4}$'
 _METODO = r'^[1-4]$'
 _FLAG = r'^[0-4]$'
 
+# Le quattro diciture vengono dalle Specifiche tecniche ANCSU (8/11/2026): nei PDF e negli YAML
+# di docs/ si dice solo "valori ammessi da 1 a 4" (errore 130), percio' stanno qui e non nel
+# template. Il menu a tendina le mostra, il filo e il CSV continuano a portare il solo codice.
+ANNCSU_METODI = (
+    ('1', 'Rilevazione strumentale sul campo, con accuratezza < 5 m'),
+    ('2', 'Rilevazione strumentale sul campo, con accuratezza ≥ 5 m'),
+    ('3', 'Derivazione indiretta da base dati territoriale, con accuratezza stimabile < 5 m'),
+    ('4', 'Derivazione indiretta da base dati territoriale, con accuratezza stimabile ≥ 5 m'),
+)
+
 
 def _num(lunghezza):
     return rf'^[0-9]{{1,{lunghezza}}}$'
@@ -393,15 +504,23 @@ _QUOTA = r'^-?[0-9]{1,7}$'
 _PROTOCOLLO = _txt(70, False)
 
 
-def _campo(nome, path, etichetta, hint, pattern, maxlength, req=(), solo=()):
-    """Descrittore di un campo del body, usato identico dal form, dalla validazione dal CSV."""
+def _campo(nome, path, etichetta, hint, pattern, maxlength, req=(), solo=(), lookup=None,
+           fisso=False, scelte=None):
+    """Descrittore di un campo del body, usato identico dal form, dalla validazione dal CSV.
+
+    `lookup`, `fisso` e `scelte` sono le sole chiavi lette dal template: la prima rende il campo
+    una ricerca sul nome (static/js/comuni.js), la seconda lo rende disabilitato perche' il
+    valore lo decide il portale (`_fissi`), la terza lo rende un menu a tendina. `lookup` e
+    `scelte` il validatore le ignora, `fisso` no.
+    """
     return {'nome': nome, 'path': path, 'etichetta': etichetta, 'hint': hint,
-            'pattern': pattern, 'maxlength': maxlength, 'req': req, 'solo': solo}
+            'pattern': pattern, 'maxlength': maxlength, 'req': req, 'solo': solo,
+            'lookup': lookup, 'fisso': fisso, 'scelte': scelte}
 
 
 _CAMPI_ACCESSI = (
-    _campo('codcom', 'codcom', 'Codice nazionale comune', 'Quattro caratteri, es. H501',
-           _CODCOM, 4, req=_SEMPRE),
+    _campo('codcom', 'codcom', 'Comune', "Comune dell'ente, dai dati anagrafici: non si cambia",
+           _CODCOM, 4, req=_SEMPRE, lookup='comuni', fisso=True),
     _campo('progr_nazionale', 'progr_nazionale', "Progressivo nazionale dell'area",
            'Solo cifre, es. 2000449', _num(10), 10, req=_SEMPRE),
     _campo('operazione_civico', 'accesso.operazione_civico', "Operazione sull'accesso",
@@ -433,14 +552,15 @@ _CAMPI_ACCESSI = (
     _campo('z', 'accesso.coordinate.z', 'Quota', 'Metri sul livello, solo con le coordinate',
            _QUOTA, 7, solo=('I', 'R')),
     _campo('metodo', 'accesso.coordinate.metodo', 'Metodo di rilevazione',
-           'Da 1 a 4, obbligatorio quando le coordinate c sono', _METODO, 1, solo=('I', 'R')),
+           'Obbligatorio quando le coordinate c sono', _METODO, 1, solo=('I', 'R'),
+           scelte=ANNCSU_METODI),
     _campo('data_valid_amm', 'accesso.data_valid_amm', "Data di validita' amministrativa",
            'gg/mm/aaaa; vuota = data corrente; per S e la fine validita', _DATA, 10),
 )
 
 _CAMPI_COORDINATE = (
-    _campo('codcom', 'accesso.codcom', 'Codice nazionale comune', 'Quattro caratteri, es. H501',
-           _CODCOM, 4, req=_SEMPRE),
+    _campo('codcom', 'accesso.codcom', 'Comune', "Comune dell'ente, dai dati anagrafici: non si cambia",
+           _CODCOM, 4, req=_SEMPRE, lookup='comuni', fisso=True),
     _campo('progr_civico', 'accesso.progr_civico', "Progressivo nazionale dell'accesso",
            "L'accesso dell'indirizzario a cui appartengono le coordinate", _num(15), 15,
            req=_SEMPRE),
@@ -450,16 +570,17 @@ _CAMPI_COORDINATE = (
            _COORD, 12, req=_SEMPRE),
     _campo('z', 'accesso.coordinate.z', 'Quota', 'Metri sul livello, solo con le coordinate',
            _QUOTA, 7),
-    _campo('metodo', 'accesso.coordinate.metodo', 'Metodo di rilevazione', 'Da 1 a 4',
-           _METODO, 1, req=_SEMPRE),
+    _campo('metodo', 'accesso.coordinate.metodo', 'Metodo di rilevazione',
+           'Come è stato rilevato il posizionamento', _METODO, 1, req=_SEMPRE,
+           scelte=ANNCSU_METODI),
 )
 
 # Un'unica tipologia di operazione: il posizionamento existente non viene storicizzato, ma
 # sovrascritto (PDF coordinate, Introduzione). Per questo qui non c'e' campo operazione.
 
 _CAMPI_ODONIMI = (
-    _campo('codcom', 'codcom', 'Codice nazionale comune', 'Quattro caratteri, es. H501',
-           _CODCOM, 4, req=_SEMPRE),
+    _campo('codcom', 'codcom', 'Comune', "Comune dell'ente, dai dati anagrafici: non si cambia",
+           _CODCOM, 4, req=_SEMPRE, lookup='comuni', fisso=True),
     _campo('tipo_operazione', 'tipo_operazione', "Operazione sull'odonimo",
            'I=inserimento, R=aggiornamento, S=soppressione', _OPC, 1, req=_SEMPRE),
     _campo('progr_nazionale', 'progr_nazionale', "Progressivo nazionale dell'area",
@@ -592,7 +713,10 @@ ANNCSU_AGGIORNAMENTI = {
     'anncsu_coordinate': {'id': 3, 'percorso': '/gestionecoordinate', 'operazione': '',
                           'servizio': 'Aggiornamento coordinate ANNCSU',
                           'campi': _CAMPI_COORDINATE, 'regole': _coordinate_coerenti,
-                          'colonne': _COLONNE_ESITO_ACCESSO},
+                          'colonne': _COLONNE_ESITO_ACCESSO,
+                          # le coordinate si sovrascrivono: senza vedere cosa c'e' gia' in ANNCSU
+                          # si scrive alla cieca, e l'aggiornamento non ha operazioni di lettura
+                          'cerca': True},
     'anncsu_odonimi': {'id': 4, 'percorso': '/odonimi', 'operazione': 'tipo_operazione',
                        'servizio': 'Aggiornamento odonimi ANNCSU', 'campi': _CAMPI_ODONIMI,
                        'regole': _regole_odonimi, 'colonne': _COLONNE_ESITO_ODO},
@@ -634,7 +758,10 @@ def anncsu_valida_aggiornamento(specifica, valori):
                       'soppressione.')
     for campo in specifica['campi']:
         valore = valori.get(campo['nome'], '')
-        obbligatorio = campo['req'] == _SEMPRE or (campo['req'] and op in campo['req'])
+        # un campo fisso non lo sceglie l'operatore: se manca la colpa e' dei dati dell'ente,
+        # e lo dice `_fissi`, non un 'obbligatorio' che invita a compilare un campo spento
+        obbligatorio = not campo['fisso'] and (
+            campo['req'] == _SEMPRE or (campo['req'] and op in campo['req']))
         if obbligatorio and not valore:
             errori.append(f"{campo['etichetta']}: obbligatorio.")
             continue
@@ -646,6 +773,56 @@ def anncsu_valida_aggiornamento(specifica, valori):
         elif not re.match(campo['pattern'], valore):
             errori.append(f"{campo['etichetta']}: valore non valido ({campo['hint']}).")
     return errori + specifica['regole'](valori)
+
+
+def _presentazione(campo, valore):
+    """Cosa il template aggiunge al tag del campo, deciso una volta sola nel codice.
+
+    Sono testo di attributo (`disabled`, `data-lookup="comuni"`, `selected`, `hidden`): i
+    `{% if %}` dentro un tag di apertura rompono chiunque lo legga come HTML, validatore del
+    repo compreso. Nessun valore digitato dall'operatore ci entra, percio' il template li stampa
+    senza scapparli. L'`id` cambia prefisso fra input e tendina perche' lo stesso id su due tag
+    alternativi viene letto come duplicato.
+    """
+    if campo['fisso']:
+        attri = 'disabled'
+    elif campo['scelte']:
+        attri = ''
+    elif campo['lookup']:
+        attri = f'data-lookup="{campo["lookup"]}"'
+    else:
+        attri = f'maxlength="{campo["maxlength"]}"'
+    return {'attri': attri,
+            'id': ('sl_' if campo['scelte'] else 'in_') + campo['nome'],
+            'sempre': '1' if campo['req'] == _SEMPRE else '',
+            'stella': '' if campo['req'] == _SEMPRE else 'hidden',
+            'opzioni': [{'valore': v, 'etichetta': e,
+                         'selezione': 'selected' if v == valore else ''}
+                        for v, e in (campo['scelte'] or ())]}
+
+
+def _fissi(specifica, valori):
+    """Mette i campi fissi e dice cosa non tornava: errori, vuoto = si puo' procedere.
+
+    Il comune dell'ente non e' una scelta dell'operatore: l'input e' disabilitato e quindi non
+    parte nel POST, e un elenco potrebbe portarne un altro. Qui il valore lo decide il portale
+    (su un'anagrafe nazionale si scrive solo il proprio comune) e il contrasto con cio' che
+    arrive e' un errore detto, non un campo sostituito in silenzio.
+    """
+    errori = []
+    for campo in specifica['campi']:
+        if not campo['fisso']:
+            continue
+        codice = anncsu_comune_ente()
+        indicato = valori.get(campo['nome'], '')
+        if not codice:
+            errori.append(f"{campo['etichetta']}: il codice Belfiore non si ricava dal campo "
+                          "'citta' dell'ente: correggere i dati anagrafici dell'ente.")
+        elif indicato and indicato != codice:
+            errori.append(f"{campo['etichetta']}: {indicato} non e' il comune dell'ente "
+                          f"({codice}): qui si scrive solo quello.")
+        valori[campo['nome']] = codice
+    return errori
 
 
 def _post_firmata(parametri, url, corpo, user_id):
@@ -808,8 +985,6 @@ def anncsu_leggi(allegato, specifica):
     if sconosciute:
         return [], ('Colonne non riconosciute: ' + ', '.join(sconosciute) +
                     '. Le colonne si chiamano come i campi del formulario.')
-    if 'codcom' not in intestazione:
-        return [], 'Manca la colonna codcom: ogni riga deve indicare il codice del comune.'
     if len(letture) - 1 > MAX_RIGHE:
         return [], (f'Troppe righe: {len(letture) - 1}, il massimo per un invio e {MAX_RIGHE} '
                     '(l\'erogatore processa un elemento per richiesta).')
@@ -870,7 +1045,7 @@ def _anncsu_elenco(request, chiave, specifica):
 
     report, invalida = [], 0
     for valori in righe:
-        errori = anncsu_valida_aggiornamento(specifica, valori)
+        errori = _fissi(specifica, valori) + anncsu_valida_aggiornamento(specifica, valori)
         invalida += bool(errori)
         report.append(_riga_report(valori, specifica, errori=errori))
     if request.POST.get('azione') == 'simula':
@@ -889,6 +1064,74 @@ def _anncsu_elenco(request, chiave, specifica):
                    r['id_richiesta'], r['progressivo']] for r in esiti]), None
 
 
+# --- la ricerca del civico dentro l'aggiornamento coordinate ---------------------------------
+# Il posizionamento si sovrascrive senza storicizzarlo, e l'aggiornamento coordinate non ha
+# nessuna operazione di lettura (docs/…coordinate.yml: solo POST /gestionecoordinate): le uniche
+# due operazioni che dicono cosa c'e' gia' in ANNCSU sono di Consultazione, e sono due perche'
+# 'elencoaccessiprog' parte dal progressivo nazionale dell'area, non dal nome della via.
+LOG_RICERCA = 'Consultazione ANNCSU (da Aggiornamento coordinate)'
+
+
+def _righe_ricerca(payload):
+    """Un dict per elemento della risposta, con le chiavi che legge il template della ricerca.
+
+    `anncsu_righe()` fonde longitudine e latitudine in una cella sola perche' cosi' si mostrano
+    nella Consultazione; qui servono separate per scrivere nei due campi del form, e il resto e'
+    lo stesso lavoro di `_valore()` (array, maiuscole, GeoJSON in stringa).
+    """
+    chiavi = ('prognaz', 'prognazacc', 'dug', 'denomuff', 'civico', 'esp', 'specif',
+              'metrico', 'quota', 'metodo')
+    righe = []
+    for item in _dati_consultazione(payload):
+        lungo, _, largo = _coord(item).partition(', ')
+        righe.append(dict({chiave: _valore(item, chiave) for chiave in chiavi},
+                          x=lungo.strip(), y=largo.strip()))
+    return righe
+
+
+def _cerca(request, operazione, obbligatori, valori):
+    """Una interrogazione di Consultazione dalla pagina di aggiornamento: (righe, errore).
+
+    Stessa firma, stesso voucher, stessa riga in logs della pagina di Consultazione (invarianti
+    2 e 8: metadati, le coordinate non salgono nel log). Cambia solo dove finisce il risultato:
+    nella risposta, mai in sessione, che qui e' un cookie da 4 KB (invariante 5).
+    """
+    errore = anncsu_valida(obbligatori, valori)
+    if errore:
+        return [], errore
+    payload, status, purp_id, tok_id = anncsu_richiesta(
+        request.user.username, operazione, ANNCSU_OPERAZIONI[operazione]['campi'], valori)
+    salva_log(request.user, LOG_RICERCA, operazione, purposeid=purp_id, resp_status=status,
+              token_id=tok_id)
+    if payload is None:
+        return [], ("L'authority non ha rilasciato un voucher." if status == 502 else
+                    f'Il servizio ha risposto {status} senza un JSON interpretabile.')
+    if status != 200:
+        return [], _problema(payload, status)
+    righe = _righe_ricerca(payload)
+    return righe, (None if righe else 'Nessun risultato: controllare la denominazione.')
+
+
+def _ricerca_accessi(request):
+    """I due passi della ricerca: prima le aree per denominazione, poi i civici dell'area.
+
+    I valori digitati tornano indietro nel contesto anche quando la chiamata va male: l'utente
+    deve vedere cosa ha cercato, non una pagina ripulita.
+    """
+    if request.POST.get('azione') == 'accessi':
+        prov = (request.POST.get('prognaz') or '').strip()
+        parz = (request.POST.get('accparz') or '').strip().upper()
+        nome = (request.POST.get('denomparz') or '').strip().upper()
+        righe, errore = _cerca(request, 'elencoaccessiprog', ('prognaz',),
+                               {'prognaz': prov, 'accparz': parz})
+        return ({'passo': 'accessi', 'prognaz': prov, 'accparz': parz,
+                 'denomparz': nome, 'righe': righe}, errore)
+    nome = (request.POST.get('denomparz') or '').strip().upper()
+    righe, errore = _cerca(request, 'elencoodonimiprog', ('codcom', 'denomparz'),
+                           {'codcom': anncsu_comune_ente(), 'denomparz': nome})
+    return {'passo': 'aree', 'denomparz': nome, 'righe': righe}, errore
+
+
 def _anncsu_aggiornamento(request, chiave):
     """Pagina dei tre aggiornamenti: form, riepilogo di conferma, esito ed elenco.
 
@@ -903,8 +1146,20 @@ def _anncsu_aggiornamento(request, chiave):
     utente_abilitato = anncsu_abilitato(utente, servizio['codice'])
 
     valori, errori, esito, report, conferma = {}, [], None, None, False
+    cerca = bool(specifica.get('cerca')) and anncsu_abilitato(utente)
+    ricerca = None
+    campi = []
+    for c in specifica['campi']:
+        valore = _valore_da_rendere(c, valori)      # una resa sola: `anncsu_comune_ente()` legge il DB
+        campi.append(dict(c, valore=valore,
+                          operazioni=' '.join(c['solo'] or _OPS),
+                          richiesti=' '.join(c['req'] if isinstance(c['req'], tuple) else _OPS),
+                          **_presentazione(c, valore)))
     if request.method == 'POST' and utente_abilitato:
-        if request.FILES.get('allegato'):
+        if cerca and request.POST.get('azione') in ('cerca', 'accessi'):
+            ricerca, errore = _ricerca_accessi(request)
+            errori = [errore] if errore else []
+        elif request.FILES.get('allegato'):
             risposta = _anncsu_elenco(request, chiave, specifica)
             if isinstance(risposta[0], HttpResponse):
                 return risposta[0]
@@ -912,7 +1167,7 @@ def _anncsu_aggiornamento(request, chiave):
             errori = [errore] if errore else []
         else:
             valori = _valori(specifica, request.POST)
-            errori = anncsu_valida_aggiornamento(specifica, valori)
+            errori = _fissi(specifica, valori) + anncsu_valida_aggiornamento(specifica, valori)
             if not errori and request.POST.get('azione') == 'invia':
                 esito = anncsu_aggiorna(request, chiave, valori)
             elif not errori:
@@ -926,10 +1181,9 @@ def _anncsu_aggiornamento(request, chiave):
         'operazione': specifica['operazione'],
         'operazioni': (('I', 'Inserimento'), ('R', 'Aggiornamento'), ('S', 'Soppressione'))
                       if specifica['operazione'] else (),
-        'campi': [dict(c, valore=valori.get(c['nome'], ''),
-                       operazioni=' '.join(c['solo'] or _OPS),
-                       richiesti=' '.join(c['req'] if isinstance(c['req'], tuple) else _OPS))
-                  for c in specifica['campi']],
+        'campi': campi,
+        'cerca': cerca,
+        'ricerca': ricerca,
         'valore_op': valori.get(specifica['operazione'], ''),
         'conferma': conferma,
         'errori': errori,

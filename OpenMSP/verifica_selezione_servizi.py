@@ -14,6 +14,8 @@ servizi_parametri viene spento e poi ripristinato al valore che aveva prima.
 import os
 import re
 import sys
+from types import SimpleNamespace
+from unittest import mock
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'OpenMSP.settings')
 
@@ -149,22 +151,37 @@ class Attivi:
 
 
 VALIDI = {
-    'anncsu_accessi': {'codcom': 'A062', 'progr_nazionale': '2000449',
+    'anncsu_accessi': {'progr_nazionale': '2000449',
                        'operazione_civico': 'R', 'progr_civico': '1370588',
                        'numero': '12', 'metodo': '3'},
-    'anncsu_coordinate': {'codcom': 'A062', 'progr_civico': '1370588',
+    'anncsu_coordinate': {'progr_civico': '1370588',
                           'x': '13.1', 'y': '41.8', 'metodo': '3'},
-    'anncsu_odonimi': {'codcom': 'A062', 'tipo_operazione': 'I', 'dug': 'VIA',
+    'anncsu_odonimi': {'tipo_operazione': 'I', 'dug': 'VIA',
                        'denom_delibera': 'DELLE ORCHIDEE'},
 }
+# un POST marcio per pagina: non e' piu' codcom, il comune non lo sceglie l'operatore
+MARCI = {'anncsu_accessi': {'progr_nazionale': 'X'},
+         'anncsu_coordinate': {'metodo': '9'},
+         'anncsu_odonimi': {'denom_delibera': ''}}
 
 
-def html_aggiornamento(vista, flag, post=None):
-    anncsu.UtentiParametri = Tabella(Voce(**{flag: True}) if flag else Voce())
+def html_aggiornamento(vista, flag, post=None, altri=()):
+    bandiere = {flag: True}
+    bandiere.update(dict.fromkeys(altri, True))
+    anncsu.UtentiParametri = Tabella(Voce(**bandiere) if flag else Voce())
     anncsu.ServiziParametri = Attivi()
     richiesta = (RequestFactory().post('/', post) if post else RequestFactory().get('/'))
     richiesta.user = User(username='verificatore', id=1)
     return vista(richiesta).content.decode('utf-8')
+
+
+# su un ente la cui citta' non e' un colpo unico le tre pagine non possono funzionare affatto:
+# meglio dirlo qui che vedere dodici errori incomprensibili
+DEFAULT = anncsu.anncsu_comune_ente()
+ETICHETTA = anncsu._etichetta_comune(DEFAULT)      # 'Roma (H501)': cosi' lo vede l'operatore
+if not DEFAULT:
+    errori.append("aggiornamenti: il codice Belfiore non si ricava da dati_ente.citta, "
+                  'le tre pagine di aggiornamento non possono funzionare')
 
 
 for chiave, vista in (('anncsu_accessi', anncsu.anncsu_accessi),
@@ -172,7 +189,6 @@ for chiave, vista in (('anncsu_accessi', anncsu.anncsu_accessi),
                      ('anncsu_odonimi', anncsu.anncsu_odonimi)):
     specifica, voce = anncsu.ANNCSU_AGGIORNAMENTI[chiave], anncsu.ANNCSU_PER_URL[chiave]
     flag = voce['flag']
-
     html = html_aggiornamento(vista, '')
     if 'abilitat' not in html.lower():
         errori.append(f'{chiave}: senza permesso manca l\'avviso all\'operatore')
@@ -191,6 +207,39 @@ for chiave, vista in (('anncsu_accessi', anncsu.anncsu_accessi),
             errori.append(f'{chiave}: il campo {campo["nome"]} non arriva al template')
     if specifica['operazione'] and f'name="{specifica["operazione"]}"' not in html:
         errori.append(f"{chiave}: manca la scelta dell'operazione")
+    # la * deve stare nel label del campo che il descrittore dice obbligatorio sempre: non basta
+    # che il conto torni, un asterisco sul campo sbagliato fuorvia l'operatore
+    for campo in specifica['campi']:
+        if campo['nome'] == specifica['operazione']:
+            continue                                  # reso dal radiogruppo, non come campo
+        etichetta = re.search(rf'for="(?:in|sl)_{campo["nome"]}"[^>]*>(.*?)</label>',
+                              html, re.S)
+        if etichetta is None:
+            continue                                  # gia' detto sopra: il campo non c'e'
+        stella = re.search(r'<span class="anncsu-obbl"([^>]*)>', etichetta.group(1))
+        voluto = campo['req'] == anncsu._SEMPRE
+        if stella is None:
+            errori.append(f"{chiave}: {campo['nome']} non ha nessuna * nel suo label")
+        elif ('hidden' in stella.group(1)) == voluto:  # la stella si vede se non e' hidden
+            errori.append(f"{chiave}: {campo['nome']} "
+                          + ('nasconde la * che il descrittore vuole'
+                             if voluto else 'mostra una * su un campo non obbligatorio'))
+    for campo in specifica['campi']:
+        if not campo['scelte']:
+            continue
+        tendina = re.search(rf'<select id="sl_{campo["nome"]}".*?</select>', html, re.S)
+        if tendina is None:
+            errori.append(f"{chiave}: {campo['nome']} non e' un menu a tendina")
+            continue
+        for valore, dicitura in campo['scelte']:
+            if f'<option value="{valore}"' not in tendina.group(0) or \
+                    dicitura[:18] not in tendina.group(0):
+                errori.append(f"{chiave}: {campo['nome']} non ha la voce {valore}")
+    # il campo dell'operazione esiste anche nel descrittore: se il template lo rende, vince lui
+    # sul radiogruppo (stesso name, e il POST tiene l'ultimo arrivato)
+    for input in re.findall(rf'<input[^>]*name="{specifica["operazione"]}"[^>]*>', html):
+        if 'type="text"' in input:
+            errori.append(f"{chiave}: l'operazione ha anche un campo di testo")
 
     # un POST valido non scrive: rende il riepilogo e chiede la conferma esplicita
     html = html_aggiornamento(vista, flag, dict(VALIDI[chiave], azione='verifica'))
@@ -200,7 +249,8 @@ for chiave, vista in (('anncsu_accessi', anncsu.anncsu_accessi),
         errori.append(f'{chiave}: il POST di prova risulta invalido: {VALIDI[chiave]}')
 
     # e un POST marcio deve dirlo, senza arrivare al riepilogo
-    html = html_aggiornamento(vista, flag, dict(VALIDI[chiave], codcom='X'))
+    html = html_aggiornamento(vista, flag, {**VALIDI[chiave], **MARCI[chiave],
+                                           'azione': 'verifica'})
     if 'alert-danger' not in html or 'Conferma e invia' in html:
         errori.append(f'{chiave}: una richiesta malformata non dice niente all\'operatore')
 
@@ -208,19 +258,149 @@ for chiave, vista in (('anncsu_accessi', anncsu.anncsu_accessi),
     html_aggiornamento(vista, None)
 
 
+# --- il campo del comune -------------------------------------------------------------------
+# Sulla Consultazione `codcom` si compila per nome (static/js/comuni.js): si verifica il markup
+# che la JS aspetta. Sui tre aggiornamenti invece il comune non e' una scelta: viene da
+# dati_ente.citta, il campo e' disabilitato e un POST che ne porta un altro deve vedersi
+# restituire quello dell'ente.
+PAGINE_COMUNI = (('anncsu', 'anncsu_consultazione_comuni', None),
+                 ('anncsu_accessi', 'anncsu_accessi', 'A062'),
+                 ('anncsu_coordinate', 'anncsu_coordinate', 'A062'),
+                 ('anncsu_odonimi', 'anncsu_odonimi', 'A062'))
+
+
+def input_comune(html):
+    colpo = re.search(r'<input[^>]*name="codcom"[^>]*>', html, re.I)
+    if colpo is None:
+        return None
+    return colpo.group(0)
+
+
+for chiave, flag, inviato in PAGINE_COMUNI:
+    html = html_aggiornamento(getattr(anncsu, 'anncsu_consultazione' if chiave == 'anncsu' else chiave),
+                              flag,
+                              dict(VALIDI[chiave], codcom=inviato, azione='verifica') if inviato
+                              else None)
+    campo = input_comune(html)
+    if '{#' in html or '{%' in html:
+        errori.append(f'{chiave}: markup del template nella pagina, '
+                      'i commenti multiriga Django non li toglie')
+    if campo is None:
+        errori.append(f'{chiave}: nessun input name="codcom"')
+        continue
+    if chiave == 'anncsu':
+        if 'data-lookup="comuni"' not in campo:
+            errori.append(f'{chiave}: il campo del comune non porta data-lookup, la JS non lo vede')
+        if 'maxlength' in campo:
+            errori.append(f"{chiave}: il campo del comune ha ancora il maxlength: un nome non ci entra")
+    else:
+        if 'disabled' not in campo:
+            errori.append(f"{chiave}: il campo del comune non e' disabilitato")
+        if 'data-lookup' in campo:
+            errori.append(f'{chiave}: il campo del comune fisso porta ancora data-lookup')
+        if inviato and 'value="A062"' in campo:
+            errori.append(f"{chiave}: il codcom del POST vince su quello dell'ente")
+        if DEFAULT:
+            if f'value="{ETICHETTA}"' not in campo:
+                errori.append(f"{chiave}: il comune dell'ente non arriva al campo "
+                              f'(voleva value="{ETICHETTA}")')
+            if f'value="{DEFAULT}"' in campo:
+                errori.append(f'{chiave}: il campo del comune mostra il solo Belfiore, no il nome')
+
+
+
+
+# --- la ricerca del civico nella pagina delle coordinate -------------------------------------
+# E' l'unico punto del portale dove una pagina di scrittura legge: i nomi delle due azioni, del
+# campo di ricerca e dei data-attributi devono coincidere fra vista, template e JS, e qui sotto
+# si chiama davvero l'erogatore (finto) per vedere cosa parte e cosa arriva in logs.
+AREE_FINTE = {'data': [{'prognaz': '2000449', 'dug': 'VIA', 'denomuff': 'MARIO CARUCCI'}]}
+ACCESSI_FINTE = {'data': [{'prognazacc': '1370588', 'civico': '12', 'esp': 'B', 'specif': 'ROSSO',
+                            'coord': '{"type":"Point","coordinates":[12.48, 41.79]}',
+                            'quota': '28', 'metodo': '3'}]}
+
+
+def cerca(post, corpo, consultazione=True):
+    """Una POST di ricerca con authorita' e log finti: (pagina, corpi inviati, righe di log)."""
+    class _Token:
+        objects = SimpleNamespace(get=lambda **_kw: SimpleNamespace(
+            id=1, kid='k', alg='RS256', typ='JWT', iss='i', sub='s', aud='a', purposeid='p',
+            audience='https://erogatore.test/anncsu/v1',
+            target='https://erogatore.test/anncsu/v1', baseurlauth='https://auth.test',
+            clientid='c', private_key='niente'))
+
+    class _Risposta:
+        status_code = 200
+        text = ''
+
+        def json(self):
+            return corpo
+
+    inviati, loggate = [], []
+
+    def finta(_url, data=None, **_opt):
+        inviati.append(data.decode('utf-8') if isinstance(data, bytes) else str(data))
+        return _Risposta()
+
+    anncsu.UtentiParametri = Tabella(Voce(anncsu_coordinate=True,
+                                          anncsu_consultazione_comuni=consultazione))
+    anncsu.ServiziParametri = Attivi()
+    richiesta = RequestFactory().post('/', post)
+    richiesta.user = User(username='verificatore', id=1)
+    with mock.patch.object(anncsu, 'AnncsuParametri', _Token()), \
+            mock.patch('requests.post', side_effect=finta), \
+            mock.patch.object(anncsu, 'agid', SimpleNamespace(
+                audit=lambda *a, **kw: ('audit', 'digest'),
+                asserzione_client=lambda *a, **kw: 'asserzione',
+                voucher=lambda *a, **kw: ('voucher', 'token'),
+                digest_body=lambda _corpo: 'digest', intestazioni=lambda *a, **kw: {},
+                CODIFICA='UTF-8')), \
+            mock.patch.object(anncsu, 'salva_log',
+                             lambda _rich, servizio, operazione, **_kw:
+                             loggate.append((servizio, operazione))):
+        pagina = anncsu.anncsu_coordinate(richiesta).content.decode('utf-8')
+    return pagina, inviati, loggate
+
+
+if anncsu.ANNCSU_AGGIORNAMENTI['anncsu_coordinate'].get('cerca'):
+    pagina = html_aggiornamento(anncsu.anncsu_coordinate, 'anncsu_coordinate',
+                               altri=('anncsu_consultazione_comuni',))
+    if 'Ricerca il civico' not in pagina or 'name="denomparz"' not in pagina:
+        errori.append('ricerca: il riquadro della ricerca non c''e\' o non ha il campo del nome')
+
+    pagina, inviati, loggate = cerca({'azione': 'cerca', 'denomparz': 'via carucci'},
+                                     AREE_FINTE)
+    if 'name="prognaz"' not in pagina or 'VIA MARIO CARUCCI' not in pagina:
+        errori.append('ricerca: il primo passo non rende la scelta del progressivo nazionale')
+    if not inviati or 'elencoodonimiprog' not in inviati[0] or DEFAULT not in inviati[0]:
+        errori.append('ricerca: la prima chiamata non chiede le aree col comune dell\'ente')
+    if loggate != [(anncsu.LOG_RICERCA, 'elencoodonimiprog')]:
+        errori.append(f'ricerca: vuole una riga in logs col servizio della ricerca, vista {loggate}')
+
+    pagina, inviati, _ = cerca({'azione': 'accessi', 'prognaz': '2000449'}, ACCESSI_FINTE)
+    if 'elencoaccessiprog' not in (inviati[0] if inviati else ''):
+        errori.append('ricerca: il secondo passo non chiama elencoaccessiprog')
+    if 'anncsu-usa' not in pagina or 'data-usa=' not in pagina:
+        errori.append('ricerca: i civici non offrono il pulsante che compila il form')
+    if '"x":"12.48"' not in pagina or '"y":"41.79"' not in pagina:
+        errori.append('ricerca: longitudine e latitudine non arrivano separate al pulsante')
+
+    pagina, inviati, loggate = cerca({'azione': 'cerca', 'denomparz': 'Via Carucci'}, AREE_FINTE,
+                                    consultazione=False)
+    if 'Ricerca il civico' in pagina or inviati or loggate:
+        errori.append('ricerca: senza permesso di Consultazione non si offre e non si chiama')
+
 
 # --- il ramo elenco: due pulsanti, due destini --------------------------------------------
 # Il form dell'elenco e' multipart e l'esito esce come file: e' l'unico punto del portale dove
 # una POST non rende una pagina. Va girato qui, perche' nessun test sulla funzione pura si
 # accorge di un nome di campo sbagliato fra template e vista.
-from types import SimpleNamespace  # noqa: E402
-from unittest import mock  # noqa: E402
-
 from django.core.files.uploadedfile import SimpleUploadedFile  # noqa: E402
 
 INTESTAZIONE = b'codcom;tipo_operazione;progr_nazionale;dug;denom_delibera\n'
-CSV = INTESTAZIONE + b'A062;I;;VIA;DELLE ORCHIDEE\n' + b'H501;X;2000449;VIA;TOPA\n'
-CSV_PULITO = INTESTAZIONE + b'A062;I;;VIA;DELLE ORCHIDEE\n'
+# la prima riga non indica il comune: lo mette il portale; la seconda ne indica uno altr
+CSV = INTESTAZIONE + b';I;;VIA;DELLE ORCHIDEE\n' + b'ZZZZ;I;2000449;VIA;TOPA\n'
+CSV_PULITO = INTESTAZIONE + b';I;;VIA;DELLE ORCHIDEE\n'
 
 
 class _Risposta:
@@ -271,7 +451,7 @@ if risposta.status_code != 200 or 'DA INVIARE' not in html:
     errori.append('elenco/simula: deve rendere il report riga per riga')
 if chiamate:
     errori.append('elenco/simula: deve solo controllare, nessuna chiamata all\'erogatore')
-if 'H501' not in html or 'NON INVIATA' not in html or 'tipo_operazione' not in html:
+if 'ZZZZ' not in html or 'NON INVIATA' not in html or 'tipo_operazione' not in html:
     errori.append('elenco/simula: una riga marcia deve dirlo')
 
 risposta, chiamate = elenco(anncsu.anncsu_odonimi, 'anncsu_odonimi', 'invia')

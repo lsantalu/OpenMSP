@@ -1,0 +1,102 @@
+<!-- templates/anncsu_cerca_accessi.html -->
+{# Ricerca del civico per l'aggiornamento coordinate. Due passi perche' i civici si chiedono #}
+{# dal progressivo nazionale dell'area, e l'aggiornamento non ha operazioni di lettura.       #}
+{# Due form fratelli (non annidati): il primo cerca le aree, il secondo sceglie l'area.        #}
+<div class="alert alert-secondary mb-4">
+  <h5>Ricerca il civico</h5>
+  <p class="mb-3">
+    Il posizionamento di un accesso viene <b>sovrascritto</b>, senza storia: conviene vedere cosa
+    c&rsquo;&egrave; gi&agrave; in ANNCSU prima di scrivere. La ricerca &egrave; una Consultazione
+    nel comune dell&rsquo;ente e consume un proprio voucher.</p>
+
+  <form class="anncsu-attesa row g-2 mt-5" method="post">
+    {% csrf_token %}
+    <div class="form-group col-6">
+      <label for="in_denomparz">Denominazione dell&rsquo;odonimo, anche parziale</label>
+      <input class="form-control" id="in_denomparz" name="denomparz" maxlength="100"
+             placeholder="VIA CARUCCI" value="{{ ricerca.denomparz }}" />
+    </div>
+    <div class="col-3 d-flex align-items-end">
+      <button class="btn btn-outline-primary" type="submit" name="azione" value="cerca">
+        Cerca le aree
+      </button>
+    </div>
+  </form>
+
+  {% if ricerca.passo == 'aree' and ricerca.righe %}
+  <hr class="my-4" />
+  <h6>Aree di circolazione trovate</h6>
+  <form class="anncsu-attesa" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="denomparz" value="{{ ricerca.denomparz }}" />
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr><th scope="col">Progressivo nazionale</th><th scope="col">Denominazione</th></tr>
+        </thead>
+        <tbody>
+          {% for area in ricerca.righe %}
+          <tr>
+            <td class="text-nowrap">
+              <div class="form-check m-0">
+                <input class="form-check-input" type="radio" name="prognaz"
+                       id="area_{{ area.prognaz }}" value="{{ area.prognaz }}"
+                       {% if area.prognaz == ricerca.prognaz %}checked{% endif %} />
+                <label class="form-check-label" for="area_{{ area.prognaz }}">
+                  {{ area.prognaz }}</label>
+              </div>
+            </td>
+            <td>{{ area.dug }} {{ area.denomuff }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="row mt-3 g-2">
+      <div class="form-group col-4">
+        <label for="in_accparz">Civico, anche parziale (facoltativo)</label>
+        <input class="form-control" id="in_accparz" name="accparz" maxlength="20"
+               value="{{ ricerca.accparz }}" />
+      </div>
+      <div class="col-4 d-flex align-items-end">
+        <button class="btn btn-outline-primary" type="submit" name="azione" value="accessi">
+          Mostra i civici dell&rsquo;area
+        </button>
+      </div>
+    </div>
+  </form>
+  {% endif %}
+
+  {% if ricerca.passo == 'accessi' and ricerca.righe %}
+  <hr class="my-4" />
+  <h6>Civici dell&rsquo;area {{ ricerca.prognaz }}</h6>
+  <p class="form-note">Il posizionamento qui sotto &egrave; quello presente in ANNCSU adesso.
+     <i>Usa</i> lo scrive nei campi dell&rsquo;aggiornamento, che resta da confermare.</p>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr><th scope="col">Progressivo accesso</th><th scope="col">Civico</th>
+            <th scope="col">Longitudine</th><th scope="col">Latitudine</th>
+            <th scope="col">Quota</th><th scope="col">Metodo</th><th scope="col"></th></tr>
+      </thead>
+      <tbody>
+        {% for ac in ricerca.righe %}
+        <tr>
+          <td class="text-nowrap">{{ ac.prognazacc }}</td>
+          <td class="text-nowrap">{{ ac.civico }}{{ ac.metrico }}{% if ac.esp %}/{{ ac.esp }}{% endif %}{% if ac.specif %} {{ ac.specif }}{% endif %}</td>
+          <td class="text-nowrap">{% if ac.x %}{{ ac.x }}{% else %}&mdash;{% endif %}</td>
+          <td class="text-nowrap">{% if ac.y %}{{ ac.y }}{% else %}&mdash;{% endif %}</td>
+          <td class="text-nowrap">{% if ac.quota %}{{ ac.quota }}{% else %}&mdash;{% endif %}</td>
+          <td class="text-nowrap">{% if ac.metodo %}{{ ac.metodo }}{% else %}&mdash;{% endif %}</td>
+          <td>
+            <button type="button" class="btn btn-sm btn-outline-primary anncsu-usa"
+                    data-usa='{"progr_civico":"{{ ac.prognazacc }}","x":"{{ ac.x }}","y":"{{ ac.y }}","z":"{{ ac.quota }}","metodo":"{{ ac.metodo }}"}'>
+              Usa</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>

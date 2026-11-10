@@ -74,7 +74,13 @@
   </div>
   {% endif %}
 
-  <form class="needs-validation mt-4" id="anncsu_agg_form" method="post" enctype="multipart/form-data">
+  {% if cerca %}
+  {% include 'anncsu_cerca_accessi.html' %}
+  {% endif %}
+
+  <p class="form-note">I campi segnati con <b>*</b> sono obbligatori per l&rsquo;invio.</p>
+  <form class="needs-validation mt-4" id="anncsu_agg_form" method="post"
+        enctype="multipart/form-data" data-comuni-json="{% static 'comuni.json' %}">
     {% csrf_token %}
     {% if operazioni %}
     <div class="form-group mt-3 mb-4">
@@ -98,14 +104,29 @@
 
     <div class="row">
       {% for campo in campi %}
+      {# L'operazione e' il radiogruppo sopra: un campo con lo stesso name lo scavalcherebbe. #}
+      {% if campo.nome != operazione %}
       <div class="form-group mb-3 anncsu-campo col-6"
-           data-operazioni="{{ campo.operazioni }}" data-richiesti="{{ campo.richiesti }}">
-        <label for="in_{{ campo.nome }}">{{ campo.etichetta }}</label>
+           data-operazioni="{{ campo.operazioni }}" data-richiesti="{{ campo.richiesti }}"
+           data-sempre="{{ campo.sempre }}">
+        <label for="{{ campo.id }}">{{ campo.etichetta }}
+          <span class="anncsu-obbl" {{ campo.stella }}> *</span></label>
+        {% if campo.scelte %}
+        {# Il tendina perche' i quattro valori del metodo non si indovinano: le diciture stanno #}
+        {# nel codice (ANNCSU_METODI) e il codice e' quello che parte.                          #}
+        <select id="sl_{{ campo.nome }}" name="{{ campo.nome }}">
+          <option value="">&mdash; scegli &mdash;</option>
+          {% for opz in campo.opzioni %}
+          <option value="{{ opz.valore }}" {{ opz.selezione }}>{{ opz.etichetta }}</option>
+          {% endfor %}
+        </select>
+        {% else %}
         <input class="form-control" id="in_{{ campo.nome }}" name="{{ campo.nome }}"
-               type="text" maxlength="{{ campo.maxlength }}"
-               value="{{ campo.valore }}" />
+               type="text" value="{{ campo.valore }}" {{ campo.attri|safe }} />
+        {% endif %}
         <small class="form-note">{{ campo.hint }}</small>
       </div>
+      {% endif %}
       {% endfor %}
     </div>
 
@@ -158,6 +179,7 @@
   </form>
 </div>
 
+<script src="{% static 'js/comuni.js' %}"></script>
 <script>
   (function () {
     const form = document.querySelector("#anncsu_agg_form");
@@ -171,18 +193,50 @@
 
     // Come in anncsu.html: ogni campo sa per quali operazioni esiste e per quali e' obbligatorio,
     // cosi' il form espone una sola chiavi per name e l'operatore non compila campi inutili.
+    // Senza radiogruppo (le coordinate hanno una sola operazione) restano obbligatori i campi che
+    // lo sono per tutte: data-sempre, lo stesso flag che ha acceso la * resa dal server.
     function aggiornaVista() {
       const op = scelta() ? scelta().value : "";
       campi.forEach(function (campo) {
         const amesso = !op || campo.dataset.operazioni.split(" ").includes(op);
         campo.classList.toggle("d-none", !amesso);
-        campo.querySelector("input").required =
-            amesso && !!op && campo.dataset.richiesti.split(" ").includes(op);
+        const richiesti = campo.dataset.richiesti ? campo.dataset.richiesti.split(" ") : [];
+        const richiesto = amesso && (op ? richiesti.includes(op) : campo.dataset.sempre === "1");
+        campo.querySelector("input, select").required = richiesto;
+        campo.querySelector(".anncsu-obbl").hidden = !richiesto;
       });
     }
 
     document.querySelectorAll(".anncsu-operazione").forEach(function (radio) {
       radio.addEventListener("change", aggiornaVista);
+    });
+
+    // 'Usa' porta i dati dell'accesso nel form di sotto: la ricerca e' una Consultazione, la
+    // scrittura resta il doppio passo (verifica, poi conferma). Un valore che in ANNCSU non c'e'
+    // scrive vuoto: il form deve mostrare il posizionamento attuale, non quello di prima.
+    document.querySelectorAll(".anncsu-usa").forEach(function (bottone) {
+      bottone.addEventListener("click", function () {
+        let dati;
+        try {
+          dati = JSON.parse(bottone.dataset.usa);
+        } catch (attributoMalformato) {
+          return;                     // non si tocca il form, meglio non fare niente
+        }
+        Object.keys(dati).forEach(function (nome) {
+          // per nome e non per id: il campo puo' essere un input o una tendina
+          const campo = form.elements[nome];
+          if (campo) campo.value = dati[nome] || "";
+        });
+        form.scrollIntoView({behavior: "smooth", block: "start"});
+        if (form.elements.progr_civico) form.elements.progr_civico.focus();
+      });
+    });
+
+    // La ricerca parla all'erogatore come l'invio: l'attesa si vede anche sui suoi due pulsanti.
+    document.querySelectorAll("form.anncsu-attesa").forEach(function (modulo) {
+      modulo.addEventListener("submit", function () {
+        if (overlay) overlay.classList.add("show");
+      });
     });
     form.addEventListener("submit", function () {
       if (overlay) overlay.classList.add("show");
