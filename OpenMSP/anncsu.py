@@ -1225,6 +1225,10 @@ def _anncsu_aggiornamento(request, chiave):
         'campi': campi,
         'cerca': cerca,
         'ricerca': ricerca,
+        'mappa': (_righe_mappa(ricerca['righe'])
+                  if ricerca and ricerca['passo'] == 'accessi' else None),
+        'attributo_sopprimere': (' data-sopprimi="1"'
+                                 if cerca and anncsu_abilitato(utente, 'anncsu_accessi') else ''),
         'valore_op': valori.get(specifica['operazione'], ''),
         'conferma': conferma,
         'errori': errori,

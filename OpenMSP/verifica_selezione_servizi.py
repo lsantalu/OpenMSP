@@ -316,11 +316,12 @@ for chiave, flag, inviato in PAGINE_COMUNI:
 # si chiama davvero l'erogatore (finto) per vedere cosa parte e cosa arriva in logs.
 AREE_FINTE = {'data': [{'prognaz': '2000449', 'dug': 'VIA', 'denomuff': 'MARIO CARUCCI'}]}
 ACCESSI_FINTE = {'data': [{'prognazacc': '1370588', 'civico': '12', 'esp': 'B', 'specif': 'ROSSO',
-                            'coord': '{"type":"Point","coordinates":[12.48, 41.79]}',
-                            'quota': '28', 'metodo': '3'}]}
+                          'coord': '{"type":"Point","coordinates":[12.48, 41.79]}',
+                          'quota': '28', 'metodo': '3'},
+                         {'prognazacc': '1370589', 'metrico': '300'}]}
 
 
-def cerca(post, corpo, consultazione=True):
+def cerca(post, corpo, consultazione=True, accessi=False):
     """Una POST di ricerca con authorita' e log finti: (pagina, corpi inviati, righe di log)."""
     class _Token:
         objects = SimpleNamespace(get=lambda **_kw: SimpleNamespace(
@@ -343,7 +344,8 @@ def cerca(post, corpo, consultazione=True):
         return _Risposta()
 
     anncsu.UtentiParametri = Tabella(Voce(anncsu_coordinate=True,
-                                          anncsu_consultazione_comuni=consultazione))
+                                          anncsu_consultazione_comuni=consultazione,
+                                          anncsu_accessi=accessi))
     anncsu.ServiziParametri = Attivi()
     richiesta = RequestFactory().post('/', post)
     richiesta.user = User(username='verificatore', id=1)
@@ -400,8 +402,19 @@ if anncsu.ANNCSU_AGGIORNAMENTI['anncsu_coordinate'].get('cerca'):
         errori.append('ricerca: il secondo passo non chiama elencoaccessiprog')
     if 'anncsu-usa' not in pagina or 'data-usa=' not in pagina:
         errori.append('ricerca: i civici non offrono il pulsante che compila il form')
-    if '"x":"12.48"' not in pagina or '"y":"41.79"' not in pagina:
-        errori.append('ricerca: longitudine e latitudine non arrivano separate al pulsante')
+    # la tabella dei civici non c'e' piu', quindi "longitudine e latitudine separate" si verifica
+    # sul blob che scende al JS: e' li' che deve arrivare, non piu' su un attributo del pulsante
+    if 'id="anncsu-accessi"' not in pagina:
+        errori.append('mappa: gli accessi con un punto non scendono al JS come JSON')
+    if '"punto": [41.79, 12.48]' not in pagina:
+        errori.append('mappa: nel blob longitudine e latitudine non sono un punto [lat, lon]')
+    if '2 accessi, 1 in mappa, 1 senza coordinate' not in pagina:
+        errori.append("mappa: il conto fra civici in mappa e senza coordinate non c'e'")
+    if 'data-sopprimi="1"' in pagina:
+        errori.append('mappa: la soppressione si offre a chi non ha il flag degli accessi')
+    pagina = cerca({'azione': 'accessi', 'prognaz': '2000449'}, ACCESSI_FINTE, accessi=True)[0]
+    if 'data-sopprimi="1"' not in pagina:
+        errori.append('mappa: col flag degli accessi il collegamento alla soppressione manca')
 
     pagina, inviati, loggate = cerca({'azione': 'cerca', 'denomparz': 'Via Carucci'}, AREE_FINTE,
                                     consultazione=False)
