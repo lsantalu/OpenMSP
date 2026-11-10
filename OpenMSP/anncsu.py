@@ -1110,6 +1110,24 @@ def _righe_mappa(righe):
     return {'in_mappa': in_mappa, 'senza': senza, 'totale': len(righe)}
 
 
+def _prefill_get(specifica, parametri):
+    """Da un link della mappa ai campi del form: solo i nomi che la pagina conosce.
+
+    Non e' un canale di scrittura: ci finisce in `valori` prima della resa, e il ramo POST
+    sovrascrive tutto e riverifica tutto. I campi `fisso` restano fuori per contratto, non per
+    il caso: `codcom` lo decide `_valore_da_rendere()`, e un `?codcom=` scritto a mano deve
+    fare zero effetto, non uno piccolo.
+    """
+    pretesi = {}
+    for campo in specifica['campi']:
+        if campo['fisso']:
+            continue
+        valore = parametri.get(campo['nome'])
+        if isinstance(valore, str) and valore:
+            pretesi[campo['nome']] = valore
+    return pretesi
+
+
 def _cerca(request, operazione, obbligatori, valori):
     """Una interrogazione di Consultazione dalla pagina di aggiornamento: (righe, errore).
 
@@ -1167,6 +1185,8 @@ def _anncsu_aggiornamento(request, chiave):
     utente_abilitato = anncsu_abilitato(utente, servizio['codice'])
 
     valori, errori, esito, report, conferma = {}, [], None, None, False
+    if request.method == 'GET':
+        valori = _prefill_get(specifica, request.GET)   # il link di soppressione arriva cosi'
     cerca = bool(specifica.get('cerca')) and anncsu_abilitato(utente)
     ricerca = None
     campi = []
