@@ -367,6 +367,11 @@ if anncsu.ANNCSU_AGGIORNAMENTI['anncsu_coordinate'].get('cerca'):
                                altri=('anncsu_consultazione_comuni',))
     if 'Ricerca il civico' not in pagina or 'name="denomparz"' not in pagina:
         errori.append('ricerca: il riquadro della ricerca non c''e\' o non ha il campo del nome')
+    # la mappa deve chiamare la stessa funzione del pulsante, non una seconda copia: il vincolo
+    # si ferma qui, perche' sul JS nessun test python puo' dire di piu' di cosi'
+    if 'window.anncsuUsa = function' not in pagina:
+        errori.append('ricerca: il pulsante Usa non e\' una funzione: la mappa non avra\' '
+                      'nulla da chiamare e la logica verra\' copiata')
 
     pagina, inviati, loggate = cerca({'azione': 'cerca', 'denomparz': 'via carucci'},
                                      AREE_FINTE)

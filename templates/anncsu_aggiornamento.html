@@ -214,6 +214,15 @@
     // 'Usa' porta i dati dell'accesso nel form di sotto: la ricerca e' una Consultazione, la
     // scrittura resta il doppio passo (verifica, poi conferma). Un valore che in ANNCSU non c'e'
     // scrive vuoto: il form deve mostrare il posizionamento attuale, non quello di prima.
+    window.anncsuUsa = function (dati) {
+      // per nome e non per id: il campo puo' essere un input o una tendina
+      const nome = Object.keys(dati).filter(function (n) { return !!form.elements[n]; });
+      nome.forEach(function (n) { form.elements[n].value = dati[n] || ""; });
+      if (!nome.length) return false;
+      form.scrollIntoView({behavior: "smooth", block: "start"});
+      if (form.elements.progr_civico) form.elements.progr_civico.focus();
+      return true;
+    };
     document.querySelectorAll(".anncsu-usa").forEach(function (bottone) {
       bottone.addEventListener("click", function () {
         let dati;
@@ -222,13 +231,7 @@
         } catch (attributoMalformato) {
           return;                     // non si tocca il form, meglio non fare niente
         }
-        Object.keys(dati).forEach(function (nome) {
-          // per nome e non per id: il campo puo' essere un input o una tendina
-          const campo = form.elements[nome];
-          if (campo) campo.value = dati[nome] || "";
-        });
-        form.scrollIntoView({behavior: "smooth", block: "start"});
-        if (form.elements.progr_civico) form.elements.progr_civico.focus();
+        window.anncsuUsa(dati);       // un corpo solo: lo chiama anche il pannello della mappa
       });
     });
 
