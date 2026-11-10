@@ -318,7 +318,8 @@ AREE_FINTE = {'data': [{'prognaz': '2000449', 'dug': 'VIA', 'denomuff': 'MARIO C
 ACCESSI_FINTE = {'data': [{'prognazacc': '1370588', 'civico': '12', 'esp': 'B', 'specif': 'ROSSO',
                           'coord': '{"type":"Point","coordinates":[12.48, 41.79]}',
                           'quota': '28', 'metodo': '3'},
-                         {'prognazacc': '1370589', 'metrico': '300'}]}
+                         {'prognazacc': '1370589', 'metrico': '300',
+                          'coord': '{"type":"Point","coordinates":[12.50]}'}]}
 
 
 def cerca(post, corpo, consultazione=True, accessi=False):
@@ -399,7 +400,7 @@ if anncsu.ANNCSU_AGGIORNAMENTI['anncsu_coordinate'].get('cerca'):
         codice_js = ''
         errori.append('mappa: manca static/js/anncsu_mappa.js')
     for voluto in ('window.anncsuUsa', 'progr_nazionale', 'prognazacc', 'tileerror',
-                   'textContent', 'tile.openstreetmap.org'):
+                   'textContent', 'tile.openstreetmap.org', 'progr_civico='):
         if voluto not in codice_js:
             errori.append('mappa: nel JS manca ' + voluto)
     if 'innerHTML' in codice_js:
@@ -427,6 +428,14 @@ if anncsu.ANNCSU_AGGIORNAMENTI['anncsu_coordinate'].get('cerca'):
         errori.append('mappa: nel blob longitudine e latitudine non sono un punto [lat, lon]')
     if '2 accessi, 1 in mappa, 1 senza coordinate' not in pagina:
         errori.append("mappa: il conto fra civici in mappa e senza coordinate non c'e'")
+    if 'data-prognaz="2000449"' not in pagina:
+        errori.append('mappa: senza il progressivo dell\'area il link di soppressione non si compone')
+    # la mappa puo' non arrivare (egresso chiuso): l'elenco/server-rendered deve esserci sempre
+    if '<details' not in pagina:
+        errori.append('mappa: niente elenco di ripiego sotto la mappa')
+    # una riga con x e non y non deve perdere l'unica coordinata che ha
+    if '"x":"12.5"' not in pagina:
+        errori.append('mappa: il ripiego butta via la coordinata semiconosciuta')
     if 'data-sopprimi="1"' in pagina:
         errori.append('mappa: la soppressione si offre a chi non ha il flag degli accessi')
     pagina = cerca({'azione': 'accessi', 'prognaz': '2000449'}, ACCESSI_FINTE, accessi=True)[0]

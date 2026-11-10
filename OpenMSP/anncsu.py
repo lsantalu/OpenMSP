@@ -4,6 +4,7 @@ import csv
 import datetime
 import io
 import json
+import math
 import re
 import unicodedata
 from itertools import zip_longest
@@ -1101,13 +1102,21 @@ def _righe_mappa(righe):
         numero = ''.join((riga.get('civico', ''), riga.get('metrico', ''),
                           '/' + riga['esp'] if riga.get('esp') else '',
                           ' ' + riga['specif'] if riga.get('specif') else ''))
+        punto = None
         try:
-            punto = [float(riga['y']), float(riga['x'])]
-        except (TypeError, ValueError):      # vuoto, mancante, o non numerico: non e' un punto
+            x, y = float(riga['x']), float(riga['y'])
+            if math.isfinite(x) and math.isfinite(y) and 6 <= x <= 18 and 36 <= y <= 47:
+                # la box dell'Italia e' quella dei Specifications: `nan` e `inf` sono numeri
+                # per Python, e un punto fuori box su una mappa dell'Italia non si vede
+                punto = [y, x]
+        except (TypeError, ValueError):  # vuoto, mancante, o non numerico: non e' un punto
+            pass
+        if punto is None:
             senza.append(dict(riga, numero=numero))
         else:
             in_mappa.append(dict(riga, numero=numero, punto=punto))
-    return {'in_mappa': in_mappa, 'senza': senza, 'totale': len(righe)}
+    return {'in_mappa': in_mappa, 'senza': senza, 'totale': len(righe),
+            'tutte': in_mappa + senza}
 
 
 def _prefill_get(specifica, parametri):

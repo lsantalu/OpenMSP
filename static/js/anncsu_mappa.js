@@ -40,6 +40,7 @@
       return;
     }
     if (!Array.isArray(accessi)) return;
+    const prognaz = riquadro.dataset.prognaz || "";
     const puoSopprimere = riquadro.dataset.sopprimi === "1";   // lo decide la vista, non il JS
     const urlAccessi = riquadro.dataset.urlAccessi;
     const metodi = dizionarioMetodi();
@@ -57,6 +58,11 @@
     riquadro.parentNode.insertBefore(pannello, riquadro);
 
     let attivo = null, tileMancate = false;
+
+    function scrive_numero(marker, accesso) {
+      const etichetta = marker.getElement() && marker.getElement().firstChild;
+      if (etichetta) etichetta.textContent = accesso.numero || "";   // dall'erogatore: testo
+    }
 
     function mostra(accesso) {
       pannello.textContent = "";                       // si ricomincia da vuoti: niente HTML
@@ -80,12 +86,14 @@
       });
       pannello.appendChild(usa);
       // un id vuoto aprirebbe una pagina di scrittura prefillata di niente
-      if (puoSopprimere && accesso.prognazacc) {
+      if (puoSopprimere && accesso.prognazacc && prognaz) {
         const sopprimi = document.createElement("a");
         sopprimi.className = "btn btn-sm btn-outline-danger ms-2";
         sopprimi.textContent = "Sopprimi";
-        // l'altro eService vuole progr_nazionale, che qui arriva come prognazacc
-        sopprimi.href = urlAccessi + "?progr_nazionale=" + encodeURIComponent(accesso.prognazacc)
+        // l'altro eService vuole l'area in progr_nazionale e l'accesso in progr_civico
+        sopprimi.href = urlAccessi
+                      + "?progr_nazionale=" + encodeURIComponent(prognaz)
+                      + "&progr_civico=" + encodeURIComponent(accesso.prognazacc)
                       + "&operazione_civico=S";
         pannello.appendChild(sopprimi);
       }
@@ -107,13 +115,12 @@
     accessi.forEach(function (accesso) {
       const icona = L.divIcon({html: "<i></i>", className: "anncsu-puntino",
                                iconSize: [26, 26], iconAnchor: [13, 13]});
-      const punto = L.marker(accesso.punto, {icon: icona, title: accesso.numero}).addTo(mappa);
-      punto.on("add", function () {
-        const etichetta = punto.getElement() && punto.getElement().firstChild;
-        if (etichetta) etichetta.textContent = accesso.numero;   // dall'erogatore: testo
-      });
+      const punto = L.marker(accesso.punto, {icon: icona, title: accesso.numero});
+      punto.on("add", function () { scrive_numero(punto, accesso); });
       punto.on("click", function () { seleziona(punto, accesso); });
       marker.push(punto);
+      punto.addTo(mappa);          // l'evento puo' anticipare l'aggancio: scrive anche dopo
+      scrive_numero(punto, accesso);
     });
     if (marker.length) mappa.fitBounds(L.featureGroup(marker).getBounds().pad(0.15));
 
@@ -122,8 +129,8 @@
       if (tileMancate) return;
       tileMancate = true;
       riquadro.classList.add("senza-tile");
-      avvisa("Le tile di OpenStreetMap non arrivano: la mappa resta vuota, l'elenco qui sotto "
-             + "e il pulsante Usa funzionano lo stesso.");
+      avvisa("Le tile di OpenStreetMap non arrivano: la mappa resta vuota, l'elenco dei civici "
+             + "qui sotto e il pulsante Usa funzionano lo stesso.");
     });
   }
 

@@ -83,31 +83,36 @@
   <h6>Civici dell&rsquo;area {{ ricerca.prognaz }}</h6>
   <p class="form-note">{{ mappa.totale }} accessi, {{ mappa.in_mappa|length }} in mappa, {{ mappa.senza|length }} senza coordinate &mdash; il posizionamento &egrave; quello presente in ANNCSU adesso.</p>
   {% if mappa.in_mappa %}
-  <div class="anncsu-mappa mb-3" id="anncsu-mappa" data-url-accessi="{% url 'anncsu_accessi' %}" {{ attributo_sopprimere|safe }}></div>
+  <div class="anncsu-mappa mb-3" id="anncsu-mappa" data-url-accessi="{% url 'anncsu_accessi' %}" data-prognaz="{{ ricerca.prognaz }}" {{ attributo_sopprimere|safe }}></div>
   {{ mappa.in_mappa|json_script:"anncsu-accessi" }}
   {% endif %}
   <p class="form-note mb-3"><i>Usa</i> scrive il posizionamento nei campi dell&rsquo;aggiornamento, che resta da confermare.</p>
-  {% if mappa.senza %}
-  <div class="table-wrapper">
-    <table>
-      <thead>
-        <tr><th scope="col">Progressivo accesso</th><th scope="col">Civico</th><th scope="col"></th></tr>
-      </thead>
-      <tbody>
-        {% for ac in mappa.senza %}
-        <tr>
-          <td class="text-nowrap">{{ ac.prognazacc }}</td>
-          <td class="text-nowrap">{{ ac.numero }}</td>
-          <td>
-            <button type="button" class="btn btn-sm btn-outline-primary anncsu-usa"
-                    data-usa='{"progr_civico":"{{ ac.prognazacc }}","x":"","y":"","z":"{{ ac.quota }}","metodo":"{{ ac.metodo }}"}'>
-              Usa</button>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
+  <details class="mb-3">
+    <summary>Elenco dei civici dell&rsquo;area</summary>
+    <p class="form-note">Il cammino senza mappa: da usare quando le tile non arrivano o il JS e' spento.</p>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr><th scope="col">Progressivo accesso</th><th scope="col">Civico</th>
+              <th scope="col">X</th><th scope="col">Y</th><th scope="col"></th></tr>
+        </thead>
+        <tbody>
+          {% for ac in mappa.tutte %}
+          <tr>
+            <td class="text-nowrap">{{ ac.prognazacc }}</td>
+            <td class="text-nowrap">{{ ac.numero }}</td>
+            <td class="text-nowrap">{{ ac.x }}</td>
+            <td class="text-nowrap">{{ ac.y }}</td>
+            <td>
+              <button type="button" class="btn btn-sm btn-outline-primary anncsu-usa"
+                      data-usa='{"progr_civico":"{{ ac.prognazacc }}","x":"{{ ac.x }}","y":"{{ ac.y }}","z":"{{ ac.quota }}","metodo":"{{ ac.metodo }}"}'>
+                Usa</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
   {% endif %}
 </div>
