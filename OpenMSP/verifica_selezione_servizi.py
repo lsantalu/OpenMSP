@@ -372,6 +372,19 @@ if anncsu.ANNCSU_AGGIORNAMENTI['anncsu_coordinate'].get('cerca'):
     if 'window.anncsuUsa = function' not in pagina:
         errori.append('ricerca: il pulsante Usa non e\' una funzione: la mappa non avra\' '
                       'nulla da chiamare e la logica verra\' copiata')
+    # Leaflet si paga solo dove serve: 130 KB che le altre due pagine di aggiornamento non
+    # devono scaricare per una mappa che non hanno
+    # il blocco extra_head del child non deve schiacciare quello di base: li' c'e' marked.min.js
+    if 'marked.min.js' not in pagina:
+        errori.append('coordinate: il blocco extra_head ha perso il contenuto di base')
+    for resa, dove, voluta in ((pagina, 'coordinate', True),
+                              (html_aggiornamento(anncsu.anncsu_accessi, 'anncsu_accessi'),
+                               'accessi', False),
+                              (html_aggiornamento(anncsu.anncsu_odonimi, 'anncsu_odonimi'),
+                               'odonimi', False)):
+        if ('plugins/leaflet/leaflet.js' in resa) != voluta:
+            errori.append('leaflet: caricata male su ' + dove
+                          + (' (manca)' if voluta else ' (non serve qua)'))
 
     pagina, inviati, loggate = cerca({'azione': 'cerca', 'denomparz': 'via carucci'},
                                      AREE_FINTE)
