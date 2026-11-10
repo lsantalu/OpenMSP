@@ -1089,6 +1089,27 @@ def _righe_ricerca(payload):
     return righe
 
 
+def _righe_mappa(righe):
+    """(righe con un punto, righe senza, totale): il taglio lo fa Python.
+
+    Il conto nella pagina e il «niente mappa se nessuno ha un punto» non possono contare sul JS,
+    e l'elenco che scende al browser dev'essere lo stesso che il contatore chiama *in mappa*:
+    la scelta si fa una volta sola, qui. `punto` e' `[lat, lon]`, l'ordine di Leaflet.
+    """
+    in_mappa, senza = [], []
+    for riga in righe:
+        numero = ''.join((riga.get('civico', ''), riga.get('metrico', ''),
+                          '/' + riga['esp'] if riga.get('esp') else '',
+                          ' ' + riga['specif'] if riga.get('specif') else ''))
+        try:
+            punto = [float(riga['y']), float(riga['x'])]
+        except (TypeError, ValueError):      # vuoto, mancante, o non numerico: non e' un punto
+            senza.append(dict(riga, numero=numero))
+        else:
+            in_mappa.append(dict(riga, numero=numero, punto=punto))
+    return {'in_mappa': in_mappa, 'senza': senza, 'totale': len(righe)}
+
+
 def _cerca(request, operazione, obbligatori, valori):
     """Una interrogazione di Consultazione dalla pagina di aggiornamento: (righe, errore).
 
