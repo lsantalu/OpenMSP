@@ -25,7 +25,8 @@ Consultazione ANNCSU - OpenMSP - Multi Services Portal
   <div class="alert alert-danger" role="alert">{{ error }}</div>
   {% endif %}
 
-  <form class="needs-validation" id="anncsu_form" method="post">
+  <form class="needs-validation" id="anncsu_form" method="post"
+        data-comuni-json="{% static 'comuni.json' %}">
     {% csrf_token %}
     <div class="form-group mt-3 mb-5">
       <label class="active d-block mb-2">Interrogazione</label>
@@ -49,8 +50,10 @@ Consultazione ANNCSU - OpenMSP - Multi Services Portal
     <div class="form-group mb-3 anncsu-campo col-6" data-operazioni="{{ campo.operazioni }}">
       <label for="in_{{ campo.nome }}">{{ campo.etichetta }}</label>
       <input type="text" class="form-control" id="in_{{ campo.nome }}" name="{{ campo.nome }}"
-             maxlength="{{ campo.maxlength }}" value="{{ campo.valore }}"
-             oninput="this.value = this.value.toUpperCase();" />
+             {% if campo.lookup %}data-lookup="{{ campo.lookup }}"
+             {% else %}maxlength="{{ campo.maxlength }}"
+             oninput="this.value = this.value.toUpperCase();"{% endif %}
+             value="{{ campo.valore }}" />
       <small class="form-note">{{ campo.hint }}</small>
     </div>
     {% endfor %}
@@ -136,6 +139,7 @@ Consultazione ANNCSU - OpenMSP - Multi Services Portal
 </a>
 {% endif %}
 
+<script src="{% static 'js/comuni.js' %}"></script>
 <script>
   (function () {
     const form = document.querySelector("#anncsu_form");
