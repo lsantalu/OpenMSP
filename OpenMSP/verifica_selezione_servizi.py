@@ -387,6 +387,23 @@ if anncsu.ANNCSU_AGGIORNAMENTI['anncsu_coordinate'].get('cerca'):
         if ('plugins/leaflet/leaflet.js' in resa) != voluta:
             errori.append('leaflet: caricata male su ' + dove
                           + (' (manca)' if voluta else ' (non serve qua)'))
+    # il JS della mappa nessun test python lo esegue: qui si verifica almeno che chiami la
+    # funzione del pulsante (non una seconda copia) e che il numero del civico - che viene
+    # dall'erogatore - non finisca in un innerHTML
+    percorso_js = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                              'static', 'js', 'anncsu_mappa.js')
+    try:
+        with open(percorso_js, encoding='utf-8') as sorgente:
+            codice_js = sorgente.read()
+    except OSError:
+        codice_js = ''
+        errori.append('mappa: manca static/js/anncsu_mappa.js')
+    for voluto in ('window.anncsuUsa', 'progr_nazionale', 'prognazacc', 'tileerror',
+                   'textContent', 'tile.openstreetmap.org'):
+        if voluto not in codice_js:
+            errori.append('mappa: nel JS manca ' + voluto)
+    if 'innerHTML' in codice_js:
+        errori.append('mappa: il numero dei civici viene dall\'erogatore: testo, non HTML')
 
     pagina, inviati, loggate = cerca({'azione': 'cerca', 'denomparz': 'via carucci'},
                                      AREE_FINTE)
