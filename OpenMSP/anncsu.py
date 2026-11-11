@@ -1090,32 +1090,61 @@ def _righe_ricerca(payload):
     return righe
 
 
+def _gradi(valore):
+    """Un grado decimale, tollerando la virgola e gli spazi: `None` se numero non e'."""
+    testo = str(valore or '').strip().replace(' ', '').replace(',', '.')
+    try:
+        numero = float(testo)
+    except ValueError:
+        return None
+    return numero if math.isfinite(numero) else None
+
+
+def _in_italia(x, y):
+    """La box dei Specifications: un punto fuori non si vede su una mappa dell'Italia."""
+    return 6.0 <= x <= 18.0 and 36.0 <= y <= 47.0
+
+
 def _righe_mappa(righe):
-    """(righe con un punto, righe senza, totale): il taglio lo fa Python.
+    """(righe con un punto, righe senza e perche', totale): il taglio lo fa Python.
 
     Il conto nella pagina e il «niente mappa se nessuno ha un punto» non possono contare sul JS,
     e l'elenco che scende al browser dev'essere lo stesso che il contatore chiama *in mappa*:
     la scelta si fa una volta sola, qui. `punto` e' `[lat, lon]`, l'ordine di Leaflet.
+
+    Una riga che nella tabella mostra i suoi X e Y non puo' dirsi 'senza coordinate': ogni riga
+    scartata porta il perche', e il contatore lo dice. Sono tre i modi di non essere un punto
+    sulla mappa, e si curano in modo diverso.
     """
     in_mappa, senza = [], []
     for riga in righe:
         numero = ''.join((riga.get('civico', ''), riga.get('metrico', ''),
                           '/' + riga['esp'] if riga.get('esp') else '',
                           ' ' + riga['specif'] if riga.get('specif') else ''))
-        punto = None
-        try:
-            x, y = float(riga['x']), float(riga['y'])
-            if math.isfinite(x) and math.isfinite(y) and 6 <= x <= 18 and 36 <= y <= 47:
-                # la box dell'Italia e' quella dei Specifications: `nan` e `inf` sono numeri
-                # per Python, e un punto fuori box su una mappa dell'Italia non si vede
-                punto = [y, x]
-        except (TypeError, ValueError):  # vuoto, mancante, o non numerico: non e' un punto
-            pass
-        if punto is None:
-            senza.append(dict(riga, numero=numero))
+        x, y = _gradi(riga.get('x')), _gradi(riga.get('y'))
+        crudo = [v for v in (riga.get('x'), riga.get('y')) if str(v or '').strip()]
+        if x is None or y is None:
+            motivo = ('senza coordinate' if not crudo else
+                      'coordinata mancante' if len(crudo) < 2 else 'coordinate non numeriche')
+        elif _in_italia(x, y):
+            motivo = None
+        elif _in_italia(y, x):
+            # all'incontrario la coppia e' dentro la box, dritto no: e' latitudine e longitudine
+            # scambiate, non spazzatura. Si scambiano, che un puntino perso costa piu' del dubbio.
+            x, y, motivo = y, x, None
         else:
-            in_mappa.append(dict(riga, numero=numero, punto=punto))
+            # un posizionamento piano (Gauss-Boaga) o un comune estero: vorrebbe una proiezione,
+            # non un filtro. La riga resta in tabella con i suoi numeri, senza puntino.
+            motivo = "fuori dall'Italia"
+        if motivo:
+            senza.append(dict(riga, numero=numero, motivo=motivo))
+        else:
+            in_mappa.append(dict(riga, numero=numero, punto=[y, x]))
+    contati = {}
+    for riga in senza:
+        contati[riga['motivo']] = contati.get(riga['motivo'], 0) + 1
     return {'in_mappa': in_mappa, 'senza': senza, 'totale': len(righe),
+            'motivo': ', '.join(f'{q} {r}' for r, q in sorted(contati.items())),
             'tutte': in_mappa + senza}
 
 

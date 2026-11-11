@@ -22,5 +22,6 @@ pyrightconfig.json
 copy.sqlite3
 *.bak*
 __pycache__/*
+tilecache/
 impostazioni/tests.py
 OpenMSP/tests.py

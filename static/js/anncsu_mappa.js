@@ -21,14 +21,22 @@
   function avviarsi() {
     const riquadro = document.getElementById("anncsu-mappa");
     const blob = document.getElementById("anncsu-accessi");
-    // niente Leaflet o niente blob: la pagina resta il form, nessun errore in console
-    if (!riquadro || !blob || typeof window.L === "undefined") return;
+    if (!riquadro || !blob) return;          // la pagina non ha la sezione mappa: nessun rumore
 
     function avvisa(testo) {
       const avviso = document.createElement("p");
       avviso.className = "form-note text-danger";
       avviso.textContent = testo;
       riquadro.parentNode.insertBefore(avviso, riquadro);
+    }
+
+    // Gli statici passano da collectstatic: se Leaflet non arriva, il riquadro da muto deve
+    // dirlo. Senza questa riga l'operatore non ha modo di sapere se e' il deploy o la sua ricerca.
+    if (typeof window.L === "undefined") {
+      avvisa("Leaflet non e' caricato (static/plugins/leaflet/leaflet.js): la mappa non si "
+             + "disegna. L'elenco dei civici qui sotto, con i loro X e Y, e il pulsante Usa "
+             + "funzionano lo stesso.");
+      return;
     }
 
     let accessi;
@@ -49,8 +57,17 @@
       maxBounds: L.latLngBounds([[36, 6], [47, 18]]),   // la scatola d'Italia dello YAML
       maxBoundsViscosity: 1.0
     });
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                {maxZoom: 19, attribution: "&copy; OpenStreetMap contributors"}).addTo(mappa);
+    // La fonte la dice il template con data-tile: questo file non conosce nessun host, e non
+    // ha un valore di riserva. Ricadere sulla fonte pubblica vorrebbe dire tornare al manifesto
+    // con scritto 403 al posto della mappa, senza che nessuno lo dica.
+    const fonte = riquadro.dataset.tile;
+    if (fonte) {
+      L.tileLayer(fonte, {maxZoom: 19,
+                          attribution: "&copy; OpenStreetMap contributors"}).addTo(mappa);
+    } else {
+      avvisa("Nessuna fonte di tile nel contenitore (data-tile): lo sfondo non si disegna, "
+             + "ma i puntini dei civici si e il pulsante Usa funziona.");
+    }
 
     const pannello = document.createElement("div");
     pannello.className = "anncsu-pannello";
@@ -129,8 +146,9 @@
       if (tileMancate) return;
       tileMancate = true;
       riquadro.classList.add("senza-tile");
-      avvisa("Le tile di OpenStreetMap non arrivano: la mappa resta vuota, l'elenco dei civici "
-             + "qui sotto e il pulsante Usa funzionano lo stesso.");
+      avvisa("Le tile non arrivano da /tile/ del portale: lo sfondo non si disegna, ma i puntini "
+             + "dei civici si e il pulsante Usa funziona. Se il portale prende le tile da un host "
+             + "esterno, il blocco e' la sua uscita: l'elenco dei civici qui sotto resta il cammino.");
     });
   }
 

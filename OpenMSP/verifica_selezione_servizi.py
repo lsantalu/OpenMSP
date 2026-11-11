@@ -400,9 +400,11 @@ if anncsu.ANNCSU_AGGIORNAMENTI['anncsu_coordinate'].get('cerca'):
         codice_js = ''
         errori.append('mappa: manca static/js/anncsu_mappa.js')
     for voluto in ('window.anncsuUsa', 'progr_nazionale', 'prognazacc', 'tileerror',
-                   'textContent', 'tile.openstreetmap.org', 'progr_civico='):
+                   'textContent', 'dataset.tile', 'progr_civico='):
         if voluto not in codice_js:
             errori.append('mappa: nel JS manca ' + voluto)
+    if 'tile.openstreetmap.org' in codice_js:
+        errori.append('mappa: il JS non conosce nessuna fonte di tile, la dice il template')
     if 'innerHTML' in codice_js:
         errori.append('mappa: il numero dei civici viene dall\'erogatore: testo, non HTML')
 
@@ -422,12 +424,19 @@ if anncsu.ANNCSU_AGGIORNAMENTI['anncsu_coordinate'].get('cerca'):
         errori.append('ricerca: i civici non offrono il pulsante che compila il form')
     # la tabella dei civici non c'e' piu', quindi "longitudine e latitudine separate" si verifica
     # sul blob che scende al JS: e' li' che deve arrivare, non piu' su un attributo del pulsante
+    from OpenMSP.middleware import LoginRequiredMiddleware
+    if any('/tile' in p for p in LoginRequiredMiddleware.PUBBLICHE):
+        errori.append('tile: una fonte di tile pubblica e' + chr(39) + ' un proxy aperto')
+    if 'data-tile="/tile/{z}/{x}/{y}.png"' not in pagina:
+        errori.append('mappa: il contenitore non dice da dove vengono le tile')
     if 'id="anncsu-accessi"' not in pagina:
         errori.append('mappa: gli accessi con un punto non scendono al JS come JSON')
     if '"punto": [41.79, 12.48]' not in pagina:
         errori.append('mappa: nel blob longitudine e latitudine non sono un punto [lat, lon]')
-    if '2 accessi, 1 in mappa, 1 senza coordinate' not in pagina:
-        errori.append("mappa: il conto fra civici in mappa e senza coordinate non c'e'")
+    if '2 accessi, 1 in mappa, 1 coordinata mancante' not in pagina:
+        errori.append("mappa: il conto non dice quanti civici hanno un punto e perche' gli altri no")
+    if '<small>(coordinata mancante)</small>' not in pagina:
+        errori.append("mappa: una riga scartata non dice il suo perche' nella tabella")
     if 'data-prognaz="2000449"' not in pagina:
         errori.append('mappa: senza il progressivo dell\'area il link di soppressione non si compone')
     # la mappa puo' non arrivare (egresso chiuso): l'elenco/server-rendered deve esserci sempre

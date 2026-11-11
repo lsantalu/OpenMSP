@@ -81,9 +81,10 @@
   </style>
   <hr class="my-4" />
   <h6>Civici dell&rsquo;area {{ ricerca.prognaz }}</h6>
-  <p class="form-note">{{ mappa.totale }} accessi, {{ mappa.in_mappa|length }} in mappa, {{ mappa.senza|length }} senza coordinate &mdash; il posizionamento &egrave; quello presente in ANNCSU adesso.</p>
+  <p class="form-note">{{ mappa.totale }} accessi, {{ mappa.in_mappa|length }} in mappa{% if mappa.senza|length %}, {{ mappa.motivo }}{% endif %} &mdash; il posizionamento &egrave; quello presente in ANNCSU adesso.</p>
   {% if mappa.in_mappa %}
-  <div class="anncsu-mappa mb-3" id="anncsu-mappa" data-url-accessi="{% url 'anncsu_accessi' %}" data-prognaz="{{ ricerca.prognaz }}" {{ attributo_sopprimere|safe }}></div>
+  {# shortcut: il prefisso /tile/ qui vale a mount alla radice; sotto una sottodirectory va aggiunto li', e il JS non tocca #}
+  <div class="anncsu-mappa mb-3" id="anncsu-mappa" data-url-accessi="{% url 'anncsu_accessi' %}" data-prognaz="{{ ricerca.prognaz }}" data-tile="/tile/{z}/{x}/{y}.png" {{ attributo_sopprimere|safe }}></div>
   {{ mappa.in_mappa|json_script:"anncsu-accessi" }}
   {% endif %}
   <p class="form-note mb-3"><i>Usa</i> scrive il posizionamento nei campi dell&rsquo;aggiornamento, che resta da confermare.</p>
@@ -102,7 +103,7 @@
             <td class="text-nowrap">{{ ac.prognazacc }}</td>
             <td class="text-nowrap">{{ ac.numero }}</td>
             <td class="text-nowrap">{{ ac.x }}</td>
-            <td class="text-nowrap">{{ ac.y }}</td>
+            <td class="text-nowrap">{{ ac.y }}{% if ac.motivo %} <small>({{ ac.motivo }})</small>{% endif %}</td>
             <td>
               <button type="button" class="btn btn-sm btn-outline-primary anncsu-usa"
                       data-usa='{"progr_civico":"{{ ac.prognazacc }}","x":"{{ ac.x }}","y":"{{ ac.y }}","z":"{{ ac.quota }}","metodo":"{{ ac.metodo }}"}'>

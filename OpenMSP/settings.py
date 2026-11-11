@@ -200,6 +200,14 @@ DEBUG = config("DEBUG",cast=bool)
 DJANGO_BOOTSTRAP_ITALIA_USE_CDN = config("DJANGO_BOOTSTRAP_ITALIA_USE_CDN")
 DJANGO_BOOTSTRAP_ITALIA_CDN = config("DJANGO_BOOTSTRAP_ITALIA_CDN")
 
+# Le tile della mappa di Aggiornamento coordinate le serve il portale: docs 2026-11-11.
+# TILE_USER_AGENT va sovrascritto nel .env con un contatto, e' cio' che la policy delle tile
+# chiede di far vedere. `default` ovunque, perche' i deploy gia' a terra non hanno queste righe.
+TILE_UPSTREAM = config("TILE_UPSTREAM", default="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
+TILE_USER_AGENT = config("TILE_USER_AGENT", default="OpenMSP/1.0 (portale ANNC-SU)")
+TILE_CACHE_DIR = config("TILE_CACHE_DIR", default=os.path.join(BASE_DIR, "tilecache"))
+TILE_CACHE_SECONDS = config("TILE_CACHE_SECONDS", default=604800, cast=int)
+
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 

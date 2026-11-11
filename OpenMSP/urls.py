@@ -23,6 +23,7 @@ from .cassa_forense import impostazioni_cassa_forense
 from .anncsu import anncsu_consultazione
 from .anncsu import anncsu_accessi
 from .anncsu import anncsu_coordinate
+from .tile import anncsu_tile
 from .anncsu import anncsu_odonimi
 from .anncsu import anncsu_visura
 from .anncsu import anncsu_export_csv
@@ -192,6 +193,7 @@ urlpatterns = [
     path("anncsu/", anncsu_consultazione, name="anncsu"),
     path("anncsu_accessi/", anncsu_accessi, name="anncsu_accessi"),
     path("anncsu_coordinate/", anncsu_coordinate, name="anncsu_coordinate"),
+    path("tile/<int:z>/<int:x>/<int:y>.png", anncsu_tile, name="anncsu_tile"),
     path("anncsu_odonimi/", anncsu_odonimi, name="anncsu_odonimi"),
     path("anncsu_visura/", anncsu_visura, name="anncsu_visura"),
     path("anncsu_export_excel/", anncsu_export_excel, name="anncsu_export_excel"),
