@@ -28,7 +28,7 @@ from django.test import RequestFactory  # noqa: E402
 
 from impostazioni.context_processors import custom_context  # noqa: E402
 from impostazioni.models import ServiziParametri  # noqa: E402
-from OpenMSP import anis, anncsu, views  # noqa: E402
+from OpenMSP import anis, anncsu, registro_imprese, views  # noqa: E402
 from OpenMSP.impostazioni import PERMESSI_UTENTE  # noqa: E402
 
 RIGHE = {
@@ -72,6 +72,10 @@ class Tabella:
         return self
 
     def first(self):
+        return self.riga
+
+    def get(self, **_filtri):
+        """Per le viste che leggono `UtentiParametri.objects.get(id=...)`, come la massiva."""
         return self.riga
 
 
@@ -559,6 +563,19 @@ for sigla, codice in (('anncsu_consultazione_comuni', 'anncsu'),
                   'il salvataggio lo perde')
     elif toggle[sigla][2] is None:
         errori.append(f'permessi: {codice} senza gruppo, il toggle non entra in nessun riquadro')
+
+
+# Il markup lasciato in pagina non e' un difetto solo delle pagine ANNCSU: su Django 6 un
+# commento {# #} su due righe viene emesso verbatim e l'operatore se lo legge nell'overlay.
+registro_imprese.UtentiParametri = Tabella(Voce(registro_imprese_massivo=True))
+richiesta_massivo = RequestFactory().get('/')
+richiesta_massivo.user = User(username='verificatore', id=1)
+pagina_massivo = registro_imprese.registro_imprese_massivo(richiesta_massivo).content.decode('utf-8')
+if '{#' in pagina_massivo or '{%' in pagina_massivo:
+    errori.append('registro_imprese_massivo: markup del template nella pagina, '
+                  'i commenti multiriga Django non li toglie')
+if 'data-totale' not in pagina_massivo:
+    errori.append('registro_imprese_massivo: la card di avanzamento non porta il suo data-totale')
 
 
 print('\n'.join(errori) if errori else

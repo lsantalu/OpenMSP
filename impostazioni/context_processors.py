@@ -51,6 +51,9 @@ def custom_context(request):
         ('inps_durc_singolo', 'INPS DURC Singolo', *get_service_status('inps_durc')),
         ('inps_durc_massivo', 'INPS DURC Massivo', *get_service_status('inps_durc')),
         ('registro_imprese', 'Registro imprese', *get_service_status('registro_imprese')),
+        # nessuna riga nuova in servizi_parametri: il servizio che accende il massivo e' sempre
+        # `registro_imprese`, come `inipec_massivo` che vive sotto lo stesso codice
+        ('registro_imprese_massivo', 'Registro imprese Massivo', *get_service_status('registro_imprese')),
         ('mit_cude', 'MIT - Dettaglio Cude', *get_service_status('mit_cude')),
         ('mit_veicoli', 'MIT - Lista Veicoli', *get_service_status('mit_veicoli')),
         ('mit_whitelist', 'MIT - Recupera Whitelist', *get_service_status('mit_whitelist')),

@@ -1,0 +1,336 @@
+<!-- templates/registro_imprese_massivo.html -->
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block page_title %}
+Registro Imprese ricerca massiva - OpenMSP - Multi Services Portal
+{% endblock %}
+
+{% block centered_container %}
+<h3>Registro Imprese</h3>
+<h4>Ricerca massiva</h4>
+<br />
+
+{% if user.is_authenticated %}
+{% if utente_abilitato %}
+
+<!-- LOADING OVERLAY: la card dice il vero avanzamento, il cerchio non diceva niente -->
+<div id="loadingOverlay">
+  {# colonna come elemento a parte: .card dichiara width:100% e la cascata la vince #}
+  <div class="col-4 p-0">
+    <div class="card shadow-lg">
+    <div class="card-body p-3">
+      <h6 class="card-title mb-2">Estrazione in corso</h6>
+      <p class="h4 text-center mb-2">
+        <span id="kvFatti">0</span>
+        <small class="fs-6 text-secondary">di <span id="kvTotale">0</span></small>
+      </p>
+      <div class="progress mb-2" id="kvBarraScato" role="progressbar" aria-label="Avanzamento estrazione"
+           aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="progress-bar progress-bar-striped" id="kvBarra" style="width:0%"></div>
+      </div>
+      <p class="small mb-0 text-secondary" id="kvUltimo">in attesa della prima risposta</p>
+    </div>
+    </div>
+  </div>
+</div>
+
+{# il totale arriva dalla vista dopo il POST del file; a zero la pagina e' quella di sempre #}
+<div id="avanzamento" class="d-none" data-totale="{{ totale|default:0 }}"
+     data-url="{% url 'registro_imprese_massivo_riga' %}"></div>
+
+<div class="col-8 shadow-lg white-bg p-4">
+  <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
+
+    <div class="alert alert-info fs-5" role="alert">Il servizio accetta solo file formato <b>Excel (xlsx)</b> e <b>Libreoffice CSV</b> (separatore <b>;</b>), una estrazione alla volta.</div>
+    <div class="row">
+      <!-- Campi Obbligatori -->
+      <div class="col-12">
+        <div class="callout callout-highlight success h-100">
+          <div class="callout-title">
+            <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check-circle"></use></svg>
+            Campi Obbligatori
+          </div>
+          <p>Questi dati sono necessari per la ricerca.</p>
+          <ul class="list-unstyled">
+            <li><strong>Colonna (A)</strong> - Codici fiscali o partite IVA di azienda (scritti in carattere MAIUSCOLO)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <p class="text-muted">
+        <svg class="icon icon-sm me-1"><use href="{% static 'svg/sprites.svg' %}#it-info-circle"></use></svg>
+        Le informazioni presenti nel file dalla colonna (B) in poi verranno automaticamente scartate.
+      </p>
+      <p class="text-muted">
+        <svg class="icon icon-sm me-1"><use href="{% static 'svg/sprites.svg' %}#it-info-circle"></use></svg>
+        Ogni riga mantiene il JSON della risposta ricevuta: lo si scarica dal pulsante nella colonna Azioni, o tutti insieme dal pulsante sotto la tabella.
+      </p>
+    </div>
+    <br />
+
+    <form method="post" action="" enctype="multipart/form-data" id="caricaFile">
+      {% csrf_token %}
+      <div class="it-card rounded border shadow-lg mb-4 p-4">
+        <div class="p-3" id="uploadSection">
+          <div id="dropZone">
+            <p class="text-center mb-0">Trascina file qui o<br>
+              <label for="fileInput" class="btn btn-sm btn-primary mt-2"><svg class="icon icon-sm" style="fill: white;" aria-hidden="true">
+                <use href="{% static 'svg/sprites.svg' %}#it-upload"></use>
+              </svg> Seleziona file</label>
+            </p>
+            <input type="file" id="fileInput" name="cf_csv" class="d-none" accept=".csv,.xlsx">
+          </div>
+          <div id="filePreview" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center fw-bold col-md-8 offset-md-2 border border-danger rounded p-2">
+              <span id="fileName" class="text-truncate"></span>
+              <button type="button" class="btn btn-sm btn-danger delete-file" id="deleteFileBtn" title="Elimina">
+                <svg class="icon icon-sm icon-light" aria-hidden="true">
+                  <use href="{% static 'svg/sprites.svg' %}#it-delete"></use>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <button type="button" id="executeSearchBtn" class="btn btn-primary" disabled>
+          <svg class="icon icon-sm icon-light" aria-hidden="true">
+            <use href="{% static 'svg/sprites.svg' %}#it-search"></use>
+          </svg>
+          Avvia ricerca
+        </button>
+      </div>
+
+    </form>
+  </div>
+
+  <div class="row">
+    <div aria-live="polite" id="errorMsgContainer"></div>
+  </div>
+</div>
+
+{% if data %}
+
+<div class="col-10 shadow-lg white-bg p-5 mt-4">
+  <table id="dataTable" class="table align-middle table-hover table-primary">
+    <thead class="text-center">
+      <tr>
+        <th scope="col">#</th>
+        <th scope="col">CF / PVA</th>
+        <th scope="col">Denominazione</th>
+        <th scope="col">Numero REA</th>
+        <th scope="col">Esito</th>
+        <th scope="col">Azioni</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in data %}
+      <tr class="{{ item.classe }}">
+        <td class="text-center">{{ item.indice }}</td>
+        <td>{{ item.cf }}</td>
+        <td>{{ item.denominazione|default:"-" }}</td>
+        <td class="text-center">{{ item.rea|default:"-" }}</td>
+        <td class="text-center">
+          {% if item.esito == 'OK' %}
+          <span class="badge bg-success">OK</span>
+          {% elif item.errore %}
+          <small class="text-danger">{{ item.errore }}</small>
+          {% else %}
+          -
+          {% endif %}
+        </td>
+        <td class="text-center">
+          {% if item.json %}
+          <a href="{% url 'registro_imprese_massivo_json' item.indice %}" class="btn btn-xs btn-outline-primary p-1" title="Scarica il JSON della risposta">
+            <svg class="icon icon-sm"><use href="{% static 'svg/sprites.svg' %}#it-download"></use></svg>
+          </a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="d-flex justify-content">
+    <a href="{% url 'registro_imprese_export_zip' %}" class="m-1 btn btn-primary">
+      <svg class="icon icon-sm icon-light" aria-hidden="true">
+        <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
+      </svg><span>Download massimo (ZIP di tutti i JSON)</span>
+    </a>
+  </div>
+
+</div>
+{% endif %}
+
+{% else %}
+<div class="col-6">
+  <h4>Utente non abilitato</h4>
+  <p>L'utente non è abilitato all'utilizzo di questo servizio</p>
+  <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+  <div class="p-3 text-end">
+    <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+  </div></div>
+  {% endif %}
+
+  {% if error %}
+  <div class="alert alert-danger mt-3">{{ error }}</div>
+  {% endif %}
+
+
+  {% else %}
+  <h4>Utente non loggato</h4>
+  <p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
+  <a href="{% url 'login' %}" class="btn btn-primary">
+    <svg class="icon icon-sm icon-white" aria-hidden="true">
+      <use href="{% static 'svg/sprites.svg' %}#it-user"></use>
+    </svg>Accedi
+  </a>
+  {% endif %}
+
+
+  <script>
+    (function() {
+      const uploadSection = document.getElementById('uploadSection');
+      const form = document.getElementById('caricaFile');
+      const fileInput = document.getElementById('fileInput');
+      const dropZone = document.getElementById('dropZone');
+      const filePreview = document.getElementById('filePreview');
+      const fileName = document.getElementById('fileName');
+      const deleteBtn = document.getElementById('deleteFileBtn');
+      const executeBtn = document.getElementById('executeSearchBtn');
+      const overlay = document.getElementById('loadingOverlay');
+      const nodo = document.getElementById('avanzamento');
+      const kvFatti = document.getElementById('kvFatti');
+      const kvTotale = document.getElementById('kvTotale');
+      const kvBarra = document.getElementById('kvBarra');
+      const kvBarraScato = document.getElementById('kvBarraScato');
+      const kvUltimo = document.getElementById('kvUltimo');
+      let currentFile = null;
+
+      const allowedExtensions = [".csv", ".xlsx"];
+
+      if (!uploadSection) return;
+
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+          uploadSection.addEventListener(eventName, preventDefaults, false);
+      });
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+          uploadSection.addEventListener(eventName, () => {
+              uploadSection.classList.add('dragover');
+          }, false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+          uploadSection.addEventListener(eventName, () => {
+              uploadSection.classList.remove('dragover');
+          }, false);
+      });
+
+      uploadSection.addEventListener('drop', (e) => {
+        // Il file trascinato deve finire nell'<input>: e' quello che il submit nativo
+        // spedisce, mentre `currentFile` da solo lo vede solo JavaScript.
+        fileInput.files = e.dataTransfer.files;
+        handleFiles(e.dataTransfer.files);
+      }, false);
+
+      fileInput.addEventListener('change', (e) => {
+        handleFiles(e.target.files);
+      }, false);
+
+      function handleFiles(files) {
+        if (files.length > 0) {
+          const file = files[0];
+          if (allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext))) {
+            currentFile = file;
+            fileName.textContent = file.name;
+            filePreview.style.display = 'block';
+            dropZone.style.display = 'none';
+            executeBtn.disabled = false;
+          } else {
+            alert("Formato file non consentito! Solo CSV o XLSX.");
+            resetUpload();
+          }
+        }
+      }
+
+      deleteBtn.addEventListener('click', resetUpload);
+
+      function resetUpload() {
+        currentFile = null;
+        if (filePreview) filePreview.style.display = 'none';
+        if (dropZone) dropZone.style.display = 'block';
+        if (executeBtn) executeBtn.disabled = true;
+        if (fileInput) fileInput.value = '';
+      }
+
+      // Submit nativo, non fetch + innerHTML: il body sostituito con l'HTML del server e' un
+      // buco di XSS. Senza JavaScript il form parte uguale e la vista gira tutto lei.
+      executeBtn.addEventListener('click', () => {
+        if (!currentFile) return;
+        const campo = document.createElement('input');
+        campo.type = 'hidden'; campo.name = 'js'; campo.value = '1';
+        form.appendChild(campo);              // `js` dice alla vista che il giro lo faccio io
+        if (overlay) overlay.classList.add('show');
+        form.submit();
+      });
+
+      function mostra_avanzamento(dati) {
+        const [fatti, tot] = String(dati.avanzamento || '0/0').split('/');
+        kvFatti.textContent = fatti;
+        kvTotale.textContent = tot;
+        const pct = tot > 0 ? Math.round(100 * fatti / tot) : 0;
+        kvBarra.style.width = pct + '%';
+        kvBarraScato.setAttribute('aria-valuenow', pct);
+        kvUltimo.textContent = dati.denominazione
+          ? ('ultima risposta: ' + dati.denominazione)
+          : ('ultima risposta: riga ' + fatti + (dati.errore ? ' - ' + dati.errore : ''));
+      }
+
+      function fermati(testo) {
+        kvUltimo.textContent = testo + ' - le righe fatte sono salvate: ';
+        const a = document.createElement('a');
+        a.href = '?eseguito=1';
+        a.className = 'link-primary';
+        a.textContent = 'mostra i risultati';
+        kvUltimo.appendChild(a);
+      }
+
+      // Un POST per codice, cosi' il conteggio e' di risposte davvero ricevute e non una
+      // stima. Il corpo porta solo l'indice: il codice fiscale lo sa la sessione.
+      async function gira_i_codici(totale) {
+        const csrf = (form.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+        for (let i = 1; i <= totale; i++) {
+          let risposta;
+          try {
+            risposta = await fetch(nodo.dataset.url, {
+              method: 'POST', credentials: 'same-origin',
+              headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+              body: JSON.stringify({indice: i})
+            });
+          } catch (e) { fermati('Filo interrotto sulla riga ' + i); return; }
+          if (!risposta.ok) { fermati('Risposta ' + risposta.status + ' sulla riga ' + i); return; }
+          mostra_avanzamento(await risposta.json());
+        }
+        window.location.search = '?eseguito=1';   // la tabella la rende il server, come sempre
+      }
+
+      const totale = parseInt(nodo.dataset.totale, 10) || 0;
+      if (totale > 0) {
+        kvTotale.textContent = totale;
+        if (overlay) overlay.classList.add('show');
+        gira_i_codici(totale);
+      }
+    })();
+  </script>
+
+{% endblock %}

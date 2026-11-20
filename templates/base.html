@@ -739,8 +739,20 @@ OpenMSP - Multi Services Portal
                   <div class="link-list-wrapper">
                     <ul class="link-list">
                       {% if services_dict.registro_imprese.attivo %}
+                      {# Due varianti dell'ancora scelse fuori dal tag: nessun tag condizionale dentro un tag di apertura (AGENTS.md), a differenza delle voci sorelle #}
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.registro_imprese %} disabled" aria-disabled="true{% endif %}" href="{% url 'registro_imprese' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.registro_imprese %} class="text-muted"{% endif %}>Registro Imprese</span></a>
+                        {% if user_perms.registro_imprese %}
+                        <a class="list-item dropdown-item" href="{% url 'registro_imprese' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span>Registro Imprese - Ricerca singola</span></a>
+                        {% else %}
+                        <a class="list-item dropdown-item disabled" aria-disabled="true" tabindex="-1" href="{% url 'registro_imprese' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span class="text-muted">Registro Imprese - Ricerca singola</span></a>
+                        {% endif %}
+                      </li>
+                      <li>
+                        {% if user_perms.registro_imprese_massivo %}
+                        <a class="list-item dropdown-item" href="{% url 'registro_imprese_massivo' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span>Registro Imprese - Ricerca massiva</span></a>
+                        {% else %}
+                        <a class="list-item dropdown-item disabled" aria-disabled="true" tabindex="-1" href="{% url 'registro_imprese_massivo' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span class="text-muted">Registro Imprese - Ricerca massiva</span></a>
+                        {% endif %}
                       </li>
                       <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div> <!-- Divider -->
                       {% endif %}

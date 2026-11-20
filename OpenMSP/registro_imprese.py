@@ -1,30 +1,34 @@
 # pyright: reportAttributeAccessIssue=false
 # (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono)
-from django.shortcuts import render
+from django.shortcuts import render                                  # noqa: I001  (gruppi separati: stile del repo, nessuna config ruff)
 from impostazioni.models import RegistroImpreseParametri
 from impostazioni.models import UtentiParametri
 
 from .utils import salva_log
 from .utils import converti_data
 from .utils import normalizza_chiavi
+from .utils import cf_da_file
+from .inps import _nome_file_denominazione          # il sanificatore dei nomi e' quello dei PDF DURC
 
 from .verifica_cf import verifica_cf_azienda
 from . import agid
 
 ##from datetime import datetime, date
+import json
 import xmltodict
 from xml.parsers.expat import ExpatError
 
 import requests
 import io
 import csv
+import zipfile
 ###import re
 import openpyxl
 from openpyxl import Workbook
-from openpyxl.styles import PatternFill, Alignment
+from openpyxl.styles import PatternFill
 from openpyxl.utils import get_column_letter
 
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 
 
 def inipec_export_excel(request):
@@ -413,3 +417,336 @@ def impostazioni_registro_imprese(request):
 
     return render(request, 'impostazioni_registro_imprese.html', {'parametri_registro_imprese': parametri_registro_imprese})
 
+
+MASSIMO_RIGHE = 100
+STATO_SESSIONE = 'reg_imp_mass_stato'   # estrazione avviata dal navigatore, col token dentro  # shortcut: le risposte restano in sessione (SESSION_ENGINE su DB) e la
+                     # riga di sessione la rileggi a ogni richiesta: sopra le ~100 visuri serve
+                     # una tabella dedicata, vedi docs/2026-11-18-registro-imprese-massivo-design.md
+
+
+def _legge_cf(allegato):
+    """`(cf, errore)` dal file caricato: `utils.cf_da_file` non ha un canale d'errore tutto
+    suo (ritorna `None` su formato illeggibile e lascia passare l'eccezione su un XLSX
+    corrotto), e la pagina ha bisogno di dire all'operatore quale dei due e' successo."""
+    nome = (allegato.name or '').lower()
+    formato = 'XLSX' if nome.endswith('.xlsx') else 'CSV'
+    try:
+        cf = cf_da_file(allegato)
+    except Exception as errore:                       # noqa: BLE001 (openpyxl e csv alzano di tutto)
+        return [], f"Il {formato} non e' leggibile: {errore}"
+    if cf is None:
+        return [], 'Il file non è un XLSX o CSV'
+    return cf, ''
+
+
+def registro_imprese_interroga(cf, bearer, parametri):
+    """GET di `dettaglio/codicefiscale` sul Registro Imprese: `(risposta grezza, testo JSON, stato)`.
+
+    Diversa da `registro_imprese_verifica_utente` perche' qui la risposta serve due volte:
+    normalizzata per la tabella e grezza per il file scaricabile. Il testo JSON e' la
+    conversione della risposta (l'API risponde XML), con le chiavi dell'erogatore: le
+    etichette italiane di `sostituisci_chiavi` restano un fatto dei template.
+    """
+    risposta = requests.get(parametri.target + '/dettaglio/codicefiscale',
+                            headers={"Authorization": f"Bearer {bearer}"},
+                            params={"codiceFiscale": cf}, timeout=30)
+    if risposta.status_code != 200:
+        return None, '', risposta.status_code
+    try:
+        dati = xmltodict.parse(risposta.content)
+    except ExpatError:
+        # 200 con body vuoto o malformato: per la pagina singola e' gia' "Ditta non presente"
+        return None, '', risposta.status_code
+    if not isinstance(dati, dict):
+        return None, '', risposta.status_code
+    return dati, json.dumps(dati, ensure_ascii=False, separators=(',', ':')), risposta.status_code
+
+
+def _diz(dato):
+    return dato if isinstance(dato, dict) else {}
+
+
+def _riga_massiva(cf, bearer, parametri):
+    """Una riga della ricerca massiva, gia' vestita per il template.
+
+    `classe` la decide qui e il template la stampa: nei template di questo progetto non si
+    puo' mettere un `{% if %}` dentro un tag di apertura.
+    """
+    riga = {'cf': cf, 'esito': '', 'denominazione': '', 'rea': '',
+            'json': '', 'errore': '', 'classe': 'table-warning', 'status': None}
+    if verifica_cf_azienda(cf) != 1:
+        riga['esito'] = 'CF/PVA non valido'
+        riga['errore'] = riga['esito']
+        riga['classe'] = 'table-danger'
+        return riga
+
+    dati, testo, stato = registro_imprese_interroga(cf, bearer, parametri)
+    riga['status'] = stato
+    if dati is None:
+        riga['esito'] = 'Ditta non presente' if stato == 200 else f'HTTP {stato}'
+        riga['errore'] = riga['esito']
+        if stato != 200:
+            riga['classe'] = 'table-danger'
+        return riga
+
+    identificativi = _diz(_diz(normalizza_chiavi(dati).get('blocchi_impresa'))
+                          .get('dati_identificativi'))
+    riga['denominazione'] = str(identificativi.get('denominazione', '') or '')
+    riga['rea'] = str(identificativi.get('n_rea', '') or '')
+    riga['esito'] = 'OK'
+    riga['json'] = testo
+    riga['classe'] = 'table-success'
+    return riga
+
+
+def registro_imprese_massivo(request):
+    """Estrazione massiva del Registro Imprese: CSV/XLSX in colonna (A), una visura per codice.
+
+    Un voucher per tutto il file (`agid.SCADENZA_MINUTI` e' 43200, quindi non scade durante
+    l'estrazione) e un giro di chiamata per riga, nello stesso ordine del file. Le righe
+    finiscono in sessione con dentro il JSON di risposta: e' l'unica copia di quella risposta,
+    e il pulsante di download serve quella, non una visura rivuta piu' tardi.
+    """
+    contesto = {'utente_abilitato': False}
+    if not request.user.id:
+        return render(request, 'registro_imprese_massivo.html', contesto)
+
+    utente_sessione = UtentiParametri.objects.get(id=request.user.id)
+    contesto['utente_abilitato'] = bool(utente_sessione.registro_imprese_massivo)
+
+    if request.method != 'POST':
+        if request.GET.get('eseguito'):
+            # il navigatore torna qui quando ha finito i giri: la tabella la rende il server
+            contesto['data'] = request.session.get('reg_imp_mass', [])
+        return render(request, 'registro_imprese_massivo.html', contesto)
+
+    # Invariante 1: il gate va riverificato nel POST, un linkKnown non basta
+    if not contesto['utente_abilitato']:
+        contesto['error'] = "L'utente non è abilitato all'utilizzo di questo servizio"
+        return render(request, 'registro_imprese_massivo.html', contesto)
+
+    if 'cf_csv' not in request.FILES:
+        # Un POST senza file e' un errore detto, non la pagina iniziale: senza questa riga la
+        # pagina sembra "non fa niente" e l'operatore non sa di non aver caricato niente.
+        contesto['error'] = ("Il file non è arrivato: riselezionarlo o trascinarlo di nuovo "
+                             "nella zona di caricamento.")
+        return render(request, 'registro_imprese_massivo.html', contesto)
+
+    cf_lista, errore = _legge_cf(request.FILES['cf_csv'])
+    if errore:
+        salva_log(request.user, "Verifica Registro Imprese massivo", errore)
+        contesto['error'] = errore
+        return render(request, 'registro_imprese_massivo.html', contesto)
+    if not cf_lista:
+        contesto['error'] = 'Nessun codice nel file: la colonna (A) deve contenere i codici fiscali o le partite IVA.'
+        return render(request, 'registro_imprese_massivo.html', contesto)
+    if len(cf_lista) > MASSIMO_RIGHE:
+        contesto['error'] = (f"Il file porta {len(cf_lista)} codici, il massimo per una sola "
+                            f"estrazione e' {MASSIMO_RIGHE}: dividere il file.")
+        return render(request, 'registro_imprese_massivo.html', contesto)
+
+    if request.POST.get('js'):
+        # Il navigatore gira i codici uno a uno (`registro_imprese_massivo_riga`), cosi' la
+        # card dell'avanzamento dice il vero. Il token si minta qui e resta in sessione:
+        # `agid.voucher` rinegozia a ogni chiamata, richiamarlo per riga vorrebbe dire un
+        # voucher per riga. E' un segreto in meno di quelli che il progetto gia' tiene in
+        # chiaro nelle tabelle `*_parametri`, e vive quanto la sessione.
+        request.session[STATO_SESSIONE] = {
+            'cf': cf_lista, 'token': registro_imprese_get_bearer(), 'fatti': 0}
+        contesto['totale'] = len(cf_lista)
+        return render(request, 'registro_imprese_massivo.html', contesto)
+
+    contesto['data'] = _esegui_tutto(request, cf_lista)      # senza JavaScript: un giro solo
+    return render(request, 'registro_imprese_massivo.html', contesto)
+
+
+def _esegui_tutto(request, cf_lista):
+    """Tutta l'estrazione in un giro solo: il cammino senza JavaScript.
+
+    Stesso corpo e stessi log di `registro_imprese_massivo_riga`: le due strade non sono
+    due implementazioni della stessa cosa.
+    """
+    parametri = RegistroImpreseParametri.objects.get(id=1)
+    bearer, tok_id = registro_imprese_get_bearer()
+    righe = []
+    esatte = 0
+    for indice, cf in enumerate(cf_lista, 1):
+        riga = _riga_massiva(cf, bearer, parametri)
+        salva_log(request.user, "Verifica Registro Imprese massivo", "Verificato azienda " + cf,
+                  purposeid=parametri.purposeid, resp_status=riga['status'], token_id=tok_id)
+        if riga['json']:
+            esatte += 1
+        riga['indice'] = indice          # l'URL del download, cosi' il CF non sta nell'URL
+        riga.pop('status')               # serve al log, non alla pagina ne' alla sessione
+        righe.append(riga)
+
+    request.session['reg_imp_mass'] = righe        # una scrittura sola
+    salva_log(request.user, "Verifica Registro Imprese massivo",
+              f"Fine caricamento file: righe n. {len(righe)}, risposte n. {esatte}")
+    return righe
+
+
+def _riga_in_sessione(request, riga, totale):
+    """Accoda la riga all'estrazione in corso: ritorna `(finito, righe_fatte)`.
+
+    La riga si sostituisce per indice, non si accoda a ogni costo: se il navigatore riprova
+    la stessa riga dopo un filo caduto, la sessione non si riempie di duplicati.
+    """
+    righe = [r for r in request.session.get('reg_imp_mass', [])
+             if r.get('indice') != riga['indice']]
+    righe.append(riga)
+    righe.sort(key=lambda r: r.get('indice', 0))
+    request.session['reg_imp_mass'] = righe
+    fatti = len(righe)
+    finito = fatti >= totale
+    stato = request.session.get(STATO_SESSIONE) or {}
+    stato['fatti'] = fatti
+    if finito:
+        request.session.pop(STATO_SESSIONE)     # il token non resta in giro piu' del necessario
+        esatte = sum(1 for r in righe if r.get('json'))
+        salva_log(request.user, "Verifica Registro Imprese massivo",
+                  f"Fine caricamento file: righe n. {fatti}, risposte n. {esatte}")
+    else:
+        request.session[STATO_SESSIONE] = stato
+    return finito, fatti
+
+
+def registro_imprese_massivo_riga(request):
+    """Una riga dell'estrazione in corso: il POST porta l'indice, la lista sta in sessione.
+
+    Il codice fiscale non viene mai dal client, e non ci torna nemmeno nel JSON: stessa
+    ragione dei download, un segnalibro non deve poter portare via un codice.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'errore': 'Serve una POST'}, status=405)
+    negato = _negato_massivo(request)
+    if negato is not None:
+        return negato
+    stato = request.session.get(STATO_SESSIONE)
+    if not stato:
+        return JsonResponse({'errore': 'Nessuna estrazione in corso'}, status=400)
+    try:
+        indice = int(json.loads(request.body).get('indice', 0))
+    except (ValueError, TypeError, AttributeError):
+        return JsonResponse({'errore': 'Indice non valido'}, status=400)
+    cf_lista = stato['cf']
+    if not 1 <= indice <= len(cf_lista):
+        return JsonResponse({'errore': 'Indice fuori lista'}, status=400)
+
+    parametri = RegistroImpreseParametri.objects.get(id=1)
+    bearer, tok_id = stato['token']
+    cf = cf_lista[indice - 1]
+    riga = _riga_massiva(cf, bearer, parametri)
+    salva_log(request.user, "Verifica Registro Imprese massivo", "Verificato azienda " + cf,
+              purposeid=parametri.purposeid, resp_status=riga['status'], token_id=tok_id)
+    riga['indice'] = indice
+    riga.pop('status')
+    finito, fatti = _riga_in_sessione(request, riga, len(cf_lista))
+    return JsonResponse({'avanzamento': f"{fatti}/{len(cf_lista)}",
+                         'denominazione': riga['denominazione'], 'rea': riga['rea'],
+                         'esito': riga['esito'], 'errore': riga['errore'], 'fatto': finito})
+
+
+def _riga_da_sessione(request, indice):
+    """Riga dell'ultima estrazione massiva dall'indice nell'URL, vuota se non nota.
+
+    Il CF non viene mai dall'URL: finirebbe in un Content-Disposition scritto a mano, e qui
+    sta gia' in sessione insieme all'indice (stessa ragione di `inps._riga_durc`).
+    """
+    righe = request.session.get('reg_imp_mass', [])
+    if isinstance(indice, int) and 1 <= indice <= len(righe):
+        return righe[indice - 1]
+    return {}
+
+
+def _nome_json(riga):
+    """`<CF>_<denominazione>.json`: prima il codice, poi la ditta, poi l'estensione.
+
+    La denominazione viene dall'erogatore, percio' passa dal sanificatore dei PDF DURC: un
+    `/` o un `"` nel nome vorrebbe dire un file fuori dalla cartella o un Content-Disposition
+    spezzato. Senza denominazione (impresa individuale, o risposta senza il blocco) resta il
+    solo CF: e' gia' un nome, e 'CF_.json' no.
+    """
+    ditta = _nome_file_denominazione(riga.get('denominazione', ''))
+    cf = riga.get('cf', '')
+    return f"{cf}_{ditta}.json" if ditta else f"{cf}.json"
+
+
+def _nome_unico(nomi, nome):
+    """Nome dentro lo ZIP, con il suffisso `-2` quando serve.
+
+    Il CF e' gia' nel nome, ma lo stesso codice puo' essere nel file due volte: due risposte
+    con lo stesso nome sarebbero una risposta persa in silenzio.
+    """
+    contatore = nomi.get(nome, 0) + 1
+    nomi[nome] = contatore
+    return nome if contatore == 1 else f"{nome[:-5]}-{contatore}.json"
+
+
+def _zip_dei_json(righe):
+    """ZIP dei JSON di un'estrazione: ritorna `(bytes, errori)`.
+
+    Una riga senza risposta non e' un file vuoto dentro lo ZIP ma una riga di `errori.txt`,
+    e l'assert finale e' la prova che ogni riga richiesta ci e' finita in un modo o nell'altro.
+    """
+    output = io.BytesIO()
+    errori = []
+    with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archivio:
+        nomi = {}
+        for riga in righe:
+            if riga.get('json'):
+                archivio.writestr(_nome_unico(nomi, _nome_json(riga)), riga['json'])
+            else:
+                errori.append(f"{riga.get('indice', '?')}. {riga.get('cf', '')}: "
+                              f"{riga.get('errore') or 'nessuna risposta'}")
+        if errori:
+            archivio.writestr('errori.txt', '\n'.join(errori))
+        assert (sum(1 for nome in archivio.namelist() if nome.endswith('.json'))
+                + len(errori) == len(righe))
+    return output.getvalue(), errori
+
+
+def _negato_massivo(request):
+    """Risposta 403 se il doppio gate non regge, `None` se si puo' procedere.
+
+    Anche le due rotte di download si riverificano il permesso (invariante 1): un linkKnown
+    o un segnalibro non devono bastare a chi non ha piu' il flag.
+    """
+    if not request.user.id:
+        return HttpResponse("Utente non autenticato", status=403)
+    if not UtentiParametri.objects.get(id=request.user.id).registro_imprese_massivo:
+        return HttpResponse("Utente non abilitato", status=403)
+    return None
+
+
+def registro_imprese_massivo_json(request, riga):
+    """Il JSON di risposta di una riga dell'ultima estrazione, cosi' com'era arrivato."""
+    negato = _negato_massivo(request)
+    if negato:
+        return negato
+    dati = _riga_da_sessione(request, riga)
+    if not dati.get('json'):
+        return HttpResponse("Nessun JSON da scaricare per questa riga", status=404)
+    risposta = HttpResponse(dati['json'], content_type='application/json')
+    # Il CF di questa riga e' passato da verifica_cf_azienda: nel Content-Disposition non
+    # puo' finire altro che un codice benformato.
+    # Il nome porta spazi (la denominazione e' cosi'): un valore nudo e' fuori RFC e qualche
+    # browser lo taglia al primo spazio, percio' va tra le virgolette.
+    risposta['Content-Disposition'] = f'attachment; filename="{_nome_json(dati)}"'
+    return risposta
+
+
+def registro_imprese_export_zip(request):
+    """ZIP di tutti i JSON dell'ultima estrazione, con `errori.txt` per le righe senza risposta."""
+    negato = _negato_massivo(request)
+    if negato:
+        return negato
+    righe = request.session.get('reg_imp_mass', [])
+    if not righe:
+        return HttpResponse("Nessuna estrazione da scaricare", status=400)
+    corpo, errori = _zip_dei_json(righe)
+    salva_log(request.user, "Verifica Registro Imprese massivo",
+              f"ZIP di {len(righe)} righe, {len(errori)} senza risposta")
+    risposta = HttpResponse(corpo, content_type='application/zip')
+    risposta['Content-Disposition'] = 'attachment; filename=RegistroImprese_Massiva.zip'
+    return risposta

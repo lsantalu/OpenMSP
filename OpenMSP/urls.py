@@ -1,8 +1,8 @@
 # django_project/urls.py
-from django.contrib import admin
+from django.contrib import admin                                        # noqa: I001  (gruppi separati: stile del repo, nessuna config ruff)
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
-from django.views.generic.base import TemplateView, RedirectView
+from django.views.generic.base import RedirectView
 from django.conf import settings
 
 from .views import profilo_utente
@@ -66,6 +66,10 @@ from .registro_imprese import inipec_massiva
 from .registro_imprese import inipec_export_excel
 from .registro_imprese import impostazioni_registro_imprese
 from .registro_imprese import registro_imprese
+from .registro_imprese import registro_imprese_massivo
+from .registro_imprese import registro_imprese_massivo_json
+from .registro_imprese import registro_imprese_export_zip
+from .registro_imprese import registro_imprese_massivo_riga
 
 from .anpr import anpr_notifica
 from .anpr import anpr_export_excel
@@ -124,8 +128,6 @@ from .impostazioni import impostazioni_upload_stemma
 from .impostazioni import impostazioni_clone_user
 
 from .views import register
-from .views import debug_openmsp
-from .views import login_2fa
 from . import views
 
 urlpatterns = [
@@ -190,6 +192,13 @@ urlpatterns = [
 
     path("cassa_forense/", cassa_forense, name="cassa_forense"),
     path("registro_imprese/", registro_imprese, name="registro_imprese"),
+    path("registro_imprese_massivo/", registro_imprese_massivo, name="registro_imprese_massivo"),
+    path("registro_imprese_massivo/riga/", registro_imprese_massivo_riga,
+         name="registro_imprese_massivo_riga"),
+    path("registro_imprese_massivo_json/<int:riga>/", registro_imprese_massivo_json,
+         name="registro_imprese_massivo_json"),
+    path("registro_imprese_export_zip/", registro_imprese_export_zip,
+         name="registro_imprese_export_zip"),
     path("anncsu/", anncsu_consultazione, name="anncsu"),
     path("anncsu_accessi/", anncsu_accessi, name="anncsu_accessi"),
     path("anncsu_coordinate/", anncsu_coordinate, name="anncsu_coordinate"),

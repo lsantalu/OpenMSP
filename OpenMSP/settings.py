@@ -69,6 +69,12 @@ MIDDLEWARE = [
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+# Le estrazioni massive mettono in sessione le risposte dell'erogatore (una visura e' decine
+# di KB): un cookie da 4 KB non le regge, e `multi_data` ci stava dentro solo perche' portava
+# codici fiscali. Contro-effetto da mettere in conto al riavvio: le sessioni aperte prima non
+# vengono ritrovate, quindi login e 2FA da capo (tabella django_session, la crea `migrate`).
+
 ROOT_URLCONF = 'OpenMSP.urls'
 
 LOGIN_REDIRECT_URL = "home"

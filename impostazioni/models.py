@@ -53,6 +53,7 @@ class UtentiParametri(models.Model):
     anis_IFS03_massivo = models.BooleanField(default=False)
     cassa_forense = models.BooleanField(default=False)
     registro_imprese = models.BooleanField(default=False)
+    registro_imprese_massivo = models.BooleanField(default=False)
     inps_isee = models.BooleanField(default=False)
     inps_durc_singolo = models.BooleanField(default=False)
     inps_durc_massivo = models.BooleanField(default=False)

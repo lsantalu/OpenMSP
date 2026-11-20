@@ -131,7 +131,10 @@ def home(request):
         },
         {
             'title': 'Registro Imprese',
-            'service_links': [('registro_imprese', 'registro_imprese', ('registro_imprese',))],
+            # un link per modalita', come la card ANPR: vince il primo attivo e consentito,
+            # cosi' la card e il megamenu dicono la stessa cosa (invariante 1)
+            'service_links': [('registro_imprese', 'registro_imprese', ('registro_imprese',)),
+                              ('registro_imprese', 'registro_imprese_massivo', ('registro_imprese_massivo',))],
             'image': 'images/registro_imprese.png',
             'alt': 'CCIAA',
             'description': 'Consulta il Registro delle Imprese e ottieni informazioni aggiornate.',
