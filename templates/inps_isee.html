@@ -335,7 +335,7 @@ INPS attestazione ISEE - OpenMSP - Multi Services Portal
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Il campo "Codice Fiscale" è da controllare.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
+    const errorMessage = 'Il campo "Codice Fiscale" è da controllare'
     const errorWrapper = document.querySelector('#errorMsgContainer')
     const selectPrestazione = document.querySelector('#tipo_prestazione_da_erogare')
     const inputCf = document.querySelector('#input_CF')
@@ -353,7 +353,7 @@ INPS attestazione ISEE - OpenMSP - Multi Services Portal
 
     const printButton = document.querySelector('#printButton')
     if (printButton) {
-      printButton.addEventListener('click', function () {
+      printButton?.addEventListener('click', function () {
         const printArea = document.querySelector('#isee-result-print-area')
         if (!printArea) {
           return
@@ -390,11 +390,11 @@ INPS attestazione ISEE - OpenMSP - Multi Services Portal
         printContent += `<p>Data: <b>${formattedDate}</b> Ora: <b>${formattedTime}</b></p>`
         printContent += '<hr>'
         printContent += '</div>'
-        printContent += printArea.innerHTML
         printContent += '</body></html>'
 
         printWindow.document.write(printContent)
         printWindow.document.close()
+        stampaRisultati(printWindow, printArea)
         printWindow.focus()
         printWindow.print()
         printWindow.close()
@@ -433,8 +433,7 @@ INPS attestazione ISEE - OpenMSP - Multi Services Portal
       document.forms['inps_isee_singola'].submit()
     })
     .onFail((fields) => {
-      errorWrapper.innerHTML = ''
-      errorWrapper.innerHTML = errorMessage
+      mostraErroreCf(errorWrapper, errorMessage)
     })
   })
 </script>

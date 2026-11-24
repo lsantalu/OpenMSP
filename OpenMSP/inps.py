@@ -3,6 +3,8 @@ import csv
 import datetime
 import io
 import json
+import re
+import unicodedata
 import urllib.parse
 import zipfile
 from contextlib import suppress
@@ -579,6 +581,38 @@ def inps_durc_export_excel(request):
     return response
 
 
+def _riga_durc(request, protocollo):
+    """Riga dell'ultima ricerca massiva che contiene il protocollo, vuota se non nota.
+
+    Il CF non viene dall'URL: finirebbe in un Content-Disposition scritto da chi
+    chiama, e qui sta gia` in sessione insieme al protocollo.
+    """
+    for item in request.session.get('durc_data', []):
+        if (item.get('res_data') or {}).get('protocollo') == protocollo:
+            return item
+    return {}
+
+
+def _nome_file_denominazione(denominazione):
+    """Denominazione dell'erogatore resa nome di file: e' testo di terzi, non un identificatore.
+
+    Via gli accenti, e solo lettere, cifre, spazi, punti e trattini: un `/` o un `"`
+    nel nome vorrebbe dire un PDF fuori dalla cartella o un Content-Disposition spezzato.
+    """
+    sciolta = unicodedata.normalize('NFKD', str(denominazione or ''))
+    senza_accentsi = ''.join(c for c in sciolta if not unicodedata.combining(c))
+    return ' '.join(re.sub(r'[^0-9A-Za-z .-]+', ' ', senza_accentsi).split()).strip('.')[:40]
+
+
+def _nome_pdf_durc(riga, protocollo):
+    """CF e denominazione davanti al protocollo: da solo, un PDF DURC non dice di chi e'."""
+    res = riga.get('res_data') or {}
+    parti = [riga.get('cf', ''),
+             _nome_file_denominazione(res.get('denominazione', '')),
+             f"DURC_{protocollo}"]
+    return '_'.join(p for p in parti if p) + '.pdf'
+
+
 def inps_durc_export_zip(request):
     # ZIP di tutti i PDF linkati nella colonna "Azioni" dell'ultima ricerca massiva.
     if request.user.id:
@@ -590,10 +624,13 @@ def inps_durc_export_zip(request):
 
     data = request.session.get("durc_data", [])
     # Un protocollo una volta sola, nell'ordine in cui sta in tabella
-    protocolli = list(dict.fromkeys(
-        item['res_data']['protocollo']
-        for item in data
-        if (item.get('res_data') or {}).get('protocollo')))
+    nomi = {}
+    for item in data:
+        res = item.get('res_data') or {}
+        protocollo = res.get('protocollo')
+        if protocollo and protocollo not in nomi:
+            nomi[protocollo] = _nome_pdf_durc(item, protocollo)
+    protocolli = list(nomi)
     if not protocolli:
         return HttpResponse("Nessun DURC da scaricare", status=400)
 
@@ -605,7 +642,7 @@ def inps_durc_export_zip(request):
         for protocollo in protocolli:
             risposta = inps_durc_download(request, protocollo, (bearer, tok_id))
             if risposta.status_code == 200 and risposta.content:
-                zf.writestr(f"DURC_{protocollo}.pdf", risposta.content)
+                zf.writestr(nomi[protocollo], risposta.content)
             else:
                 errori.append(f"{protocollo}: {risposta.content.decode('utf-8', 'replace')}")
         if errori:
@@ -697,7 +734,7 @@ def inps_durc_download(request, protocollo, token=None):
                         # Decodifica dei dati base64 in binario
                         pdf_content = base64.b64decode(base64_data)
 
-                        file_name = f"DURC_{protocollo}.pdf"
+                        file_name = _nome_pdf_durc(_riga_durc(request, protocollo), protocollo)
                         django_response = HttpResponse(pdf_content, content_type='application/pdf')
                         django_response['Content-Disposition'] = f'attachment; filename="{file_name}"'
 

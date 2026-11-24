@@ -113,11 +113,12 @@ ANIS Titoli Universitari Multipla - OpenMSP - Multi Services Portal
       <h5 class="it-card-title it-card-title-icon">Titoli conseguiti da {{ studente.personal_data.tax_code }}</h5>
       {% endif %}
       {% if studente.qualifications|length != 0 %}
-      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
+      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;"></div>
+
         {% else %}
-        <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+        <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;"></div>
+
           {% endif %}
-        </div>
         <div class="it-card-body">
           {% if 'Codice fiscale non corretto' in studente or 'Errore di comunicazione con la API' in studente %}
           {% with parts=studente.split %}
@@ -460,7 +461,7 @@ ANIS Titoli Universitari Multipla - OpenMSP - Multi Services Portal
       })
         .then(response => response.text())
         .then(html => {
-          document.body.innerHTML = html; // aggiorna con risultati
+          sostituisciCorpo(html); // aggiorna con risultati
         })
         .catch(err => console.error("Errore:", err));
     });

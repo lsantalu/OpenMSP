@@ -44,7 +44,8 @@ Debug - OpenMSP - Multi Services Portal
 <br />
 <div class="shadow-lg primary-border-color col-6 p-3">
   <h5>Response</h5>
-  <pre>{{ data }}</pre> <!-- Mostra i dati JSON in un formato leggibile -->
+  {# Il filtro json con indentatura: {{ data }} stampava il repr di Python, tutto su una riga. #}
+  <pre>{{ data|json:"4" }}</pre>
 </div>
 {% endif %}
 {% else %}

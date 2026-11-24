@@ -153,14 +153,13 @@ ANIST Titoli primarie e secondarie Singola - OpenMSP - Multi Services Portal
     document.addEventListener('DOMContentLoaded', function () {
       const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Il campo "Codice Fiscale" è da controllare.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
       const errorWrapper = document.querySelector('#errorMsgContainer')
-      const validate = new bootstrap.FormValidate('#inad_singola', {
+      const validate = new bootstrap.FormValidate('#anist_titoli_singola', {
         errorFieldCssClass: 'is-invalid',
         errorLabelCssClass: 'form-feedback',
         errorLabelStyle: '',
         focusInvalidField: false
       })
-      validate
-      .addField('#input_CF', [
+      validate.addField('#input_CF', [
       {
         rule: 'required',
         errorMessage: 'Questo campo è richiesto'
@@ -193,7 +192,7 @@ ANIST Titoli primarie e secondarie Singola - OpenMSP - Multi Services Portal
     document.addEventListener('DOMContentLoaded', function () {
       const printButton = document.getElementById('printButton')
 
-      printButton.addEventListener('click', function () {
+      printButton?.addEventListener('click', function () {
         const user = '{{ user.username }}'
         const pageTitle = document.title
         const currentDate = new Date()
@@ -243,17 +242,17 @@ ANIST Titoli primarie e secondarie Singola - OpenMSP - Multi Services Portal
     })
 
     document.addEventListener('DOMContentLoaded', function () {
-      let codiceFiscale = `{{ data.0|safe }}`.trim()
-      let rawData1 = `{{ data.1|safe }}`
+      let codiceFiscale = `{{ data.0|default:"null"|safe }}`.trim()
+      let rawData1 = `{{ data.1|default:"null"|safe }}`
       let validJsonString1 = rawData1.replace(/'/g, '"')
       validJsonString1 = validJsonString1.replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false')
       try {
         let jsonData1 = JSON.parse(validJsonString1)
         let finalJson = [codiceFiscale, jsonData1]
-        document.getElementById('json-display').textContent = JSON.stringify(finalJson, null, 4)
+        mostraJson(JSON.stringify(finalJson, null, 4))
       } catch (error) {
         console.error('Errore nel parsing del JSON:', error)
-        document.getElementById('json-display').textContent = 'Errore nel parsing del JSON.'
+        mostraJson('Errore nel parsing del JSON.')
       }
     })
   </script>

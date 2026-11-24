@@ -102,9 +102,9 @@ Verifica CF azziende - OpenMSP - Multi Services Portal
           <td>{{ split_row.0 }}</td>
           <td class="text-center">
             {% if split_row.1 == "1" %}
-            <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check">1</use></svg>
+            <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check"></use>1</svg>
             {% else %}
-            <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big">-1</use></svg>
+            <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big"></use>-1</svg>
             {% endif %}</td>
           </tr>
           {% endwith %}
@@ -193,7 +193,7 @@ Verifica CF azziende - OpenMSP - Multi Services Portal
 
     function hideOverlaySpinner() {
       hideOverlay(); // Nasconde l'overlay
-      document.getElementById('dataTable').parentNode.style.display = 'block'; // Mostra la tabella dati
+      mostraTabellaDati(true); // Mostra la tabella dati
     }
 
     // Chiamata a questa funzione quando la tabella dati è pronta
@@ -219,7 +219,7 @@ Verifica CF azziende - OpenMSP - Multi Services Portal
 
       document.getElementById('executeSearchBtn').addEventListener('click', function() {
         showOverlay(); // Mostra l'overlay
-        document.getElementById('dataTable').parentNode.style.display = 'none'; // Nasconde la tabella
+        mostraTabellaDati(false); // Nasconde la tabella
       });
 
       // Gestione eventi drag & drop
@@ -308,7 +308,7 @@ Verifica CF azziende - OpenMSP - Multi Services Portal
         })
         .then(response => response.text())
         .then(html => {
-          document.body.innerHTML = html; // aggiorna con risultati
+          sostituisciCorpo(html); // aggiorna con risultati
         })
         .catch(err => console.error("Errore:", err));
       });

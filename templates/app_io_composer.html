@@ -625,9 +625,15 @@ App IO Message Composer - OpenMSP - Multi Services Portal
           currentFile = file;
           
           // Sync with fileInput for form submission
-          const dataTransfer = new DataTransfer();
-          dataTransfer.items.add(file);
-          fileInput.files = dataTransfer.files;
+          // Il FileList dell'evento (o dell'input) va nell'<input> cosi' com'e': il costruttore
+          // DataTransfer non esiste su Firefox e l'eccezione si mangiava il riquadro del nome.
+          try {
+            fileInput.files = files;
+          } catch (errore) {
+            alert("Il navigatore non accetta il file: usarlo dal pulsante di selezione.");
+            resetUpload();
+            return;
+          }
 
           showFilePreview(currentFile);
         } else {

@@ -93,7 +93,9 @@ def verifica_cf_export_excel(request):
     # Dizionario per la larghezza massima di ogni colonna
     max_lengths = [len(str(x)) for x in intestazione]  # Larghezze iniziali: l'intestazione e' gia' in mano
 
-    if not data:
+    # multi_data e' uno slot condiviso fra i servizi: se l'ultima estrazione non e' la
+    # verifica dei codici fiscali non c'e' niente da esportare, e va detto con un 400.
+    if not data or not isinstance(data[0], str):
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
 
     for i, row in enumerate(data, 1):
@@ -225,7 +227,9 @@ def verifica_cf_aziende_export_excel(request):
     # Dizionario per la larghezza massima di ogni colonna
     max_lengths = [len(str(x)) for x in intestazione]  # Larghezze iniziali: l'intestazione e' gia' in mano
 
-    if not data:
+    # multi_data e' uno slot condiviso fra i servizi: se l'ultima estrazione non e' la
+    # verifica dei codici fiscali non c'e' niente da esportare, e va detto con un 400.
+    if not data or not isinstance(data[0], str):
         return HttpResponse("Nessun dato disponibile per l'esportazione", status=400)
 
     for i, row in enumerate(data, 1):

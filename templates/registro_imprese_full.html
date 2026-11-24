@@ -228,7 +228,7 @@ Registro imprese - OpenMSP - Multi Services Portal
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Il campo "Codice Fiscale" è da controllare.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
+    const errorMessage = 'Il campo "Codice Fiscale" è da controllare'
     const errorWrapper = document.querySelector('#errorMsgContainer')
     const validate = new bootstrap.FormValidate('#registro_imprese', {
       errorFieldCssClass: 'is-invalid',
@@ -262,8 +262,7 @@ Registro imprese - OpenMSP - Multi Services Portal
       document.forms['registro_imprese'].submit()
     })
     .onFail((fields) => {
-      errorWrapper.innerHTML = ''
-      errorWrapper.innerHTML = errorMessage
+      mostraErroreCf(errorWrapper, errorMessage)
     })
   })
 </script>

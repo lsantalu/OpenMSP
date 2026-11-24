@@ -2,79 +2,63 @@
 # pyright: reportIncompatibleVariableOverride=false
 # (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono)
 ####INUTILI
-from django.http import HttpResponse
-from django.http import JsonResponse
-##from zeep import Client
-from PIL import Image
-from impostazioni.models import UtentiParametri
-import jwt
-import subprocess
-import uuid
-import xmltodict
-from jose.constants import Algorithms
-import http.client, urllib.parse
-import hashlib
-import random
-import base64
-import csv
-import io
-import os
-import shutil
-import zipfile
-import openpyxl
-from markdown_it import MarkdownIt
-####FINE INUTILI
+import json                                 # noqa: I001  (gruppi separati a mano: stile del repo, v. tests.py)
 
-from django.conf import settings
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.views import PasswordResetView
-from django.contrib.auth.models import User
-from datetime import datetime, date
-import datetime
-
-
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
-from django.shortcuts import redirect
-from django.contrib.auth import logout as auth_logout
-from django.contrib import messages
-from django.core.mail import EmailMultiAlternatives
-
-from django.contrib.auth.forms import UserCreationForm
-from django import forms
-from django.contrib.auth.models import User
-
-from .ipa import ipa_codice
-from .anpr import anpr_get_request
-from .anpr import ANPR_SERVIZI, ANPR_COLONNE, ANPR_PARENTELA, anpr_righe
-from .inad import inad_get_bearer, inad_verifica_utente, estrai_mail
-from .verifica_cf import verifica_cf, verifica_cf_azienda
-from .registro_imprese import registro_imprese_get_bearer, registro_imprese_verifica_utente
-from .anis import anis_verifica_utente
-
-
-from .utils import converti_data, salva_log, cf_da_file, permessi_servizi
-
-from impostazioni.models import IpaParametri
-from impostazioni.models import ServiziParametri
-from impostazioni.models import GruppiParametri
-
-from impostazioni.models import Logs
-from impostazioni.models import DatiEnte
-
-import datetime
-import pytz
 import requests
-import json
-import re
+from django import forms
 
+####FINE INUTILI
+from django.contrib import messages
+from django.contrib.auth import logout as auth_logout
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
+from django.contrib.auth.views import PasswordResetView
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
+
+##from zeep import Client
+from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework import status
-
-from django.contrib.auth.views import LoginView
 from two_factor.views import LoginView as TwoFactorLoginView
+
+from impostazioni.models import (
+    GruppiParametri,
+    IpaParametri,
+    ServiziParametri,
+    UtentiParametri,
+)
+
+from . import avanzamento
+from .anis import anis_verifica_utente
+from .anpr import (
+    ANPR_GIRO_SESSIONE,
+    ANPR_CARTE_SESSIONE,
+    ANPR_PARENTELA,
+    ANPR_SERVIZI,
+    _fine_anpr,
+    _riga_anpr,
+    anpr_get_request,
+    tabella_massiva,
+)
+from .inad import (_fine_inad, _riga_inad, estrai_mail, inad_get_bearer,
+                   inad_verifica_utente)
+from .ipa import _fine_ipa, _riga_ipa, ipa_codice
+from .registro_imprese import (
+    _fine_inipec,
+    _riga_inipec,
+    registro_imprese_get_bearer,
+    registro_imprese_verifica_utente,
+)
+from .utils import (
+    cf_da_file,
+    converti_data,
+    json_da_response,
+    permessi_servizi,
+    salva_log,
+)
+from .verifica_cf import verifica_cf, verifica_cf_azienda
 
 
 def home(request):
@@ -228,16 +212,11 @@ def Api_inad(codice_fiscale, api_key):
     if correttezza_cf == 1:
         parsed_output, status, purp_id = inad_verifica_utente(codice_fiscale, bearer)
         return estrai_mail(json.dumps(parsed_output)), {"purposeid": purp_id, "resp_status": status, "token_id": token_id}
+    if correttezza_cf == 2:
+        # Non e' un codice sbagliato: e' un divieto d'interrogazione, e la tabella lo giallo
+        # (stesso testo della pagina gemella inad_massiva).
+        return "Codice fiscale di persona minorenne", {}
     return "Codice fiscale non corretto", {}
-
-def json_da_response(response):
-    """JSON di una risposta iPA/PDND: un 200 con corpo non JSON (manutenzione, proxy, HTML di
-    errore) altrimenti esplode in un 500 nel mezzo di un'interrogazione massiva."""
-    try:
-        return json.loads(response.content.decode('utf-8'))
-    except (ValueError, UnicodeDecodeError):
-        return {}
-
 
 def Api_ipa(codice_fiscale, api_key):
     ipa_parametri = IpaParametri.objects.get(id=1)
@@ -365,9 +344,16 @@ def anpr(request):
 
     data = None
     righe = []
+    carte = {}
     error = None
+    totale = 0
     servizio_scelto = None
     modalita_scelta = None
+    if request.method == 'GET' and request.GET.get('eseguito'):
+        # Il navigatore torna qui quando ha finito i giri: la tabella la rende il server, cosi' non
+        # c'e' innerHTML di mezzo e la pagina e' la stessa del giro senza JavaScript.
+        righe = request.session.get('multi_data') or []
+        carte = request.session.get(ANPR_CARTE_SESSIONE) or {}
     cessazione_matrimonio_choices = [
         ('1', 'Cessazione effetti civili'),
         ('2', 'Annullamento'),
@@ -390,18 +376,24 @@ def anpr(request):
                 or not permessi.get(servizio_scelto, {}).get(modalita_scelta, False)):
             error = 'Non sei abilitato per questa tipologia di ricerca.'
         else:
+            errore_file = ''
             if modalita_scelta == 'singola':
-                cf_lista = [request.POST.get('input_CF', '').strip().upper()]
+                codici = [request.POST.get('input_CF', '').strip().upper()]
             else:
-                allegato = request.FILES.get('file_massivo')
-                cf_lista = cf_da_file(allegato) if allegato else None
+                # `codici_da_file` e' l'helper del filo: stessa lettura (colonna A di CSV/XLSX) e un
+                # errore che dice se il file e' illeggibile o solo senza codici
+                codici, errore_file = avanzamento.codici_da_file(request.FILES.get('file_massivo'))
 
-            if not cf_lista or cf_lista == ['']:
+            if errore_file:
+                salva_log(request.user, conf['log'] + ' Massivo', errore_file)
+                error = errore_file
+            elif not codici or codici == ['']:
                 error = ('Inserisci un codice fiscale.' if modalita_scelta == 'singola'
-                         else "Il file non è un CSV o XLSX leggibile, o la colonna A è vuota.")
+                         else 'Nessun codice nel file: la colonna (A) deve contenere i codici '
+                              'fiscali.')
             elif modalita_scelta == 'singola':
                 # identico alle sette viste dedicate: stessa forma di `data`, stesso nome di audit
-                cf = cf_lista[0]
+                cf = codici[0]
                 data = [cf]
                 if verifica_cf(cf) in (1, 2):
                     id_anpr = anpr_get_request(request.user.username, cf, 8)[0]
@@ -415,35 +407,34 @@ def anpr(request):
                     data.append("Codice fiscale non corretto")
                     salva_log(request.user, conf['log'], "Verificato utente " + cf)
             else:
-                nome_log = conf['log'] + ' Massivo'
-                for cf in cf_lista:
-                    if verifica_cf(cf) not in (1, 2):
-                        righe.extend(anpr_righe(cf, None, 'Codice fiscale non corretto'))
-                        salva_log(request.user, nome_log, "Verificato utente " + cf)
-                        continue
-                    # il CF si scarta prima di spendere il secondo voucher: senza idANPR la
-                    # chiamata sul caso d'uso sarebbe solo un errore opaco in piu'
-                    id_anpr, status_id, purp_id, tok_id = anpr_get_request(
-                        request.user.username, cf, 8)
-                    if id_anpr == 'ZZZZZZZZZ':
-                        righe.extend(anpr_righe(cf, None, 'Soggetto non presente in ANPR'))
-                    else:
-                        risposta, status_id, purp_id, tok_id = anpr_get_request(
-                            request.user.username, id_anpr, conf['id_caso'])
-                        righe.extend(anpr_righe(cf, converti_data(risposta)))
-                    salva_log(request.user, nome_log, "Verificato utente " + cf,
-                              purposeid=purp_id, resp_status=status_id, token_id=tok_id)
-                request.session['multi_data'] = righe
-                salva_log(request.user, nome_log,
-                          "Fine elaborazione CSV - n. " + str(len(cf_lista)) + " CF")
+                # Il giro dei codici lo comanda il navigatore (`anpr_massiva_riga`), percio' la carta
+                # dell'overlay dice il vero avanzamento e non un cerchio che gira. Il caso d'uso va in
+                # sessione DENTRO lo stato del filo: e' l'unica cosa che il POST per riga legge per
+                # sapere che permesso chiedere (invariante 1), che worker chiamare e che nome mettere
+                # nel riepilogo; dal client viene solo l'indice (invariante 8).
+                request.session[ANPR_GIRO_SESSIONE] = servizio_scelto
+                request.session[ANPR_CARTE_SESSIONE] = {}
+                if request.POST.get('js'):
+                    avanzamento.avvia(request, codici)
+                    stato = request.session[avanzamento.STATO_SESSIONE]
+                    stato['chiave'] = servizio_scelto
+                    request.session[avanzamento.STATO_SESSIONE] = stato
+                    totale = len(codici)
+                else:
+                    # senza JavaScript: un giro solo, stesso worker del navigatore
+                    righe = avanzamento.esegui_tutto(request, codici, _riga_anpr, _fine_anpr,
+                                                     stato={'chiave': servizio_scelto})
+                    carte = request.session.get(ANPR_CARTE_SESSIONE) or {}
 
+    righe, dettagli = tabella_massiva(righe, carte)
     return render(request, 'anpr.html', {
         'utente_abilitato': utente_abilitato,
         'servizi': servizi,
         'permessi': permessi,
         'data': data,
         'righe': righe,
-        'colonne': ANPR_COLONNE,
+        'dettagli': dettagli,
+        'totale': totale,
         'error': error,
         'servizio_scelto': servizio_scelto,
         'modalita_scelta': modalita_scelta,
@@ -600,6 +591,83 @@ DOMICILI_SERVIZI = {
 }
 
 
+# Il massivo della pagina unificata sale sul filo delle tre card (`OpenMSP/avanzamento.py`): un
+# POST per codice, la carta dice il codice in volo, la tabella la rende il server a giro finito.
+# Qui stanno SOLO worker e riepilogo: il permesso viene gia' da `flag_massivo` di DOMICILI_SERVIZI
+# (una fonte, non due) e gli exporter scelgono la propria URL nel template. I `_riga_*` sono i
+# worker dei moduli di servizio - la pagina unificata e' il secondo chiamante legittimo: copiare
+# il giro sarebbe la decima copia dello stesso filo.
+DOMICILI_MASSIVI = {
+    'ipa': {'worker': _riga_ipa, 'fine': _fine_ipa},
+    'inad': {'worker': _riga_inad, 'fine': _fine_inad},
+    'inipec': {'worker': _riga_inipec, 'fine': _fine_inipec},
+}
+GIRO_SESSIONE = 'domicili_giro'              # quale dei tre si sta girando
+RISULTATI_SESSIONE = 'domicili_risultati'    # righe gia' vestite per il template
+
+
+def _render_righe(tipo, codice, righe):
+    """Le righe del filo (forma export) montate come le vuole la tabella unificata.
+
+    Il filo scrive `multi_data` perche' li' leggono gli `*_export_excel`, e la tabella unificata
+    vuole dizionali (`res.cf` / `res.raw`): una forma sola non puo' servire tutte e due, percio'
+    i dizionali stanno in `domicili_risultati` e `veste_riga` ci passa sopra come sul giro vecchio.
+    """
+    if tipo == 'ipa':
+        return [{'tipo': 'ipa', 'cf': codice, 'raw': riga} if isinstance(riga, dict) and 'error' not in riga
+                else {'tipo': 'standard', 'cf': codice,
+                      'dato': ('Errore interrogazione iPA' if isinstance(riga, dict)
+                               else 'Domicilio digitale non trovato')}
+                for riga in righe]
+    return [{'tipo': 'standard', 'cf': str(riga).split(' ')[0],
+             'dato': (str(riga).split(' ', 2) + ['', ''])[2]} for riga in righe]
+
+
+def _worker_unificato(tipo):
+    """Il worker del servizio, che in piu' mette la riga vestita nella sessione del render."""
+    modulo = DOMICILI_MASSIVI[tipo]['worker']
+
+    def una_riga(request, codice, stato=None):
+        righe, ultimo, errore = modulo(request, codice, stato)
+        request.session[RISULTATI_SESSIONE] = (request.session.get(RISULTATI_SESSIONE)
+                                              or []) + _render_righe(tipo, codice, righe)
+        return righe, ultimo, errore
+    return una_riga
+
+
+def domicili_massiva_riga(request):
+    """Una riga del massivo unificato: l'indice dal navigatore, tipo e codici dalla sessione.
+
+    `/domicili_digitali/riga/` e' una URL sola per tre servizi, percio' il gate (invariante 1)
+    non puo' essere un nome fisso: e' il `flag_massivo` del tipo che sta in sessione.
+    """
+    tipo = (request.session.get(avanzamento.STATO_SESSIONE) or {}).get('tipo')
+    if tipo not in DOMICILI_MASSIVI:
+        return JsonResponse({'errore': 'Nessun giro di domicili digitali in corso'}, status=400)
+    return avanzamento.risposta_riga(request, DOMICILI_SERVIZI[tipo]['flag_massivo'],
+                                    _worker_unificato(tipo), DOMICILI_MASSIVI[tipo]['fine'])
+
+
+def veste_riga(riga):
+    """Colore, esito e icona di una riga della tabella: regola unica qui, il template stampa.
+
+    Il giallo e' solo per il minorenne (un codice giusto che non si puo' interrogare), il
+    rosso per ogni esito negativo: un codice scartato a priori non e' un avviso, e nelle
+    pagine gemelle inad_massiva / inipec_massiva e' rosso da -1. Ritorna la riga stessa.
+    """
+    dato = riga.get('dato', '')
+    if '@' in dato:
+        esito = '1'
+    elif 'minorenne' in dato:
+        esito = '2'
+    else:
+        esito = '-1'
+    riga['esito'] = esito
+    riga['icona'] = {'1': 'it-check', '2': 'it-warning-circle', '-1': 'it-close-big'}[esito]
+    riga['classe'] = {'1': 'table-success', '2': 'table-warning', '-1': 'table-danger'}[esito]
+    return riga
+
+
 def domicili_digitali_view(request):
     """Unica pagina per iPA / INAD / INI-PEC, singola o massiva. Un eService spento non viene
     offerto; attivo ma senza permesso viene offerto disabilitato (invariante 1: doppio gate
@@ -612,6 +680,16 @@ def domicili_digitali_view(request):
     servizi, permessi, utente_abilitato = permessi_servizi(utente, DOMICILI_SERVIZI)
     contesto = {'results': results, 'search_context': search_context,
                 'utente_abilitato': utente_abilitato, 'servizi': servizi, 'error': error}
+
+    if request.method == 'GET' and request.GET.get('eseguito'):
+        # il navigatore torna qui quando ha finito i giri: la tabella la rende il server, cosi'
+        # non c'e' innerHTML di mezzo (e la pagina e' la stessa del giro senza JavaScript).
+        tipo_giro = request.session.get(GIRO_SESSIONE)
+        if tipo_giro in DOMICILI_MASSIVI:
+            search_context = {'tipo': tipo_giro, 'modalita': 'massiva'}
+            contesto['search_context'] = search_context
+            results = request.session.get(RISULTATI_SESSIONE, [])
+            contesto['results'] = results
 
     if request.method == 'POST':
         tipo = request.POST.get('tipo_domicilio')
@@ -695,6 +773,20 @@ def domicili_digitali_view(request):
                 # stessa lettura dell'ANPR massiva: colonna A, CSV con il ';' di Excel
                 cf_list = cf_da_file(file_obj) or []
 
+                if request.POST.get('js') and cf_list:
+                    # il giro dei codici lo comanda il navigatore (`domicili_massiva_riga`), cosi'
+                    # la carta dell'overlay dice il vero avanzamento e non un cerchio che gira.
+                    # Il tipo va in sessione DENTRO lo stato del filo: e' l'unica cosa che il POST
+                    # per riga legge per sapere che permesso chiedere e che worker chiamare.
+                    avanzamento.avvia(request, cf_list)
+                    stato = request.session[avanzamento.STATO_SESSIONE]
+                    stato['tipo'] = tipo
+                    request.session[avanzamento.STATO_SESSIONE] = stato
+                    request.session[GIRO_SESSIONE] = tipo
+                    request.session[RISULTATI_SESSIONE] = []
+                    contesto['totale'] = len(cf_list)
+                    return render(request, 'domicili_digitali.html', contesto)
+
                 ipa_auth_id = None
                 ipa_search_url = "https://www.indicepa.gov.it:443/ws/WS16DESAMMServices/api/WS16_DES_AMM"
                 headers = {'Content-Type': 'application/x-www-form-urlencoded'}
@@ -749,28 +841,10 @@ def domicili_digitali_view(request):
                     }
                     salva_log(request.user, riepilogo[tipo][0], riepilogo[tipo][1])
 
-    # Classe della riga e nome dell'export: regole in un punto solo, il template si limita a
-    # renderizzare (prima la classe era un {% if %} annidato dentro il tag <tr>).
-    esportazioni = {'ipa': 'ipa_export_excel', 'inad': 'inad_export_excel',
-                    'inipec': 'inipec_export_excel'}
+    # Classe, esito e icona della riga: regola unica in `veste_riga`, il template stampa.
+    # Il dizionario `esportazioni` che stava qui era morto: i tre pulsanti di export scelgono
+    # la propria URL nel template, e nessuno leggeva `search_context['export']`.
     for riga in results or []:
-        dato = riga.get('dato', '')
-        if '@' in dato:
-            riga['classe'] = 'table-success'
-        elif dato == 'Codice fiscale non corretto':
-            riga['classe'] = 'table-warning'
-        else:
-            riga['classe'] = 'table-danger'
-    search_context['export'] = esportazioni.get(search_context.get('tipo', ''), 'ipa_export_excel')
-
-    # Classe della riga in tabella: regola unica qui, il template non deve duplicarla.
-    for riga in results or []:
-        dato = riga.get('dato', '')
-        if '@' in dato:
-            riga['classe'] = 'table-success'
-        elif dato == 'Codice fiscale non corretto':
-            riga['classe'] = 'table-warning'
-        else:
-            riga['classe'] = 'table-danger'
+        veste_riga(riga)
 
     return render(request, 'domicili_digitali.html', contesto)

@@ -31,6 +31,7 @@ noindex, nofollow, none, noimageindex, noarchive, nocache, nosnippet
 <link rel="icon" href="{% static 'favicon.ico' %}" />
 
 <script src="{% static 'js/marked.min.js' %}"></script>
+<script src="{% static 'js/openmsp_util.js' %}"></script>
 
 
 <!-- sfondo e stampa -->
@@ -458,7 +459,7 @@ OpenMSP - Multi Services Portal
                       {% endif %}
                       <div class="dropdown-divider" style="border-top: 1px solid #ccc;"></div>
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.anpr_abilitato %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_abilitato %} class="text-muted"{% endif %}>Interroga ANPR</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.anpr_abilitato %} disabled" aria-disabled="true{% endif %}" href="{% url 'anpr' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anpr_abilitato %} class="text-muted"{% endif %}>Beta - Interroga ANPR</span></a>
                       </li>
                     </ul>
                   </div>
@@ -503,10 +504,10 @@ OpenMSP - Multi Services Portal
                       {% endif %}
                       {% if services_dict.inps_durc.attivo %}
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.inps_durc_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'inps_durc_singolo' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inps_durc_singolo %} class="text-muted"{% endif %}>Dichiarazioni DURC Ricerca singola</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.inps_durc_singolo %} disabled" aria-disabled="true{% endif %}" href="{% url 'inps_durc_singolo' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inps_durc_singolo %} class="text-muted"{% endif %}>Consultazione DURC Ricerca singola</span></a>
                       </li>
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.inps_durc_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'inps_durc_massivo' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inps_durc_massivo %} class="text-muted"{% endif %}>Dichiarazioni DURC Ricerca massiva</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.inps_durc_massivo %} disabled" aria-disabled="true{% endif %}" href="{% url 'inps_durc_massivo' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.inps_durc_massivo %} class="text-muted"{% endif %}>Consultazione DURC Ricerca massiva</span></a>
                       </li>
                       {% endif %}
                     </ul>
@@ -657,7 +658,7 @@ OpenMSP - Multi Services Portal
 
         <li class="nav-item dropdown megamenu">
           <button type="button" class="nav-link dropdown-toggle px-lg-2 px-xl-3" data-bs-toggle="dropdown" aria-expanded="false" id="dropdown-ANNCSU" aria-haspopup="true" data-focus-mouse="false">
-            <span>ANNCSU</span>
+            <span>Beta - ANNCSU</span>
             <svg role="img" class="icon icon-xs ms-1"><use href="{% static 'svg/sprites.svg' %}#it-expand"></use></svg>
           </button>
           <div class="dropdown-menu shadow-lg" role="region" aria-labelledby="dropdown-ANNCSU">
@@ -682,27 +683,27 @@ OpenMSP - Multi Services Portal
                     <ul class="link-list">
                       {% if services_dict.anncsu.attivo %}
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.anncsu_consultazione_comuni %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu_consultazione_comuni %} class="text-muted"{% endif %}>Consultazione per i COMUNI</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.anncsu_consultazione_comuni %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu_consultazione_comuni %} class="text-muted"{% endif %}>Beta - Consultazione per i COMUNI</span></a>
                       </li>
                       {% endif %}
                       {% if services_dict.anncsu_accessi.attivo %}
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.anncsu_accessi %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu_accessi' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu_accessi %} class="text-muted"{% endif %}>Aggiornamento accessi</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.anncsu_accessi %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu_accessi' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu_accessi %} class="text-muted"{% endif %}>Beta - Aggiornamento accessi</span></a>
                       </li>
                       {% endif %}
                       {% if services_dict.anncsu_coordinate.attivo %}
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.anncsu_coordinate %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu_coordinate' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu_coordinate %} class="text-muted"{% endif %}>Aggiornamento coordinate</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.anncsu_coordinate %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu_coordinate' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu_coordinate %} class="text-muted"{% endif %}>Beta - Aggiornamento coordinate</span></a>
                       </li>
                       {% endif %}
                       {% if services_dict.anncsu_odonimi.attivo %}
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.anncsu_odonimi %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu_odonimi' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu_odonimi %} class="text-muted"{% endif %}>Aggiornamento odonimi</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.anncsu_odonimi %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu_odonimi' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu_odonimi %} class="text-muted"{% endif %}>Beta - Aggiornamento odonimi</span></a>
                       </li>
                       {% endif %}
                       {% if services_dict.anncsu_visura.attivo %}
                       <li>
-                        <a class="list-item dropdown-item{% if not user_perms.anncsu_visura %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu_visura' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu_visura %} class="text-muted"{% endif %}>Estratto di mappa per Visura</span></a>
+                        <a class="list-item dropdown-item{% if not user_perms.anncsu_visura %} disabled" aria-disabled="true{% endif %}" href="{% url 'anncsu_visura' %}"><svg role="img" class="icon icon-sm me-2"><use href="{% static 'svg/sprites.svg' %}#it-arrow-right-triangle"></use></svg><span {% if not user_perms.anncsu_visura %} class="text-muted"{% endif %}>Beta - Estratto di mappa per Visura</span></a>
                       </li>
                       {% endif %}
                     </ul>

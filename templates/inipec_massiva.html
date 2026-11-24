@@ -14,10 +14,9 @@ INI-PEC Multipla - OpenMSP - Multi Services Portal
 <br />
 {% if user.is_authenticated %}
 {% if utente_abilitato %}
-<!-- LOADING OVERLAY -->
-<div id="loadingOverlay">
-  <div class="spinner"></div>
-</div>
+{% url 'inipec_massiva_riga' as riga_url %}
+{# la card dice il vero avanzamento, il cerchio non diceva niente #}
+{% include '_overlay_avanzamento.html' with url_riga=riga_url %}
 
 <div class="col-8 shadow-lg white-bg p-4">
   <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
@@ -110,22 +109,17 @@ INI-PEC Multipla - OpenMSP - Multi Services Portal
     <tbody>
       {% for row in data %}
       {% with row.split as split_row %}
-      <tr {% if split_row.1 == "1" and '@' in split_row.2 %}
-      class="table-success"
-      {% elif split_row.1 == "2" %}class="table-warning"
-      {% else %}
-      class="table-danger"
-      {% endif %}>
+      <tr class="{% if split_row.1 == '1' and '@' in split_row.2 %}table-success{% elif split_row.1 == '2' %}table-warning{% else %}table-danger{% endif %}">
 
       <td class="text-center">{{ forloop.counter }}</td>
       <td>{{ split_row.0 }}</td>
       <td class="text-center">
         {% if split_row.1 == "2" %}
-        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-warning-circle">{{split_row.1}}</use></svg>
+        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-warning-circle"></use>{{split_row.1}}</svg>
         {% elif split_row.1 == "1" %}
-        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check">{{split_row.1}}</use></svg>
+        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check"></use>{{split_row.1}}</svg>
         {% else %}
-        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big ">{{split_row.1}} </use></svg>
+        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big"></use>{{split_row.1}} </svg>
         {% endif %}</td>
 
         <td>
@@ -161,7 +155,7 @@ INI-PEC Multipla - OpenMSP - Multi Services Portal
   <p>Per maggiori informazioni contatti l'amministratore del portale</p>
   <div class="p-3 text-end">
     <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
-  </div></div></div>
+  </div></div>
   {% endif %}
 
   {% if error %}
@@ -180,20 +174,14 @@ INI-PEC Multipla - OpenMSP - Multi Services Portal
   {% endif %}
 
 
+  <script src="{% static 'js/avanzamento_massiva.js' %}"></script>
+
   <script>
 
-    // Funzione per mostrare l'overlay
-    function showOverlay() {
-      document.getElementById('loadingOverlay').classList.add('show');
-    }
-
-    // Funzione per nascondere l'overlay
-    function hideOverlay() {
-      document.getElementById('loadingOverlay').classList.remove('show');
-    }
-
+    // Submit nativo, non fetch + innerHTML: il body sostituito con l'HTML del server e' un
+    // buco di XSS. Il campo `js` dice alla vista che il giro dei codici lo faccio io.
     document.querySelector('form').addEventListener('submit', function() {
-      showOverlay(); // Mostra l'overlay
+      window.AvanzamentoMassiva && AvanzamentoMassiva.invia(this); // Mostra la card, non il cerchio
     });
 
 
@@ -234,16 +222,9 @@ INI-PEC Multipla - OpenMSP - Multi Services Portal
   }, false);
 })();
 
-    function hideOverlaySpinner() {
-      hideOverlay(); // Nasconde l'overlay
-      document.getElementById('dataTable').parentNode.style.display = 'block'; // Mostra la tabella dati
-    }
-
-    // Chiamata a questa funzione quando la tabella dati è pronta
-    {% if data %}
-    hideProgressBarAndShowTable();
-    {% endif %}
-
+    // La pagina arriva col totale dopo il POST del file: il giro lo comando io, la tabella la
+    // rende il server a giro finito (?eseguito=1).
+    window.AvanzamentoMassiva && AvanzamentoMassiva.riprendi();
 
   </script>
 
@@ -251,6 +232,7 @@ INI-PEC Multipla - OpenMSP - Multi Services Portal
 
     (function() {
       const uploadSection = document.getElementById('uploadSection');
+      const form = document.querySelector('form');
       const fileInput = document.getElementById('fileInput');
       const dropZone = document.getElementById('dropZone');
       const filePreview = document.getElementById('filePreview');
@@ -262,9 +244,11 @@ INI-PEC Multipla - OpenMSP - Multi Services Portal
       // Formati consentiti
       const allowedExtensions = [".csv", ".xlsx"];
 
-      document.getElementById('executeSearchBtn').addEventListener('click', function() {
-        showOverlay(); // Mostra l'overlay
-        document.getElementById('dataTable').parentNode.style.display = 'none'; // Nasconde la tabella
+      // Il pulsante non chiama l'erogatore: mette il campo `js` nel form e lo lascia partire.
+      executeBtn.addEventListener('click', () => {
+        if (!currentFile) return;
+        window.AvanzamentoMassiva && AvanzamentoMassiva.invia(form);
+        form.submit();
       });
 
       // Gestione eventi drag & drop
@@ -306,6 +290,15 @@ INI-PEC Multipla - OpenMSP - Multi Services Portal
         if (files.length > 0) {
           const file = files[0];
           if (isValidFile(file)) {
+            try {
+              // Il submit e' nativo: il file deve stare nell'<input name="cf_csv">, tenerlo
+              // solo in una variabile JS vuol dire spedire un form senza file.
+              fileInput.files = files;
+            } catch (errore) {
+              alert("Il navigatore non accetta il file: usarlo dal pulsante di selezione.");
+              resetUpload();
+              return;
+            }
             currentFile = file;
             showFilePreview(currentFile);
           } else {
@@ -337,26 +330,6 @@ INI-PEC Multipla - OpenMSP - Multi Services Portal
         fileInput.value = '';
       }
 
-      // Invio AJAX al backend
-      executeBtn.addEventListener('click', () => {
-        if (!currentFile) return;
-
-        const formData = new FormData();
-        formData.append('cf_csv', currentFile);
-
-        fetch("", {
-          method: "POST",
-          body: formData,
-          headers: {
-            "X-CSRFToken": "{{ csrf_token }}"
-          }
-        })
-        .then(response => response.text())
-        .then(html => {
-          document.body.innerHTML = html; // aggiorna con risultati
-        })
-        .catch(err => console.error("Errore:", err));
-      });
     })();
 
 

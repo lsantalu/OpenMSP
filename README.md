@@ -13,7 +13,7 @@ inviare messaggi tramite la App IO<br>
 
 ![Python](https://img.shields.io/badge/Python-3.13%2B-blue)
 ![Django](https://img.shields.io/badge/Django-5.2%2B-green)
-![Version](https://img.shields.io/badge/Version-1.3.0-brightgreen)
+![Version](https://img.shields.io/badge/Version-1.5.0-brightgreen)
 ![License](https://img.shields.io/badge/License-BSD_3--Clause-blue)
 ![Author](https://img.shields.io/badge/Author-OpenCED_di_Santalucia_Luca-orange)
 
@@ -23,11 +23,35 @@ Il progetto è sviluppato per guidare la digitalizzazione dell'Ente. Il portale 
 
 ---
 
+# 🆕 Novità
+
+## Release 1.5.0
+
+* **Estrazione massiva del Registro Imprese:** file CSV/XLSX con i codici in colonna (A), una visura per riga nello stesso ordine del file, un solo voucher per tutto il file, card di avanzamento e download **ZIP** di tutti i JSON.
+* **ANNCSU - fase Beta:** consultazione per i Comuni e i tre aggiornamenti in scrittura (accessi, coordinate, odonimi), con validazione locale dei campi e scrittura solo dopo il doppio passo **Verifica** → **Invia**.
+* **Ricerca del civico su mappa** nella pagina di aggiornamento coordinate: i civici posizionati diventano punti su una mappa Leaflet/OpenStreetMap e il pulsante **Usa** riporta progressivo, coordinate e metodo di rilievo nel form.
+* **Download massivo DURC:** ZIP di tutti i PDF dell'ultima estrazione.
+* **Schema e file:** nuovo permesso `utenti_parametri.registro_imprese_massivo` e quattro nuove chiavi `.env` (`TILE_UPSTREAM`, `TILE_USER_AGENT`, `TILE_CACHE_DIR`, `TILE_CACHE_SECONDS`).
+
+## Release 1.4.0
+
+* **Pagine unificate:** *Cerca domicilio digitale* (iPA, INAD e INI-PEC in un solo form) e *Interroga ANPR* (sette casi d'uso, singola o massiva); *Istruzione* unifica anche ANIS e ANIST.
+* **ANPR in modalità massiva:** sette nuovi permessi `anpr_Cxxx_massivo`, import da file CSV/XLSX, tabella dei risultati ed esportazione XLSX.
+* **Deployment dietro reverse proxy:** `USE_X_FORWARDED_HOST`, `SECURE_PROXY_SSL_HEADER` e `CSRF_TRUSTED_ORIGINS` (issue #10).
+* **LDAP:** `AUTH_LDAP_GLOBAL_OPTIONS` per la verifica del certificato su LDAPS (issue #14).
+* **ISEE:** motivazione della prestazione richiesta.
+
+
+---
+
 # 🚀 Funzionalità Principali
 
 * **Interoperabilità PDND:** Consultazione diretta delle API rese disponibili dai soggetti erogatori.
 * **Comunicazione Cittadino:** Strumento per comunicare direttamente con il cittadino tramite App IO.
 * **Operazioni Massive:** Supporto all'importazione di file XLSX/CSV per query e invii multipli, ottimizzando i flussi di lavoro.
+* **Pagine unificate:** Un solo form per interrogare più eService della stessa famiglia (domicili digitali, ANPR, istruzione), con un riepilogo dei risultati e l'esportazione comune.
+* **Card di avanzamento:** Nelle interrogazioni massive una card dice quanti codici sono stati lavorati e su quale codice si è fermi, al posto di un indicatore a cerchio.
+* **Audit:** Ogni interrogazione a un erogatore lascia una riga in `logs` (utente, servizio, purposeId, stato HTTP, token id), senza dati anagrafici nel log.
 
 ---
 
@@ -35,48 +59,69 @@ Il progetto è sviluppato per guidare la digitalizzazione dell'Ente. Il portale 
 
 OpenMSP orchestra le chiamate verso diversi endpoint della PDND per centralizzare le informazioni:
 
-### 1. Domicilio Digitale
+### 1. Domicili Digitali (iPA, INAD, INI-PEC) - pagina unificata
 
-Consultazione e verifica dei domicili digitali con controlli formali sui Codici Fiscali e verifica minorenni.
+Una sola pagina, `/domicili_digitali/`, per interrogare tutti e tre gli indici dei domicili digitali: un form con un radiogruppo che sceglie l'indice e un secondo che sceglie singola o massiva. Un eService spento in `servizi_parametri` non viene offerto; uno attivo ma senza permesso su `utenti_parametri` viene offerto disabilitato.
 
-* **Soggetti:** Persone fisiche (INAD), Imprese e professionisti (INI-PEC), Pubblica Amministrazione (IPA).
-* **Modalità:** Ricerca singola o massiva (import da file XLSX/CSV) con stampa ed esportazione dei risultati.
+* **Soggetti:** Pubblica Amministrazione (iPA), persone fisiche (INAD), imprese e professionisti (INI-PEC).
+* **Controlli formali:** Verifica della correttezza del Codice Fiscale e dei minorenni prima di ogni interrogazione, che così non spende un voucher.
+* **Massiva con card di avanzamento:** CSV o XLSX con i codici in colonna (A), un giro di interrogazione per codice comandato dal browser, tabella renderizzata dal server a giro finito.
+* **Esiti:** Tabella comune ai tre servizi con dettaglio per riga, stampa ed esportazione XLSX.
 
-### 2. ANPR (Anagrafe Nazionale Popolazione Residente)
+Le pagine dedicate di prima generazione (`/ipa_singola/`, `/inad_massiva/`, `/inipec_singola/` e sorelle) restano raggiungibili.
 
-Interrogazione dettagliata della banca dati nazionale:
+### 2. ANPR (Anagrafe Nazionale Popolazione Residente) - pagina unificata
 
+Una sola pagina, `/anpr/` (nel menu e' marcata **Beta**), per tutti e sette i casi d'uso: un form, sette casi d'uso, singola o massiva. Il caso d'uso scelto resta in sessione e il gate dei permessi viene riverificato a ogni giro.
+
+* **Casi d'uso:** C001 Servizio notifica, C007 Esistenza in vita, C015 Generalità, C017 Matrimonio, C018 Cittadinanza, C020 Residenza, C021 Stato di famiglia.
 * **Generalità:** Cognome, Nome, Sesso, Data/Luogo di nascita, Stato civile, C.I. e ID ANPR.
 * **Residenza:** Indirizzo completo e data di decorrenza.
-* **Stato di Famiglia:** Schede anagrafiche di tutti i componenti del nucleo familiare.
-* **Matrimonio:** Stato matrimoniale, estremi atto ed eventuale annullamento/divorzio.
+* **Stato di Famiglia:** Schede anagrafiche di tutti i componenti del nucleo familiare, con il legame di parentela.
+* **Matrimonio:** Stato matrimoniale, estremi atto ed eventuale annullamento/divorzio, con il tipo di cessazione.
 * **Cittadinanza:** Verifica della cittadinanza del soggetto.
 * **Esistenza in vita:** Verifica dell'esistenza in vita del soggetto.
+* **Massiva:** import da file XLSX/CSV con card di avanzamento, tabella con dettaglio per riga ed esportazione XLSX; il caso d'uso resta in sessione, dal navigatore arriva solo l'indice della riga.
 
 ### 3. CCIAA (Registro Imprese)
 
 Restituzione di tutti i dati indicati nella visura camerale per soggetti iscritti:
 
 * Dettagli sedi, legali rappresentanti, domicilio digitale, codici ATECO, iscrizioni ad albi, statuti, soci, capitale sociale, ecc.
+* **Ricerca singola** con visura renderizzata e JSON originale scaricabile.
+* **Estrazione massiva** (`/registro_imprese_massivo/`, dalla versione 1.5.0): CSV/XLSX con i codici in colonna (A), una visura per riga nello stesso ordine del file con un solo voucher per tutto il file; card di avanzamento, JSON della singola riga scaricabile e **ZIP** di tutti i JSON dell'estrazione, con `errori.txt` per le righe rimaste senza risposta. Le risposte restano in sessione, nessun file su disco.
 
 ### 4. ANIS e ANIST
 
-Restituzione di tutti i dati indicanti la formazione dalla scuola primaria all'università:
+Restituzione di tutti i dati indicanti la formazione dalla scuola primaria all'università, raccolti nella pagina unificata *Istruzione* (`/istruzione/`):
 
 * **ANIS (Istruzione Superiore ed universitaria):** Consultazione iscrizioni e titoli conseguiti presso Istituti di Formazione Superiore ed Universitari (modalità singola o massiva).
 * **ANIST (Istruzione di primo e secondo grado):** Consultazione frequenza e titoli conseguiti presso Istituti di primo e secondo grado (modalità singola o massiva).
 
 ### 5. INPS
 
-Nuove integrazioni disponibili dalla versione 1.3.0:
+* **INPS - ISEE:** Richiesta attestazione ISEE per residenti, con motivazione della prestazione richiesta.
+* **INPS - DURC:** Consultazione DURC in corso di validità in modalità singola e massiva, con acquisizione del file PDF e, dalla versione 1.5.0, download **ZIP** di tutti i PDF dell'ultima estrazione.
 
-* **INPS - ISEE:** Richiesta attestazione ISEE per residenti.
-* **INPS - DURC:** Consultazione DURC in corso di validità in modalità singola e massiva, con possibilità di acquisizione del file PDF.
 
-### 6. PROSSIME IMPLEMENTAZIONI
+### 7. ANNCSU (Archivio Nazionale Numeri Civici e Strade Urbane)
 
-* **MIT (Trasporti):** Consultazione patenti possedute e verifica contrassegni disabili/targhe (Piattaforma Unica Nazionale Informatica dei Contrassegni Unici).
-* **CNF (Forense):** Verifica iscrizione di un soggetto all'albo degli avvocati.
+Disponibile dalla versione 1.4.0 e marcato **Beta** nel menu: cinque eService, quattro con il client scritto, ognuno con un permesso a testa e una riga di impostazioni propria.
+
+| eService | Che cosa fa | Permesso |
+|---|---|---|
+| **Consultazione per i Comuni** | Otto operazioni su odonimi, accessi e progressivi nazionali: esistenza di un odonimo o di un accesso, aree di circolazione e accessi anche per valori parziali, dati di un'area o di un accesso dal progressivo nazionale. | `anncsu_consultazione_comuni` |
+| **Aggiornamento accessi** | Inserimento, variazione e soppressione di un accesso di un'area di circolazione. | `anncsu_accessi` |
+| **Aggiornamento coordinate** | Posizionamento di un civico con il suo metodo di rilievo. | `anncsu_coordinate` |
+| **Aggiornamento odonimi** | Inserimento, variazione e soppressione di un'area di circolazione. | `anncsu_odonimi` |
+| **Estratto di mappa per Visura** | Pagina e permesso presenti, client non ancora scritto: la pagina lo dice. | `anncsu_visura` |
+
+* **Esiti ed esportazioni:** Risultato a tabella con esportazione XLSX e CSV (delimitatore `;`), o risposta secca per le operazioni di esistenza.
+* **Scrittura solo a doppio passo:** un POST valido rende il riepilogo di ciò che verrà scritto; l'aggiornamento parte con **Invia**, perché inserimenti, variazioni e soppressioni non sono reversibili dal portale. La validazione locale anticipa i codici errore della specifica (55/60/80 per gli accessi, 105/110/115/125/130/135 per le coordinate, 200/210/235/260/270/325 per gli odonimi) prima di spendere un voucher.
+* **Ricerca del civico in due passi** (aggiornamento coordinate): prima le aree di circolazione, poi i civici dell'area, resi come **mappa** con un punto per civico posizionato; il pulsante **Usa** riporta progressivo, coordinate e metodo di rilievo nel form. Sotto la mappa c'è sempre l'elenco completo di tutte le righe, che resta il cammino quando le tile non arrivano o il JavaScript è spento.
+* **Comune compilato per nome:** dove il campo comune serve, si compila per nome (`Roma (H501)`) e spedisce il codice Belfiore; un nome non scelto nell'elenco non parte.
+* **Privacy e rete:** le tile di mappa le chiede il portale (`/tile/<z>/<x>/<y>.png`) con cache su disco, non il navigatore; l'indirizzo IP dell'operatore non arriva all'erogatore di tile.
+
 
 ---
 
@@ -196,14 +241,15 @@ CONTAINER_NAME=openmsp_2 HOST_PORT=8002 SQLITE_VOLUME_NAME=openmsp_2_sqlite_data
 docker compose -p openmsp2 -f docker/docker-compose.yml up -d --build
 ```
 
-## ⚙️ Configurazione `.env` (v1.3.0)
+## ⚙️ Configurazione `.env` (v1.5.0)
 
-Crea o aggiorna il file `.env` nella root del progetto con i parametri seguenti:
+Crea o aggiorna il file `.env` nella root del progetto a partire da `.env_example`, con i parametri seguenti:
 
 ```env
 DJANGO_SECRET_KEY = 'my_password_django_complex6m^*)p!ryk)=xcpn9*rxpznm'
 DEBUG = False
-ALLOWED_HOSTS = '["your.domain.com"]'
+ALLOWED_HOSTS = openmsp.example.local,localhost,127.0.0.1
+CSRF_TRUSTED_ORIGINS = https://openmsp.example.local
 
 DJANGO_BOOTSTRAP_ITALIA_USE_CDN = True
 DJANGO_BOOTSTRAP_ITALIA_CDN = 'https://cdn.jsdelivr.net/npm/bootstrap-italia@2.18.3/dist'
@@ -239,9 +285,19 @@ AUTH_LDAP_CONNECTION_OPTIONS = {"OPT_PROTOCOL_VERSION": 3, "OPT_REFERRALS": 0}
 
 ### Opzioni globali ldap_set_option(), servono ad esempio per la verifica TLS su LDAPS
 AUTH_LDAP_GLOBAL_OPTIONS = {}
+
+### Mettere un contatto nello User-Agent e' cio' che la policy delle tile chiede.
+TILE_UPSTREAM = https://tile.openstreetmap.org/{z}/{x}/{y}.png
+TILE_USER_AGENT = OpenMSP/1.0 (portale ANNCSU; +mailto:anagrafe@comune.example.it)
+TILE_CACHE_DIR = /var/lib/openmsp/tilecache
+TILE_CACHE_SECONDS = 604800
 ```
 
+Le quattro chiavi `TILE_*` (novità 1.5.0) servono solo alla mappa dell'aggiornamento coordinate ANNCSU: le tile le chiede il portale, non il navigatore, e le tiene in cache su disco. Senza egresso verso l'erogatore di tile la mappa resta vuota e la pagina lo scrive; l'elenco sotto la mappa funziona comunque.
+
 Se il login via LDAPS fallisce con `certificate verify failed`, indica in `AUTH_LDAP_GLOBAL_OPTIONS` il file della CA che firma il certificato LDAP (`{"OPT_X_TLS_CACERTFILE": "/app/ca/ca-ente.pem"}`, con il file montato nel container) invece di disattivare la verifica (`{"OPT_X_TLS_REQUIRE_CERT": 0}`, ammissibile solo in staging o rete interna controllata).
+
+Se il deploy sta dietro un reverse proxy HTTPS, `USE_X_FORWARDED_HOST` e `SECURE_PROXY_SSL_HEADER` sono già attivi in `settings.py` (novità 1.4.0, issue #10): resta da dichiarare l'origine pubblica in `CSRF_TRUSTED_ORIGINS`.
 
 Nota: usa **una sola** coppia `AUTH_LDAP_USER_SEARCH_FILTER` e `AUTH_LDAP_USER_ATTR_MAP` in base al tuo provider LDAP (OpenLDAP o Active Directory).
 
@@ -251,29 +307,31 @@ Per aggiornare la struttura del database e, quando previsto, il file `.env` tra 
 
 ### Logica di Aggiornamento Incrementale
 
-Se desideri aggiornare alla versione più recente (es. 1.3), puoi eseguire direttamente l'ultimo script disponibile. Se il database è fermo a più versioni precedenti, lo script rileverà automaticamente la situazione e invocherà i passaggi intermedi necessari.
+Se desideri aggiornare alla versione più recente (es. 1.5), puoi eseguire direttamente l'ultimo script disponibile. Se il database è fermo a più versioni precedenti, lo script rileverà automaticamente la situazione e invocherà i passaggi intermedi necessari.
 
-Esempio: eseguendo `update_to_1.3.sh` su un database 1.1.0, verrà automaticamente chiamato prima `update_to_1.2.sh`.
+Esempio: eseguendo `update_to_1.5.sh` su un database 1.2.0, verranno chiamati prima `update_to_1.3.sh` e poi `update_to_1.4.sh`.
 
 ### Script Disponibili
 
 * `update/update_to_1.1.sh`: Aggiornamento alla versione 1.1.0.
 * `update/update_to_1.2.sh`: Aggiornamento alla versione 1.2.0 (include logica incrementale).
 * `update/update_to_1.3.sh`: Aggiornamento alla versione 1.3.0 (include logica incrementale).
+* `update/update_to_1.4.sh`: Aggiornamento alla versione 1.4.0 (permessi ANPR massive, tabelle e permessi ANNCSU, `.env` e `settings.py` per il reverse proxy, `AUTH_LDAP_GLOBAL_OPTIONS`).
+* `update/update_to_1.5.sh`: Aggiornamento alla versione 1.5.0 (target ANNCSU `.../consultazione-comune/v1`, righe dei tre eService di scrittura, rinomina del permesso `anncsu` in `anncsu_consultazione_comuni`, colonna `utenti_parametri.registro_imprese_massivo`, `migrate` per la tabella `django_session`, chiavi `TILE_*` nel `.env`).
 
-### Uso (Esempio per v1.3)
+### Uso (Esempio per v1.5)
 
 Uso (non interattivo):
 
 ```bash
-./update/update_to_1.3.sh [path/to/db.sqlite3] [path/to/.env]
+./update/update_to_1.5.sh [path/to/db.sqlite3] [path/to/.env]
 ```
 
 Uso (interattivo):
 
 ```bash
-chmod +x update/update_to_1.3.sh
-./update/update_to_1.3.sh
+chmod +x update/update_to_1.5.sh
+./update/update_to_1.5.sh
 ```
 
 ### Funzionalità degli Script
@@ -321,6 +379,9 @@ Questo progetto utilizza librerie e componenti di terze parti. Di seguito l'elen
 
 ### Altre Licenze
 
+* **[Leaflet 1.9.4](https://github.com/Leaflet/Leaflet/blob/main/LICENSE)**: BSD-2-Clause (JS e CSS committati in `static/plugins/leaflet/`)
+* **[Bootstrap Italia](https://github.com/italia/bootstrap-italia)**: BSD-3-Clause (CSS/JS della interfaccia, via CDN o copia a terra in `static/css/`)
+* **Tile di mappa** da `tile.openstreetmap.org`, dominate da [OpenStreetMap](https://www.openstreetmap.org/) e usate secondo la [tile usage policy](https://operations.osmfoundation.org/policies/tiles/): le chiede il portale con un `User-Agent` contenente un contatto, e le tiene in cache su disco.
 * **[html2text](https://github.com/Alir3z4/html2text/blob/master/COPYING)**: GPLv3
 * **[Pillow](https://github.com/python-pillow/Pillow/blob/main/LICENSE)**: HPND (Historical Permission Notice and Disclaimer)
 * **[typing-extensions](https://github.com/python/typing_extensions/blob/main/LICENSE)**: PSF (Python Software Foundation License)

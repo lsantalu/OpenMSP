@@ -1,6 +1,6 @@
 # pyright: reportAttributeAccessIssue=false
 # (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono)
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect  # noqa: I001 -- i blocchi sotto sono divisi a mano: framework, modelli, progetto
 
 from impostazioni.models import UtentiParametri
 from impostazioni.models import ServiziParametri
@@ -12,6 +12,7 @@ from .utils import svuota_none
 from .utils import converti_data
 from .verifica_cf import verifica_cf
 from . import agid
+from . import avanzamento
 
 ##from datetime import datetime, date
 import datetime
@@ -23,6 +24,7 @@ from openpyxl.styles import PatternFill
 from openpyxl.utils import get_column_letter
 
 from django.http import HttpResponse
+from django.http import JsonResponse
 
 
 
@@ -159,6 +161,17 @@ ANPR_COLONNE = ['CF', 'Esito', 'Cognome', 'Nome', 'Sesso', 'Data nascita', 'Luog
                 'Data decesso', 'Legame', 'idANPR']
 
 
+def _soggetti(risposta):
+    """I soggetti di una risposta, lista sempre: l'ANPR ne rende uno solo come dizionario e la
+    carta deve farne una riga per testa come la tabella. Vuoto se la risposta non e' leggibile."""
+    if not isinstance(risposta, dict):
+        return []
+    soggetti = (risposta.get('listaSoggetti') or {}).get('datiSoggetto') or []
+    if isinstance(soggetti, dict):
+        soggetti = [soggetti]
+    return [s for s in soggetti if isinstance(s, dict)]
+
+
 def _piattino(soggetto):
     """generalita' + identificativi + infoSoggettoEnte in una mappa sola: l'ANPR ha reso in due
     forme (struttura annidata e lista chiave/valore) e chi legge non deve saperlo."""
@@ -205,7 +218,7 @@ def anpr_righe(cf, risposta, esito_forzato=None):
     """Righe dell'interrogazione massiva, una per soggetto restituito (lo stato di famiglia ne
     rende piu' d'uno), gia' appiattite su ANPR_COLONNE. esito_forzato e' il messaggio per i CF
     scartati prima della chiamata o per l'ANSIA senza idANPR."""
-    def riga(esito, soggetto=None):
+    def _voce_riga(esito, soggetto=None):
         valori = dict.fromkeys(ANPR_COLONNE, '')
         valori['CF'], valori['Esito'] = cf, esito
         if soggetto:
@@ -234,19 +247,278 @@ def anpr_righe(cf, risposta, esito_forzato=None):
         return [valori[colonna] for colonna in ANPR_COLONNE]
 
     if esito_forzato:
-        return [riga(esito_forzato)]
+        return [_voce_riga(esito_forzato)]
     if not isinstance(risposta, dict):
-        return [riga('Risposta non leggibile')]
+        return [_voce_riga('Risposta non leggibile')]
     if risposta.get('listaErrori'):
         errori = risposta['listaErrori']
         testo = errori[0] if isinstance(errori, list) and errori else str(errori)
-        return [riga(f"Nessun risultato: {str(testo)[:160]}")]
-    soggetti = (risposta.get('listaSoggetti') or {}).get('datiSoggetto') or []
-    if isinstance(soggetti, dict):
-        soggetti = [soggetti]
+        return [_voce_riga(f"Nessun risultato: {str(testo)[:160]}")]
+    soggetti = _soggetti(risposta)
     if not soggetti:
-        return [riga('Nessun risultato: la richiesta non produce alcun soggetto')]
-    return [riga('Trovato', soggetto) for soggetto in soggetti]
+        return [_voce_riga('Nessun risultato: la richiesta non produce alcun soggetto')]
+    return [_voce_riga('Trovato', soggetto) for soggetto in soggetti]
+
+
+# La carta del pulsante `Informazioni` della tabella massiva deve rendere LE STESSE informazioni
+# della card della ricerca singola: la riga piatta di `ANPR_COLONNE` non porta il dettaglio della
+# residenza (indirizzo, civico, CAP), ne' l'ID scheda, ne' la data di decorrenza, percio' la carta
+# si legge dalla risposta cruda. `ANPR_CARTE_SESSIONE` le tiene per codice fiscale: allineare per CF
+# e non per indice regge anche se un POST per riga si perde per strada (una carta sconnessa non
+# finisce mai sull'anagrafica di un altro cittadino).
+ANPR_CARTE_SESSIONE = 'anpr_carte'
+
+
+def _bocco(risposta, *percorso):
+    """Percorso dentro la risposta annidata: `None` a ogni salto (lista = primo elemento), perche'
+    un campo assente non e' un errore: la carta lo mostra vuoto, come fa la ricerca singola."""
+    nodo = risposta
+    for nome in percorso:
+        if isinstance(nodo, dict):
+            nodo = nodo.get(nome)
+        elif isinstance(nodo, list) and nodo:
+            nodo = nodo[0]
+        else:
+            return None
+    return nodo
+
+
+def _testo(valore):
+    return str(valore).strip() if valore not in (None, '') else ''
+
+
+def _voce(soggetto, piatto, etichetta, foglia, *percorso):
+    """Una riga `Etichetta: valore`, colta da entrambe le forme che l'ANPR rende: la struttura
+    annidata (`generalita.cognome`) o la lista chiave/valore `infoSoggettoEnte` (`cognome`)."""
+    return [etichetta, _testo(_bocco(soggetto, *percorso)) or _testo(piatto.get(foglia)) or '—']
+
+
+def _carta_residenza(soggetto, piatto, decorrenza=False):
+    """Il blocco Residenza della card, identico alla ricerca singola: indirizzo in Italia (toponimo,
+    civico, interno, CAP, comune, provincia) o localita estera (consolato, stato, anno espatrio)."""
+    estera = _bocco(soggetto, 'residenza', 0, 'localitaEstera')
+    if estera:
+        indirizzo = _bocco(estera, 'indirizzoEstero') or {}
+        voci = [['Indirizzo', _testo(_bocco(indirizzo, 'toponimo', 'denominazione')) or '—'],
+                ['Località', _testo(_bocco(indirizzo, 'localita', 'descrizioneLocalita')) or '—'],
+                ['Consolato', _testo(_bocco(estera, 'consolato', 'descrizioneConsolato')) or '—'],
+                ['Stato', _testo(_bocco(indirizzo, 'localita', 'descrizioneStato')) or '—'],
+                ['Anno espatrio', _testo(piatto.get('annoEspatrio')) or '—']]
+    else:
+        indirizzo = _bocco(soggetto, 'residenza', 0, 'indirizzo') or {}
+        civico = _bocco(indirizzo, 'numeroCivico') or {}
+        lettera = _testo(civico.get('lettera'))
+        voci = [
+            ['Indirizzo', (_testo(_bocco(indirizzo, 'toponimo', 'specie')) + ' '
+                           + _testo(_bocco(indirizzo, 'toponimo', 'denominazioneToponimo'))).strip()
+             or _testo(piatto.get('indirizzoResidenza')) or '—'],
+            ['Civico', (_testo(civico.get('numero')) + ('/' + lettera if lettera else '')) or '—'],
+            ['CAP', _testo(indirizzo.get('cap')) or _testo(piatto.get('capResidenza')) or '—'],
+            ['Comune', _testo(_bocco(indirizzo, 'comune', 'nomeComune'))
+             or _testo(piatto.get('comuneResidenza')) or '—'],
+            ['Provincia', _testo(_bocco(indirizzo, 'comune', 'siglaProvinciaIstat')) or '—'],
+        ]
+        interno = _testo(_bocco(civico, 'civicoInterno', 'interno1'))
+        if interno:
+            voci.insert(2, ['Interno', interno])
+    if decorrenza:
+        voci.append(['Data decorrenza',
+                     _testo(_bocco(soggetto, 'residenza', 0, 'dataDecorrenzaResidenza')) or '—'])
+    return [['Residenza']] + voci
+
+
+# Le voci della carta, per caso d'uso: stessi blocchi e stesso ordine delle card di
+# `templates/anpr.html`, cosi' chi ha davanti C018 non deve reimparare la schermata sul massivo.
+# `coda` sono le etichette di coda, colte da `ANPR_CODA`.
+ANPR_CARTE = {
+    'C001': (['generalita', 'residenza'], ['Soggetto AIRE', 'Soggetto in vita']),
+    'C007': (['generalita', 'vita'], ['Data decesso', 'Soggetto AIRE']),
+    'C015': (['generalita'], []),
+    'C017': (['generalita', 'matrimonio'], ['Data decesso', 'Soggetto AIRE']),
+    'C018': (['cittadinanza', 'generalita'], ['Soggetto AIRE']),
+    'C020': (['residenza', 'generalita'], ['Soggetto AIRE']),
+    'C021': (['generalita'], ['Legame', 'Data decesso']),
+}
+
+
+def _carta_generalita(soggetto, piatto):
+    return [_voce(soggetto, piatto, 'Cognome', 'cognome', 'generalita', 'cognome'),
+            _voce(soggetto, piatto, 'Nome', 'nome', 'generalita', 'nome'),
+            _voce(soggetto, piatto, 'Sesso', 'sesso', 'generalita', 'sesso'),
+            _voce(soggetto, piatto, 'Data Nascita', 'dataNascita', 'generalita', 'dataNascita'),
+            ['Luogo nascita', _luogo_nascita(soggetto.get('generalita') or {})
+             or _testo(piatto.get('comuneNascita')) or '—'],
+            _voce(soggetto, piatto, 'idANPR', 'idANPR', 'identificativi', 'idANPR'),
+            _voce(soggetto, piatto, 'ID scheda ANPR', 'idSchedaSoggettoANPR',
+                  'generalita', 'idSchedaSoggettoANPR')]
+
+
+def _si_no(valore):
+    return {'S': 'Sì', 'N': 'No'}.get(str(valore).strip().upper(), '—')
+
+
+def _in_vita(soggetto, piatto):
+    """La bandiera `Soggetto in vita`: l'ANSIA la rende come primo valore di `infoSoggettoEnte`
+    (la ricerca singola la legge cosi') o come voce `esistenzaInVita`."""
+    valore = (_bocco(soggetto, 'infoSoggettoEnte', 0, 'valore')
+              or piatto.get('esistenzaInVita')
+              or piatto.get('Verifica esistenza in vita'))
+    return 'No' if 'N' in str(valore or '') else ('Sì' if valore else '—')
+
+
+def _carta_voci(soggetto, chiave):
+    """Le voci della carta di `soggetto` per il caso d'uso `chiave`. Con un campo che l'ANPR non ha
+    reso rende `—` e non lo salta: una cella muta si legge come un guasto della pagina."""
+    piatto = _piattino(soggetto)
+    blocchi, coda = ANPR_CARTE.get(chiave, ANPR_CARTE['C015'])
+    voci = []
+    for blocco in blocchi:
+        if blocco == 'generalita':
+            voci += _carta_generalita(soggetto, piatto)
+        elif blocco == 'residenza':
+            voci += _carta_residenza(soggetto, piatto, decorrenza=(chiave == 'C020'))
+        elif blocco == 'cittadinanza':
+            voci.append(_voce(soggetto, piatto, 'Cittadinanza', 'cittadinanza',
+                              'cittadinanza', 0, 'descrizioneStato'))
+        elif blocco == 'vita':
+            voci.append(['Soggetto in vita', _in_vita(soggetto, piatto)])
+        elif blocco == 'matrimonio':
+            voci += [_voce(soggetto, piatto, 'Data matrimonio', 'dataCelebramento',
+                           'matrimonio', 0, 'dataCelebramento'),
+                     _voce(soggetto, piatto, 'Registrato a', 'comune',
+                           'matrimonio', 0, 'atto', 'comune', 'nomeComune')]
+    for etichetta in coda:
+        if etichetta == 'Data decesso':
+            voci.append(_voce(soggetto, piatto, etichetta, 'dataDecesso', 'generalita', 'dataDecesso'))
+        elif etichetta == 'Soggetto AIRE':
+            voci.append([etichetta, _si_no(piatto.get('soggettoAIRE'))])
+        elif etichetta == 'Soggetto in vita':
+            voci.append([etichetta, _in_vita(soggetto, piatto)])
+        elif etichetta == 'Legame':
+            legame = (_bocco(soggetto, 'legameSoggetto', 'codiceLegame')
+                      or piatto.get('codiceLegame') or '')
+            voci.append([etichetta, dict(ANPR_PARENTELA).get(str(legame), str(legame)) or '—'])
+    return voci
+
+
+def carte_da_risposta(risposta, chiave):
+    """Una carta per soggetto restituito (lo stato di famiglia ne rende piu' d'uno), o `[]` se la
+    risposta non e' leggibile: in quel caso la carta si limita a CF ed esito della riga."""
+    if chiave not in ANPR_SERVIZI or risposta.get('listaErrori'):
+        return []
+    return [_carta_voci(s, chiave) for s in _soggetti(risposta)]
+
+
+# Il massivo della pagina unificata sale sul filo delle card (`OpenMSP/avanzamento.py`): un POST
+# per codice, la carta dice su quale codice sei fermo, la tabella la rende il server a giro finito.
+# `ANPR_GIRO_SESSIONE` e' il caso d'uso in corso: `risposta_riga` poppa lo stato del filo prima di
+# chiamare il riepilogo, e il nome di audit del riepilogo dipende da quel caso (la pagina logs non
+# si deve biforcare).
+ANPR_GIRO_SESSIONE = 'anpr_giro'
+
+
+def _accoda_carte(request, cf, carte):
+    """Le carte di un codice in sessione, chiave per chiave: un CF riscritto (ripetizione dello
+    stesso codice nel file) sostituisce le sue carte, non si somma."""
+    if not carte:
+        return
+    carte_sessione = dict(request.session.get(ANPR_CARTE_SESSIONE) or {})
+    carte_sessione[cf] = carte
+    request.session[ANPR_CARTE_SESSIONE] = carte_sessione
+
+
+def _riga_anpr(request, cf, stato=None):
+    """Una riga dell'ANPR massiva: `(righe, ultimo, errore)`, `righe` gia' appiattite su ANPR_COLONNE.
+
+    Due interrogazioni per codice, identiche al ciclo che stava in `views.anpr`: idANPR (caso 8) e
+    il caso d'uso scelto, che viene da `stato['chiave']` (la sessione, mai dal client). `verifica_cf`
+    scarta prima di spendere il secondo voucher (invariante 3) e `logs` riceve una riga per codice
+    sola, coi metadati dell'ultima chiamata (invarianti 2 e 8). `ultimo` e' il codice chiesto: la
+    carta deve dire SU QUALE codice sei fermo, il dato lo dice la tabella. La carta di dettaglio
+    della riga viene dalla risposta cruda (`carte_da_risposta`), non dalla riga piatta.
+    """
+    chiave = (stato or {}).get('chiave') or ''
+    conf = ANPR_SERVIZI.get(chiave)
+    if not conf:
+        errore = "Nessun caso d'uso in corso: riavviare la ricerca"
+        return anpr_righe(cf, None, errore), cf, errore
+    nome_log = conf['log'] + ' Massivo'
+    if verifica_cf(cf) not in (1, 2):
+        salva_log(request.user, nome_log, "Verificato utente " + cf)
+        return (anpr_righe(cf, None, 'Codice fiscale non corretto'), cf,
+                'Codice fiscale non corretto')
+    id_anpr, resp, purp, tok = anpr_get_request(request.user.username, cf, 8)
+    if id_anpr == 'ZZZZZZZZZ':
+        righe, errore = anpr_righe(cf, None, 'Soggetto non presente in ANPR'), 'Soggetto non presente in ANPR'
+    else:
+        risposta, resp, purp, tok = anpr_get_request(request.user.username, id_anpr, conf['id_caso'])
+        risposta = converti_data(risposta)
+        righe, errore = anpr_righe(cf, risposta), ''
+        _accoda_carte(request, cf, carte_da_risposta(risposta, chiave))
+    salva_log(request.user, nome_log, "Verificato utente " + cf,
+              purposeid=purp, resp_status=resp, token_id=tok)
+    return righe, cf, errore
+
+
+def _fine_anpr(request, fatte):
+    conf = ANPR_SERVIZI.get(request.session.get(ANPR_GIRO_SESSIONE) or '')
+    nome_log = (conf['log'] if conf else 'Verifica ANPR') + ' Massivo'
+    salva_log(request.user, nome_log,
+              "Fine elaborazione CSV - n. " + str(fatte) + " CF")
+
+
+def anpr_massiva_riga(request):
+    """Una riga dell'ANPR massiva in corso: l'indice dal navigatore, caso d'uso e codici in sessione.
+
+    `/anpr/riga/` e' una URL sola per sette casi d'uso, percio' il gate (invariante 1) non puo' essere
+    un nome fisso: e' il `flag_massivo` del caso che sta in sessione, come sui domicili digitali.
+    """
+    chiave = (request.session.get(avanzamento.STATO_SESSIONE) or {}).get('chiave')
+    if chiave not in ANPR_SERVIZI:
+        return JsonResponse({'errore': 'Nessuna estrazione ANPR in corso'}, status=400)
+    return avanzamento.risposta_riga(request, ANPR_SERVIZI[chiave]['flag_massivo'],
+                                    _riga_anpr, _fine_anpr)
+
+
+# Le cinque colonne fisse della tabella massiva: sono le stesse per tutti e sette i casi d'uso,
+# cosi' l'operatore legge la tabella senza dover sapere cosa restituisce C017 e cosa C021. Il
+# dato specifico della risposta interrogata va nella carta del pulsante `Informazioni`, che rende
+# tutte le colonne di ANPR_COLONNE con un valore (stessa lista anche nell'export CSV).
+ANPR_TABELLA = ('CF', 'Esito', 'Cognome', 'Nome', 'Data nascita')
+
+
+def tabella_massiva(righe, carte=None):
+    """Le righe piatte di `multi_data` vestite per la pagina: `(celle, dettagli)`.
+
+    `multi_data` resta la lista di liste che `anpr_export_excel` si aspetta (invariante 5): la
+    vestizione vive quanto il render. Le righe che liste non sono (la chiave della sessione e'
+    condivisa fra i servizi: un giro INAD fatto prima non deve buttare giu' la pagina) si scartano.
+    `dettagli` e' il dizionario che il template rende con `json_script`: unica fonte della carta
+    e dell'export CSV, cosi' le colonne finite fuori dalla tabella non si perdono. `carte` e' il
+    `{CF: [voci]}` di `ANPR_CARTE_SESSIONE`: la carta di una riga e' la terza voce del blob,
+    allineata per codice fiscale; se manca (CF scartato prima della chiamata, o estrazione di prima
+    che le carte non le lasciava) la carta si riduce a CF ed esito.
+    """
+    righe = [r for r in righe if isinstance(r, (list, tuple)) and len(r) == len(ANPR_COLONNE)]
+    celle = []
+    dettagli = {'colonne': list(ANPR_COLONNE),
+                'righe': [dict(zip(ANPR_COLONNE, r, strict=True)) for r in righe],
+                'carte': []}
+    consumate = {}
+    for indice, riga in enumerate(righe):
+        v = dict(zip(ANPR_COLONNE, riga, strict=True))
+        celle.append({
+            'cf': v['CF'], 'esito': v['Esito'], 'cognome': v['Cognome'],
+            'nome': v['Nome'], 'nascita': v['Data nascita'],
+            'classe': 'table-success' if v['Esito'] == 'Trovato' else 'table-danger',
+            'indice': indice,
+        })
+        sue = (carte or {}).get(v['CF']) or []
+        consumate[v['CF']] = n = consumate.get(v['CF'], 0) + 1
+        dettagli['carte'].append({'cf': v['CF'], 'esito': v['Esito'],
+                                 'voci': sue[n - 1] if n <= len(sue)
+                                 else [['CF', v['CF']], ['Esito', v['Esito']]]})
+    return celle, dettagli
 
 
 def anpr_export_excel(request):

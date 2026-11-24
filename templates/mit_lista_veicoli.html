@@ -96,10 +96,9 @@ MIT - Lista Veicoli Cude - OpenMSP - Multi Services Portal
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       const jsonNode = document.getElementById('lista-veicoli-json')
-      const output = document.getElementById('json-display')
-      if (jsonNode && output) {
+      if (jsonNode) {
         const parsed = JSON.parse(jsonNode.textContent)
-        output.textContent = JSON.stringify(parsed.risultato ?? parsed, null, 2)
+        mostraJson(parsed.risultato ?? parsed)
       }
     })
   </script>

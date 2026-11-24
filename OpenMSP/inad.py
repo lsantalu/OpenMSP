@@ -7,13 +7,13 @@ from impostazioni.models import UtentiParametri
 from .utils import salva_log
 from .verifica_cf import verifica_cf
 from . import agid
+from . import avanzamento
+from .avanzamento import RIGHE_SESSIONE, codici_da_file
 
 import requests
 import json
 import io
-import csv
 import re
-import openpyxl
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Alignment
 from openpyxl.utils import get_column_letter
@@ -106,60 +106,81 @@ def inad_singola(request):
     return render(request, 'inad_singola.html', { 'utente_abilitato': utente_abilitato })
 
 
+def _riga_inad(request, cf, stato=None):
+    """Una riga dell'INAD massiva: `(righe, ultimo, errore)`, e `righe` e' una stringa sola.
+
+    La forma `CF esito domicilio` la legge il template con `row.split` e la riscrive l'export
+    Excel: non e' decorazione. Il bearer si minta a ogni riga, come nel giro vecchio (l'INAD
+    non ha lo sconto a file del Registro Imprese). `ultimo` e' il codice chiesto, non il
+    domicilio: la card dell'overlay dice su quale codice sei fermo, il domicilio lo dice la
+    tabella a giro finito (e nella risposta non ci viaggia niente che il template gia' stampi).
+    """
+    esito = verifica_cf(cf)
+    if esito != 1:
+        motivo = ('Codice fiscale di persona minorenne' if esito == 2
+                  else 'Codice fiscale non corretto')
+        return [f"{cf} {esito} {motivo}"], cf, motivo
+    bearer, tok_id = inad_get_bearer()
+    dati, resp_status, purp_id = inad_verifica_utente(cf, bearer)
+    salva_log(request.user, "Verifica INAD massivo", "Verificato CF " + cf,
+              purposeid=purp_id, resp_status=resp_status, token_id=tok_id)
+    return [f"{cf} 1 {estrai_mail(json.dumps(dati))}"], cf, ''
+
+
+def _fine_inad(request, fatte):
+    salva_log(request.user, "Verifica INAD massivo", f"Fine caricamento file: codici n. {fatte}")
+
+
 def inad_massiva(request):
-    if request.user.id:
-        utente_sessione = UtentiParametri.objects.get(id=request.user.id)
-        utente_abilitato = utente_sessione.inad_massivo
-        if request.method == 'POST':
-            csv_file = request.FILES['cf_csv']
-            data = []
-            contatore = 0
-            # bearer ottenuto per ogni riga valida
-            if csv_file.name.endswith('.csv'):
-                csv_file_text = io.TextIOWrapper(csv_file.file, encoding='utf-8')
-                csv_reader = csv.reader(csv_file_text)
-                for row in csv_reader:
-                    if row[0]:  # Se row[0] non è vuoto o None
-                        correttezza_cf = verifica_cf(row[0].strip().upper())
-                        if correttezza_cf == 1:
-                            bearer, tok_id = inad_get_bearer()
-                            parsed_output, status, purp_id = inad_verifica_utente(row[0].strip().upper(), bearer)
-                            data.append(row[0].strip().upper() + " " + str(correttezza_cf) + " " + estrai_mail(json.dumps(parsed_output)))
-                            salva_log(request.user, "Verifica INAD massivo - riga CSV", "Verificato CF " + row[0], purposeid=purp_id, resp_status=status, token_id=tok_id)
-                        elif correttezza_cf == 2:
-                            data.append(row[0].strip().upper() + " " + str(correttezza_cf) + " Codice fiscale di persona minorenne")
-                        else:
-                            data.append(row[0].strip().upper() + " " + str(correttezza_cf) + " Codice fiscale non corretto")               
-                        contatore += 1
-                salva_log(request.user, "Verifica INAD massivo", "Fine elaborazione CSV - n. " + str(contatore) + " CF")
-                request.session["multi_data"] = data  # <--- Salva i dati nella sessione
-                return render(request, 'inad_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
-            elif csv_file.name.endswith('.xlsx') or csv_file.name.endswith('.XLSX') or csv_file.name.endswith('.Xlsx'):
-                wb = openpyxl.load_workbook(csv_file)
-                sheet = wb.active
-                if sheet is None:
-                    return HttpResponse("Foglio vuoto nel file XLSX", status=400)
-                for row in sheet.iter_rows(min_row=1, values_only=True):
-                    if row[0]:
-                        correttezza_cf = verifica_cf(row[0].strip().upper())
-                        if correttezza_cf == 1:
-                            bearer, tok_id = inad_get_bearer()
-                            parsed_output, status, purp_id = inad_verifica_utente(row[0].strip().upper(), bearer)
-                            data.append(row[0].strip().upper() + " " + str(correttezza_cf) + " " + estrai_mail(json.dumps(parsed_output)))
-                        elif correttezza_cf == 2:
-                            data.append(row[0].strip().upper() + " " + str(correttezza_cf) + " Codice fiscale di persona minorenne")
-                        else:
-                            data.append(row[0].strip().upper() + " " + str(correttezza_cf) + " Codice fiscale non corretto")               
-                        contatore += 1
-                salva_log(request.user,"Verifica INAD massivo", "Verificati n. " + str(contatore) + " CF")
-                request.session["multi_data"] = data  # <--- Salva i dati nella sessione
-                return render(request, 'inad_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })           
-            else:
-                salva_log(request.user,"Verifica INAD massivo", "Errore caricamento file CSV")
-                return render(request, 'inad_massiva.html', {'error': 'Il file non è un CSV', 'utente_abilitato': utente_abilitato })
-    else: 
-        utente_abilitato = False
-    return render(request, 'inad_massiva.html', { 'utente_abilitato': utente_abilitato })
+    """INAD massiva: CSV/XLSX in colonna (A), un domicilio digitale per codice fiscale.
+
+    Il giro dei codici lo comanda il navigatore (`inad_massiva_riga`), cosi' la card
+    dell'overlay dice il vero avanzamento; senza JavaScript `esegui_tutto` fa un giro solo
+    con lo stesso worker. Una stringa per codice in `multi_data`, come la pagina l'ha sempre
+    avuta: gli export rileggono quella.
+    """
+    contesto = {'utente_abilitato': False}
+    if not request.user.id:
+        return render(request, 'inad_massiva.html', contesto)
+    contesto['utente_abilitato'] = bool(UtentiParametri.objects.get(id=request.user.id).inad_massivo)
+
+    if request.method != 'POST':
+        if request.GET.get('eseguito'):
+            # il navigatore torna qui quando ha finito i giri: la tabella la rende il server
+            contesto['data'] = request.session.get(RIGHE_SESSIONE, [])
+        return render(request, 'inad_massiva.html', contesto)
+
+    # Invariante 1: il gate va riverificato nel POST, un segnalibro non basta
+    if not contesto['utente_abilitato']:
+        contesto['error'] = "L'utente non è abilitato all'utilizzo di questo servizio"
+        return render(request, 'inad_massiva.html', contesto)
+
+    if 'cf_csv' not in request.FILES:
+        contesto['error'] = ("Il file non è arrivato: riselezionarlo o trascinarlo di nuovo "
+                             "nella zona di caricamento.")
+        return render(request, 'inad_massiva.html', contesto)
+
+    codici, errore = codici_da_file(request.FILES['cf_csv'])
+    if errore:
+        salva_log(request.user, "Verifica INAD massivo", errore)
+        contesto['error'] = errore
+        return render(request, 'inad_massiva.html', contesto)
+    if not codici:
+        contesto['error'] = 'Nessun codice nel file: la colonna (A) deve contenere i codici fiscali.'
+        return render(request, 'inad_massiva.html', contesto)
+
+    if request.POST.get('js'):
+        avanzamento.avvia(request, codici)
+        contesto['totale'] = len(codici)
+    else:
+        # senza JavaScript: un giro solo
+        contesto['data'] = avanzamento.esegui_tutto(request, codici, _riga_inad, _fine_inad)
+    return render(request, 'inad_massiva.html', contesto)
+
+
+def inad_massiva_riga(request):
+    """Una riga dell'INAD massiva in corso: il POST porta l'indice, la lista sta in sessione."""
+    return avanzamento.risposta_riga(request, 'inad_massivo', _riga_inad, _fine_inad)
 
 
 def inad_verifica_utente(cf, bearer):

@@ -3,9 +3,10 @@
 import csv
 import datetime
 import io
+import json
 import re
-from typing import Any
 from datetime import date
+from typing import Any
 
 import openpyxl
 import pytz
@@ -219,3 +220,17 @@ def normalizza_chiavi(d):
             valore = [normalizza_chiavi(v) if isinstance(v, dict) else v for v in valore]
         nuovo[chiave.replace("-", "_").replace("@", "").replace("#", "")] = valore
     return nuovo
+
+
+def json_da_response(response) -> dict:
+    """JSON di una risposta iPA/PDND: un 200 con corpo non JSON (manutenzione, proxy, HTML di
+    errore) altrimenti esplode in un 500 nel mezzo di un'interrogazione massiva.
+
+    Vive qui e non in views perche' views importa i moduli dei servizi: da un servizio
+    sarebbe un import circolare. `UnicodeDecodeError` non va nel tuple: non e' importato
+    e la sua classe di base (ValueError) lo cattura gia'.
+    """
+    try:
+        return json.loads(response.content.decode('utf-8'))
+    except ValueError:
+        return {}

@@ -7,7 +7,9 @@ from impostazioni.models import UtentiParametri
 from .utils import salva_log
 from .utils import converti_data
 from .utils import normalizza_chiavi
-from .utils import cf_da_file
+from . import avanzamento
+from .avanzamento import RIGHE_SESSIONE
+from .avanzamento import codici_da_file as _legge_cf     # il lettore di colonna A: uno solo
 from .inps import _nome_file_denominazione          # il sanificatore dei nomi e' quello dei PDF DURC
 
 from .verifica_cf import verifica_cf_azienda
@@ -20,10 +22,8 @@ from xml.parsers.expat import ExpatError
 
 import requests
 import io
-import csv
 import zipfile
 ###import re
-import openpyxl
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
 from openpyxl.utils import get_column_letter
@@ -111,70 +111,86 @@ def inipec_singola(request):
     return render(request, 'inipec_singola.html', { 'utente_abilitato': utente_abilitato })
 
 
+def _riga_inipec(request, cf, stato=None):
+    """Una riga dell'INI-PEC massiva: `(righe, ultimo, errore)`, e `righe` e' una stringa sola.
+
+    La forma `CF esito PEC` la legge il template con `row.split` e la riscrive l'export Excel.
+    Il bearer e' quello in `stato`: uno per file, come nel giro vecchio (`agid.voucher`
+    rinegozia a ogni chiamata, richiamarlo per riga vorrebbe dire un voucher per riga).
+    `ultimo` e' il codice chiesto e non la PEC trovata: la card dice su quale codice sei
+    fermo, la PEC la dice la tabella a giro finito.
+    """
+    if len(cf) in (8, 9, 10):
+        cf = cf.zfill(11)          # le partite IVA corte: l'INI-PEC le vuole a 11 cifre
+    esito = verifica_cf_azienda(cf)
+    if esito != 1:
+        return [f"{cf} {esito} Codice fiscale non corretto"], cf, 'Codice fiscale non corretto'
+    bearer, tok_id = (stato or {}).get('token') or registro_imprese_get_bearer()
+    dati, resp_status, purp_id, tok_id = registro_imprese_verifica_utente(cf, bearer, tok_id)
+    salva_log(request.user, "Verifica INI-PEC massivo", "Verificato CF " + cf,
+              purposeid=purp_id, resp_status=resp_status, token_id=tok_id)
+    identificativi = _diz(_diz(_diz(dati).get('blocchi_impresa')).get('dati_identificativi'))
+    pec = str(identificativi.get('indirizzo_posta_certificata')
+              or "Ditta non presente nel Registro Imprese").lower()
+    return [f"{cf} 1 {pec}"], cf, ''
+
+
+def _fine_inipec(request, fatte):
+    salva_log(request.user, "Verifica INI-PEC massivo", f"Fine caricamento file: codici n. {fatte}")
+
+
 def inipec_massiva(request):
-    if request.user.id:
-        utente_sessione = UtentiParametri.objects.get(id=request.user.id)
-        utente_abilitato = utente_sessione.inipec_massivo
-        if request.method == 'POST':
-            csv_file = request.FILES['cf_csv']
-            data = []
-            contatore = 0
-            bearer, tok_id_bearer = registro_imprese_get_bearer()
-            if csv_file.name.endswith('.csv'):
-                csv_file_text = io.TextIOWrapper(csv_file.file, encoding='utf-8')
-                csv_reader = csv.reader(csv_file_text)
-                for row in csv_reader:
-                    if row[0]:
-                        if len(row[0]) in [8, 9, 10]:
-                            row[0] = row[0].zfill(11)
-                        correttezza_cf_azienda = verifica_cf_azienda(row[0].strip().upper())
-                        if correttezza_cf_azienda == 1:
-                            elenco_dati_registro, status_code, purp_id, tok_id = registro_imprese_verifica_utente(row[0].strip().upper(), bearer, tok_id_bearer)
-                            if elenco_dati_registro:
-                                dd = elenco_dati_registro.get('blocchi_impresa').get('dati_identificativi').get('indirizzo_posta_certificata')
-                            else:
-                                dd="Ditta non presente nel Registro Imprese"
-                            data.append(row[0].strip().upper() + " " + str(correttezza_cf_azienda) + " " + dd.lower())
-                            salva_log(request.user, "Verifica INI-PEC massivo - riga CSV", "Verificato CF " + row[0], purposeid=purp_id, resp_status=status_code, token_id=tok_id)
-                        else:
-                            data.append(row[0].strip().upper() + " " + str(correttezza_cf_azienda) + " Codice fiscale non corretto")
-                        contatore += 1
-                salva_log(request.user, "Verifica INI-PEC massivo", "Fine caricamento CSV verificati n. " + str(contatore) + " CF")
-                request.session["multi_data"] = data  # <--- Salva i dati nella sessione
-                return render(request, 'inipec_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
-            elif csv_file.name.endswith('.xlsx') or csv_file.name.endswith('.XLSX') or csv_file.name.endswith('.Xlsx'):
-                wb = openpyxl.load_workbook(csv_file)
-                sheet = wb.active
-                if sheet is None:
-                    return HttpResponse("Foglio vuoto nel file XLSX", status=400)
-                for row in sheet.iter_rows(min_row=1, values_only=True):
-                    if row[0]:
-                        row = list(row)
-                        if not isinstance(row[0], str):
-                            row[0] = str(row[0])
-                        if len(row[0]) in [8, 9, 10]:
-                            row[0] = row[0].zfill(11)
-                        correttezza_cf_azienda = verifica_cf_azienda(row[0].strip().upper())
-                        if correttezza_cf_azienda == 1:
-                            elenco_dati_registro, status_code, purp_id, tok_id = registro_imprese_verifica_utente(row[0].strip().upper(), bearer, tok_id_bearer)
-                            if elenco_dati_registro:
-                                dd = elenco_dati_registro.get('blocchi_impresa').get('dati_identificativi').get('indirizzo_posta_certificata')
-                            else:
-                                dd="Ditta non presente nel Registro Imprese"
-                            data.append(row[0].strip().upper() + " " + str(correttezza_cf_azienda) + " " + dd.lower())
-                            salva_log(request.user, "Verifica INI-PEC massivo - riga XLSX", "Verificato CF " + row[0], purposeid=purp_id, resp_status=status_code, token_id=tok_id)
-                        else:
-                            data.append(row[0].strip().upper() + " " + str(correttezza_cf_azienda) + " Codice fiscale non corretto")
-                        contatore += 1
-                salva_log(request.user, "Verifica INI-PEC massivo", "Fine caricamento XLSX verificati n. " + str(contatore) + " CF")
-                request.session["multi_data"] = data  # <--- Salva i dati nella sessione
-                return render(request, 'inipec_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
-            else:
-                salva_log(request.user,"Verifica INI-PEC massivo", "Errore caricamento file excel-CSV")
-                return render(request, 'inipec_massiva.html', {'error': 'Il file non è un XLSX o CSV', 'utente_abilitato': utente_abilitato })
+    """INI-PEC massiva: CSV/XLSX in colonna (A), un domicilio PEC per partita IVA.
+
+    Il giro dei codici lo comanda il navigatore (`inipec_massiva_riga`), cosi' la card
+    dell'overlay dice il vero avanzamento; senza JavaScript `esegui_tutto` fa un giro solo con
+    lo stesso worker. Il voucher si minta qui e resta in sessione: e' uno per file, non uno
+    per riga.
+    """
+    contesto = {'utente_abilitato': False}
+    if not request.user.id:
+        return render(request, 'inipec_massiva.html', contesto)
+    contesto['utente_abilitato'] = bool(UtentiParametri.objects.get(id=request.user.id).inipec_massivo)
+
+    if request.method != 'POST':
+        if request.GET.get('eseguito'):
+            # il navigatore torna qui quando ha finito i giri: la tabella la rende il server
+            contesto['data'] = request.session.get(RIGHE_SESSIONE, [])
+        return render(request, 'inipec_massiva.html', contesto)
+
+    # Invariante 1: il gate va riverificato nel POST, un segnalibro non basta
+    if not contesto['utente_abilitato']:
+        contesto['error'] = "L'utente non è abilitato all'utilizzo di questo servizio"
+        return render(request, 'inipec_massiva.html', contesto)
+
+    if 'cf_csv' not in request.FILES:
+        contesto['error'] = ("Il file non è arrivato: riselezionarlo o trascinarlo di nuovo "
+                             "nella zona di caricamento.")
+        return render(request, 'inipec_massiva.html', contesto)
+
+    codici, errore = _legge_cf(request.FILES['cf_csv'])
+    if errore:
+        salva_log(request.user, "Verifica INI-PEC massivo", errore)
+        contesto['error'] = errore
+        return render(request, 'inipec_massiva.html', contesto)
+    if not codici:
+        contesto['error'] = 'Nessun codice nel file: la colonna (A) deve contenere i codici fiscali o le partite IVA.'
+        return render(request, 'inipec_massiva.html', contesto)
+
+    if request.POST.get('js'):
+        avanzamento.avvia(request, codici, registro_imprese_get_bearer())
+        contesto['totale'] = len(codici)
     else:
-        utente_abilitato = False
-    return render(request, 'inipec_massiva.html', { 'utente_abilitato': utente_abilitato })
+        # senza JavaScript: un giro solo, un voucher solo
+        contesto['data'] = avanzamento.esegui_tutto(
+            request, codici, _riga_inipec, _fine_inipec,
+            stato={'token': registro_imprese_get_bearer()})
+    return render(request, 'inipec_massiva.html', contesto)
+
+
+def inipec_massiva_riga(request):
+    """Una riga dell'INI-PEC massiva in corso: il POST porta l'indice, la lista sta in sessione."""
+    return avanzamento.risposta_riga(request, 'inipec_massivo', _riga_inipec, _fine_inipec)
 
 
 def registro_imprese_get_bearer():
@@ -422,21 +438,6 @@ MASSIMO_RIGHE = 100
 STATO_SESSIONE = 'reg_imp_mass_stato'   # estrazione avviata dal navigatore, col token dentro  # shortcut: le risposte restano in sessione (SESSION_ENGINE su DB) e la
                      # riga di sessione la rileggi a ogni richiesta: sopra le ~100 visuri serve
                      # una tabella dedicata, vedi docs/2026-11-18-registro-imprese-massivo-design.md
-
-
-def _legge_cf(allegato):
-    """`(cf, errore)` dal file caricato: `utils.cf_da_file` non ha un canale d'errore tutto
-    suo (ritorna `None` su formato illeggibile e lascia passare l'eccezione su un XLSX
-    corrotto), e la pagina ha bisogno di dire all'operatore quale dei due e' successo."""
-    nome = (allegato.name or '').lower()
-    formato = 'XLSX' if nome.endswith('.xlsx') else 'CSV'
-    try:
-        cf = cf_da_file(allegato)
-    except Exception as errore:                       # noqa: BLE001 (openpyxl e csv alzano di tutto)
-        return [], f"Il {formato} non e' leggibile: {errore}"
-    if cf is None:
-        return [], 'Il file non è un XLSX o CSV'
-    return cf, ''
 
 
 def registro_imprese_interroga(cf, bearer, parametri):

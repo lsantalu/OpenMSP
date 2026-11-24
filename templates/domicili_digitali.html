@@ -11,9 +11,9 @@
   <br />
   {% if user.is_authenticated %}
     {% if utente_abilitato %}
-      <div id="loadingOverlay">
-        <div class="spinner"></div>
-      </div>
+      {# il massivo lo comanda il navigatore: la carta dice quanti codici sono arrivati e quale #}
+      {% url 'domicili_massiva_riga' as riga_url %}
+      {% include '_overlay_avanzamento.html' with url_riga=riga_url %}
 
       <div class="col-8 shadow-lg white-bg p-4">
         <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
@@ -168,22 +168,22 @@
                           <tr class="table-success">
                             <td class="text-center">{{ forloop.counter }}</td>
                             <td>{{ ente.data.denominazione }}</td>
-                            <td class="text-center"><svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check">1</use></svg></td>
+                            <td class="text-center"><svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check"></use>1</svg></td>
                             <td>{{ ente.data.pec }}</td>
                           </tr>
                         {% else %}
                           <tr class="table-danger">
                             <td class="text-center">{{ forloop.counter }}</td>
                             <td>{{ res.cf }}</td>
-                            <td class="text-center"><svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big ">-1</use></svg></td>
+                            <td class="text-center"><svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big"></use>-1</svg></td>
                             <td>Domicilio digitale non trovato</td>
                           </tr>
                         {% endif %}
-                      {% elif ente.result.num_items > 1 %}
+                      {% elif ente.data %}   {# piu' di un risultato: `data` c'e', a zero non c'e' #}
                         <tr class="table-success">
                           <td class="text-center">{{ forloop.counter }}</td>
                           <td>{{ ente.data.0.denominazione }}</td>
-                          <td class="text-center"><svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check">1</use></svg></td>
+                          <td class="text-center"><svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check"></use>1</svg></td>
                           <td>
                             {% for dd_singolo in ente.data %}
                               {{ dd_singolo.pec }}<br />
@@ -194,7 +194,7 @@
                         <tr class="table-danger">
                           <td class="text-center">{{ forloop.counter }}</td>
                           <td>{{ res.cf }}</td>
-                          <td class="text-center"><svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big ">-1</use></svg></td>
+                          <td class="text-center"><svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big"></use>-1</svg></td>
                           <td>Domicilio digitale non trovato</td>
                         </tr>
                       {% endif %}
@@ -203,7 +203,7 @@
                     <tr class="table-danger">
                       <td class="text-center">{{ forloop.counter }}</td>
                       <td>{{ res.cf }}</td>
-                      <td class="text-center"><svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big ">-1</use></svg></td>
+                      <td class="text-center"><svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big"></use>-1</svg></td>
                       <td>{{ res.dato }}</td>
                     </tr>
                   {% endif %}
@@ -228,13 +228,7 @@
                     <td class="text-center">{{ forloop.counter }}</td>
                     <td>{{ res.cf }}</td>
                     <td class="text-center">
-                      {% if '@' in res.dato|default:'' %}
-                        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-check">1</use></svg>
-                      {% elif res.dato == 'Codice fiscale non corretto' %}
-                        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-warning-circle">2</use></svg>
-                      {% else %}
-                        <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#it-close-big ">-1</use></svg>
-                      {% endif %}
+                      <svg class="icon"><use href="{% static 'svg/sprites.svg' %}#{{ res.icona }}"></use>{{ res.esito }}</svg>
                     </td>
                     <td>{{ res.dato }}</td>
                   </tr>
@@ -359,12 +353,10 @@
             try {
               let jsonData = JSON.parse(validJsonString);
               let formattedJson = JSON.stringify(jsonData, null, 4);
-              const display = document.getElementById('json-display');
-              if (display) display.textContent = formattedJson;
+              mostraJson(formattedJson);
             } catch (e) {
               console.error("Errore nel parsing del JSON:", e);
-              const display = document.getElementById('json-display');
-              if (display) display.textContent = rawData;
+              mostraJson(rawData);
             }
           });
         </script>
@@ -439,7 +431,10 @@
       }
 
       form.addEventListener("submit", function() {
-        showOverlay();
+        // con il JavaScript il giro lo fa il filo condiviso (un POST per codice, la carta dice
+        // il codice in volo); senza, la vista gira tutto lei e il cerchio di sempre e' coerente.
+        if (window.AvanzamentoMassiva) AvanzamentoMassiva.invia(form);
+        else showOverlay();
       });
 
       // Helper to get selected tipo_domicilio value
@@ -563,9 +558,15 @@
           return;
         }
 
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(file);
-        fileInput.files = dataTransfer.files;
+        try {
+          // Il FileList dell'evento (o dell'input) va nell'<input> cosi' com'e': il costruttore
+          // DataTransfer non esiste su Firefox e l'eccezione si mangiava il riquadro del nome.
+          fileInput.files = files;
+        } catch (errore) {
+          alert("Il navigatore non accetta il file: usarlo dal pulsante di selezione.");
+          resetUpload();
+          return;
+        }
         showFilePreview(file);
       }
 
@@ -689,8 +690,11 @@
 
     document.addEventListener('DOMContentLoaded', function () {
       const printButton = document.getElementById('printButton');
+      if (!printButton) {
+        return;
+      }
       if (printButton) {
-        printButton.addEventListener('click', function () {
+        printButton?.addEventListener('click', function () {
           const user = '{{ user.username }}';
           const pageTitle = document.title;
           const currentDate = new Date();
@@ -745,5 +749,9 @@
       }
     });
   </script>
+
+  {# il filo comune delle massive: la carta dell'overlay la monta il partial incluso sopra #}
+  <script src="{% static 'js/avanzamento_massiva.js' %}"></script>
+  <script>window.AvanzamentoMassiva && AvanzamentoMassiva.riprendi();</script>
 
 {% endblock %}

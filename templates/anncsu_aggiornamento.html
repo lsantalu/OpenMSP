@@ -2,17 +2,19 @@
 {# Corpo condiviso dai tre e-service di aggiornamento: il contesto decide campi ed operazioni. #}
 {% load static %}
 
-<h3>ANNCSU &mdash; {{ servizio.etichetta }}</h3>
-<h4>Archivio Nazionale dei Numeri Civici delle Strade Urbane</h4>
-<br />
+{# Titolo h1 e sottotitolo h2 con classi di dimensione: il livello regge la struttura, la classe solo il corpo. #}
+<h1 class="h3">ANNCSU &mdash; {{ servizio.etichetta }}</h1>
+<h2 class="h6 text-uppercase fw-bold text-secondary mb-4">Archivio Nazionale dei Numeri Civici delle Strade Urbane</h2>
 
 {% if not utente_abilitato %}
-<div class="col-6 shadow-lg white-bg p-4">
-  <h4>Utente non abilitato</h4>
-  <p>L'utente non &egrave; abilitato all'utilizzo di questo servizio</p>
-  <p>Per maggiori informazioni contatti l'amministratore del portale</p>
-  <div class="p-3 text-end">
-    <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
+<div class="row">
+  <div class="col-12 col-xl-6 shadow-lg white-bg p-4">
+    <h2 class="h5 mb-3">Utente non abilitato</h2>
+    <p>L'utente non &egrave; abilitato all'utilizzo di questo servizio</p>
+    <p>Per maggiori informazioni contatti l'amministratore del portale</p>
+    <div class="p-3 text-end">
+      <a href="{% url 'home' %}" class="btn btn-danger" role="button">Torna indietro</a>
+    </div>
   </div>
 </div>
 {% else %}
@@ -21,24 +23,20 @@
   <div class="spinner"></div>
 </div>
 
-<div class="col-10 shadow-lg white-bg p-4">
-  <p class="pb-3">
-    Richiesta di aggiornamento dell&rsquo;{{ servizio.etichetta|lower }}. L&rsquo;erogatore processa
-    <b>un solo elemento per richiesta</b>: la pagina invia una chiamata per elemento e risponde con
-    i dati presenti in ANNCSU dopo l&rsquo;aggiornamento.</p>
-
+<div class="row">
+ <div class="col-12 col-xxl-10 shadow-lg white-bg p-4">
   {% for errore in errori %}
   <div class="alert alert-danger" role="alert">{{ errore }}</div>
   {% endfor %}
 
   {% if esito %}
   <div class="alert alert-{{ esito.positivo|yesno:'success,danger' }} mb-4" role="alert">
-    <b>{{ esito.titolo }}</b>
+    <strong class="alert-heading">{{ esito.titolo }}</strong>
     {% for messaggio in esito.messaggi %}<div>{{ messaggio }}</div>{% endfor %}
   </div>
   {% if esito.righe %}
-  <div class="table-wrapper">
-    <table>
+  <div class="table-responsive">
+    <table class="table align-middle table-hover">
       <thead>
         <tr>{% for colonna in esito.colonne %}<th scope="col">{{ colonna }}</th>{% endfor %}</tr>
       </thead>
@@ -53,9 +51,9 @@
   {% endif %}
 
   {% if report %}
-  <h5 class="mt-4">Esito elenco ({% if report %}{{ report|length }} righe{% endif %})</h5>
-  <div class="table-wrapper">
-    <table>
+  <h2 class="h5 mt-4">Esito elenco ({{ report|length }} righe)</h2>
+  <div class="table-responsive">
+    <table class="table align-middle table-hover">
       <thead>
         <tr><th scope="col">Riga</th><th scope="col">Operazione</th><th scope="col">Esito</th>
             <th scope="col">Messaggio</th></tr>
@@ -78,13 +76,14 @@
   {% include 'anncsu_cerca_accessi.html' %}
   {% endif %}
 
-  <p class="form-note">I campi segnati con <b>*</b> sono obbligatori per l&rsquo;invio.</p>
+  <p class="form-text">I campi segnati con <strong>*</strong> sono obbligatori per l&rsquo;invio.</p>
   <form class="needs-validation mt-4" id="anncsu_agg_form" method="post"
         enctype="multipart/form-data" data-comuni-json="{% static 'comuni.json' %}">
     {% csrf_token %}
     {% if operazioni %}
-    <div class="form-group mt-3 mb-4">
-      <label class="active d-block mb-2">Operazione</label>
+    {# fieldset+legend: il radiogruppo condivide un solo name, senza legend non ha nome accessibile. #}
+    <fieldset class="border-0 p-0 mt-3 mb-4">
+      <legend class="form-label h6">Operazione</legend>
       <div class="row">
         {% for valore, etichetta in operazioni %}
         <div class="col-4">
@@ -97,7 +96,7 @@
         </div>
         {% endfor %}
       </div>
-    </div>
+    </fieldset>
     {% else %}
     <input type="hidden" name="operazione" value="R" />
     {% endif %}
@@ -109,12 +108,12 @@
       <div class="form-group mb-3 anncsu-campo col-6"
            data-operazioni="{{ campo.operazioni }}" data-richiesti="{{ campo.richiesti }}"
            data-sempre="{{ campo.sempre }}">
-        <label for="{{ campo.id }}">{{ campo.etichetta }}
+        <label class="form-label" for="{{ campo.id }}">{{ campo.etichetta }}
           <span class="anncsu-obbl" {{ campo.stella }}> *</span></label>
         {% if campo.scelte %}
         {# Il tendina perche' i quattro valori del metodo non si indovinano: le diciture stanno #}
         {# nel codice (ANNCSU_METODI) e il codice e' quello che parte.                          #}
-        <select id="sl_{{ campo.nome }}" name="{{ campo.nome }}">
+        <select id="sl_{{ campo.nome }}" name="{{ campo.nome }}" class="form-select">
           <option value="">&mdash; scegli &mdash;</option>
           {% for opz in campo.opzioni %}
           <option value="{{ opz.valore }}" {{ opz.selezione }}>{{ opz.etichetta }}</option>
@@ -124,7 +123,7 @@
         <input class="form-control" id="in_{{ campo.nome }}" name="{{ campo.nome }}"
                type="text" value="{{ campo.valore }}" {{ campo.attri|safe }} />
         {% endif %}
-        <small class="form-note">{{ campo.hint }}</small>
+        <small class="form-text">{{ campo.hint }}</small>
       </div>
       {% endif %}
       {% endfor %}
@@ -132,8 +131,8 @@
 
     {% if conferma %}
     <div class="alert alert-warning" role="alert">
-      <b>Conferma l&rsquo;invio.</b> I valori qui sopra verranno scritti in ANNCSU: un
-      aggiornamento non &egrave; reversibile dal portale. Premi <i>Conferma e invia</i> per
+      <strong class="alert-heading">Conferma l&rsquo;invio.</strong> I valori qui sopra verranno scritti in
+      ANNCSU: un aggiornamento non &egrave; reversibile dal portale. Premi <b>Conferma e invia</b> per
       procedere, o cambia i valori e ricarica la pagina per annullare.
     </div>
     {% endif %}
@@ -153,7 +152,7 @@
   </form>
 
   <hr class="my-5" />
-  <h5>Aggiornamento multiplo</h5>
+  <h2 class="h5">Aggiornamento multiplo</h2>
   <p class="pb-3">
     Un file CSV (delimitato da <code>;</code>) o XLSX con l&rsquo;intestazione delle colonne: una
     riga equivale a una richiesta. Colonne ammesse:
@@ -163,7 +162,7 @@
   <form id="anncsu_elenco_form" method="post" enctype="multipart/form-data">
     {% csrf_token %}
     <div class="form-group mb-3">
-      <label for="in_allegato">Elenco da inviare</label>
+      <label class="form-label" for="in_allegato">Elenco da inviare</label>
       <input class="form-control" type="file" id="in_allegato" name="allegato"
              accept=".csv,.xlsx" required />
     </div>
@@ -177,6 +176,7 @@
       </button>
     </div>
   </form>
+ </div>
 </div>
 
 <script src="{% static 'js/comuni.js' %}"></script>

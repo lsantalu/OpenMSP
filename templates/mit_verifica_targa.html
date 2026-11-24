@@ -106,8 +106,8 @@ MIT - Verifica Targa Cude - OpenMSP - Multi Services Portal
         <div id="collapse" class="accordion-collapse collapse" data-bs-parent="#accordionExampleHa" role="region" aria-labelledby="heading">
           <div class="accordion-body">
             <div class="link-list-wrapper">
-              <pre id="json-display">{{ data.1|json_script:"full-json" }}</pre>
-              <div id="full-json-pretty"></div>
+              {{ data.1|json_script:"full-json" }}
+              <pre id="json-display"></pre>
             </div>
           </div>
         </div>
@@ -119,7 +119,7 @@ MIT - Verifica Targa Cude - OpenMSP - Multi Services Portal
       const fullJsonNode = document.getElementById('full-json');
       if (fullJsonNode) {
         const fullJson = JSON.parse(fullJsonNode.textContent);
-        document.getElementById('full-json-pretty').textContent = JSON.stringify(fullJson, null, 2);
+        mostraJson(fullJson.risultato ?? fullJson);
       }
     });
   </script>

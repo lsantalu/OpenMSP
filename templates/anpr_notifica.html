@@ -41,11 +41,10 @@ C001 - ANPR Servizio notifica - OpenMSP - Multi Services Portal
   <article class="it-card it-card-image it-card-height-full rounded shadow-lg border">
     <h5 class="it-card-title it-card-title-icon">Generalità di {{ data.0 }}</h5>
     {% if 'Codice fiscale non corretto' in data.1 or 'listaErrori' in data.1 %}
-    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;">
+    <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;"></div>
       {% else %}
-      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;">
+      <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;"></div>
         {% endif %}
-      </div>
       <div class="it-card-body">
         {% if 'Codice fiscale non corretto' in data.1 %}
         <p class="it-card-text">
@@ -103,12 +102,7 @@ C001 - ANPR Servizio notifica - OpenMSP - Multi Services Portal
             {% endif %}
 
             <br>
-            Soggetto AIRE: <b>
-              {% if "N" in soggetto.generalita.soggettoAIRE %}
-              No</b>
-              {% else%}
-              Si</b>
-              {% endif %}
+            Soggetto AIRE: <b>{% if "N" in soggetto.generalita.soggettoAIRE %}No{% else%}Si{% endif %}</b>
             </p>
             {% endwith %}
             {% endif %}
@@ -172,7 +166,7 @@ C001 - ANPR Servizio notifica - OpenMSP - Multi Services Portal
         <script>
 
           document.addEventListener('DOMContentLoaded', function () {
-            const errorMessage = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Attenzione</strong> Il campo "Codice Fiscale" è da controllare.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi avviso">'
+            const errorMessage = 'Il campo "Codice Fiscale" è da controllare'
             const errorWrapper = document.querySelector('#errorMsgContainer')
             const validate = new bootstrap.FormValidate('#anpr_generalita', {
               errorFieldCssClass: 'is-invalid',
@@ -206,15 +200,17 @@ C001 - ANPR Servizio notifica - OpenMSP - Multi Services Portal
               document.forms['anpr_generalita'].submit()
             })
             .onFail((fields) => {
-              errorWrapper.innerHTML = ''
-              errorWrapper.innerHTML = errorMessage
+              mostraErroreCf(errorWrapper, errorMessage)
             })
           })
 
           document.addEventListener('DOMContentLoaded', function () {
             const printButton = document.getElementById('printButton');
+      if (!printButton) {
+        return;
+      }
 
-            printButton.addEventListener('click', function () {
+            printButton?.addEventListener('click', function () {
               const user = '{{ user.username }}';
               const pageTitle = document.title;
               const currentDate = new Date();
@@ -265,10 +261,10 @@ C001 - ANPR Servizio notifica - OpenMSP - Multi Services Portal
           });
 
           // Ottieni il JSON passato dal contesto Django
-          const responseJson = {{ data|safe }};
+          const responseJson = {{ data|default:"null"|safe }};
 
           // Formatta e visualizza il JSON
-          document.getElementById('json-display').textContent = JSON.stringify(responseJson, null, 4);
+          mostraJson(responseJson);
 
 
         </script>

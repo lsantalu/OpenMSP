@@ -11,9 +11,9 @@
   <br />
   {% if user.is_authenticated %}
     {% if utente_abilitato %}
-      <div id="loadingOverlay">
-        <div class="spinner"></div>
-      </div>
+      {% url 'anpr_massiva_riga' as riga_url %}
+      {# la card dice il vero avanzamento: il cerchio e' rimasto solo sulla ricerca singola #}
+      {% include '_overlay_avanzamento.html' with url_riga=riga_url %}
 
       <div class="col-8 shadow-lg white-bg p-4">
         <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
@@ -130,26 +130,41 @@
         <br />
         <div class="col-12 shadow-lg white-bg p-5 mt-4">
           <h5>Esito dell'interrogazione massiva</h5>
+          {# Le cinque colonne sono le stesse per tutti e sette i casi d'uso: il dato specifico della risposta sta nella carta del pulsante Informazioni. #}
           <table id="dataTable" class="table align-middle table-hover table-primary">
             <thead class="text-center">
               <tr>
                 <th scope="col">#</th>
-                {% for colonna in colonne %}
-                  <th scope="col">{{ colonna }}</th>
-                {% endfor %}
+                <th scope="col">CF</th>
+                <th scope="col">Esito</th>
+                <th scope="col">Cognome</th>
+                <th scope="col">Nome</th>
+                <th scope="col">Data Nascita</th>
+                <th scope="col">Dettaglio</th>
               </tr>
             </thead>
             <tbody>
               {% for riga in righe %}
-                <tr class="{% if riga.1 == 'Trovato' %}table-success{% else %}table-danger{% endif %}">
+                <tr class="{{ riga.classe }}">
                   <td class="text-center">{{ forloop.counter }}</td>
-                  {% for cell in riga %}
-                    <td>{{ cell }}</td>
-                  {% endfor %}
+                  <td class="text-monospace">{{ riga.cf }}</td>
+                  <td>{{ riga.esito }}</td>
+                  <td>{{ riga.cognome }}</td>
+                  <td>{{ riga.nome }}</td>
+                  <td>{{ riga.nascita }}</td>
+                  <td class="text-center">
+                    <button type="button" class="btn btn-outline-primary btn-sm anpr-info" data-indice="{{ riga.indice }}" aria-haspopup="dialog" aria-controls="anprDettaglio">
+                      <svg class="icon icon-sm" aria-hidden="true">
+                        <use href="{% static 'svg/sprites.svg' %}#it-info-circle"></use>
+                      </svg> Informazioni
+                    </button>
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
+          {# Un JSON solo per tutto il massivo: fonte della carta e dell'export CSV, cosi' le colonne fuori dalla tabella non si perdono. #}
+          {{ dettagli|json_script:"anprDettagli" }}
         </div>
 
         <br />
@@ -164,6 +179,22 @@
               <use href="{% static 'svg/sprites.svg' %}#it-download"></use>
             </svg><span>Esporta Excel</span>
           </a>
+        </div>
+        <div class="modal fade" id="anprDettaglio" tabindex="-1" role="dialog" aria-labelledby="anprDettaglioTitolo" aria-hidden="true" data-bs-backdrop="false" style="pointer-events: none; background-color: rgba(0, 0, 0, 0.8);">
+          <div class="modal-dialog modal-dialog-centered" role="document" style="pointer-events: auto;">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="anprDettaglioTitolo">Informazioni</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+              </div>
+              <div class="modal-body">
+                <ul class="list-unstyled mb-0" id="anprDettaglioCorpo"></ul>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+              </div>
+            </div>
+          </div>
         </div>
       {% endif %}
 
@@ -626,7 +657,6 @@
 
     {% if 'Codice fiscale non corretto' in data.1 or 'listaErrori' in data.1 %}
     <div class="it-card-image-wrapper bg-danger p-3" style="--bs-bg-opacity: .75;"></div>
-
       {% else %}
       <div class="it-card-image-wrapper bg-success p-3" style="--bs-bg-opacity: .75;"></div>
         {% endif %}
@@ -804,19 +834,31 @@
     <div class="alert alert-warning" role="alert">Effettua l'accesso per utilizzare questa funzionalità</div>
   {% endif %}
 
+<script src="{% static 'js/avanzamento_massiva.js' %}"></script>
 <script>
+  function datiTabella() {
+    // Fonte unica: il JSON reso dalla vista insieme alla tabella (tutte le colonne di ANPR,
+    // anche quelle finite fuori dalla tabella). Si parsea una volta sola.
+    const nodo = document.getElementById('anprDettagli');
+    if (!nodo) return null;
+    if (window._anprDati === undefined) {
+      try { window._anprDati = JSON.parse(nodo.textContent); } catch (errore) { window._anprDati = null; }
+    }
+    return window._anprDati;
+  }
+
+  function cellaCSV(testo) {
+    let testoPulito = String(testo === undefined ? '' : testo).trim().replace(/\s+/g, ' ');
+    if (/[;"\n]/.test(testoPulito)) testoPulito = '"' + testoPulito.replace(/"/g, '""') + '"';
+    return testoPulito;
+  }
+
   function esportaTabellaCSV(nomeFile) {
-    const tabella = document.getElementById('dataTable');
-    if (!tabella) return;
-    const righeCSV = [];
-    tabella.querySelectorAll('tr').forEach((riga) => {
-      const celle = [];
-      riga.querySelectorAll('td, th').forEach((cella) => {
-        let testo = cella.textContent.trim().replace(/\s+/g, ' ').replace(/"/g, '""');
-        if (/[;"\n]/.test(testo)) testo = '"' + testo + '"';
-        celle.push(testo);
-      });
-      righeCSV.push(celle.join(';'));
+    const dati = datiTabella();
+    if (!dati) return;
+    const righeCSV = [dati.colonne.map(cellaCSV).join(';')];
+    dati.righe.forEach((riga) => {
+      righeCSV.push(dati.colonne.map((colonna) => cellaCSV(riga[colonna])).join(';'));
     });
     const blob = new Blob([righeCSV.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -828,8 +870,46 @@
     URL.revokeObjectURL(link.href);
   }
 
+  function mostraDettaglio(indice) {
+    // La carta del pulsante `Informazioni`: le stesse informazioni della card della ricerca
+    // singola, per il caso d'uso interrogato. Niente innerHTML: i nodi si costruiscono, il testo
+    // passa da createTextNode.
+    const dati = datiTabella();
+    const modal = document.getElementById('anprDettaglio');
+    const corpo = document.getElementById('anprDettaglioCorpo');
+    const carta = dati && dati.carte && dati.carte[indice];
+    if (!carta || !modal || !corpo) return;
+    if (!window.bootstrap) {
+      // Bootstrap Italia arriva da un CDN: senza egresso il modal non parte, e il portale lo dice.
+      alert('Il dettaglio chiede il JavaScript di Bootstrap Italia (CDN), che non e\' arrivato. Usa Esporta Excel.');
+      return;
+    }
+    document.getElementById('anprDettaglioTitolo').textContent =
+      'Informazioni su ' + (carta.cf || ('riga ' + (indice + 1)));
+    corpo.textContent = '';
+    (carta.voci || []).forEach((voce) => {
+      const riga = document.createElement('li');
+      if (voce.length === 1) {
+        // Una voce sola e' un titolo di blocco (Residenza): niente valore, va in testa al giro.
+        riga.className = 'mt-3 fw-bold';
+        riga.textContent = voce[0];
+      } else {
+        const etichetta = document.createElement('strong');
+        etichetta.textContent = voce[0] + ': ';
+        riga.appendChild(etichetta);
+        riga.appendChild(document.createTextNode(voce[1]));
+      }
+      corpo.appendChild(riga);
+    });
+    bootstrap.Modal.getOrCreateInstance(modal).show();
+  }
+
   document.getElementById('anpr_form').addEventListener('submit', function() {
-    document.getElementById('loadingOverlay').classList.add('show');
+    // Massiva: la card dell'avanzamento (un POST per codice). Singola: il cerchio, perche' una
+    // chiamata sola non ha un avanzamento da raccontare.
+    const massiva = document.getElementById('modalita_massiva').checked;
+    if (massiva && window.AvanzamentoMassiva) AvanzamentoMassiva.invia(this);
+    else document.getElementById('loadingOverlay').classList.add('show');
   });
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -865,6 +945,9 @@
       fileInput.value = '';
       fileName.textContent = '';
       filePreview.classList.add('d-none');
+      // base.html nasconde #filePreview per id: una classe non vince un id, e il solo toggle
+      // di d-none lasciava il riquadro rosso spento (stessa mossa dei domicili digitali).
+      filePreview.style.display = 'none';
       dropZone.classList.remove('d-none');
     }
 
@@ -900,6 +983,7 @@
     function mostraFile(file) {
       fileName.textContent = file.name;
       filePreview.classList.remove('d-none');
+      filePreview.style.display = 'block';
       dropZone.classList.add('d-none');
       aggiornaPulsante();
     }
@@ -918,9 +1002,16 @@
         aggiornaPulsante();
         return;
       }
-      const contenitore = new DataTransfer();
-      contenitore.items.add(file);
-      fileInput.files = contenitore.files;
+      // Il FileList dell'evento (o dell'input) va nell'<input> cosi' com'e': il costruttore
+      // DataTransfer non esiste su Firefox e l'eccezione si mangiava il riquadro del nome file.
+      try {
+        fileInput.files = files;
+      } catch (errore) {
+        alert('Il navigatore non accetta il file: usarlo dal pulsante "Seleziona file".');
+        azzeraCaricamento();
+        aggiornaPulsante();
+        return;
+      }
       mostraFile(file);
     }
 
@@ -948,6 +1039,18 @@
     [modalitaSingola, modalitaMassiva].forEach((radio) => radio.addEventListener('change', aggiornaSezioni));
     inputCF.addEventListener('input', aggiornaPulsante);
 
+    // Delega sul corpo tabella: un solo ascolatore per quanti pulsanti c'e' (anche cento).
+    // Un solo proprietario del modal: il pulsante NON ha `data-bs-toggle`, che per Bootstrap e'
+    // toggle() e, chiamato sopra al nostro show(), richiudeva la carta lasciando orfano il
+    // `.modal-backdrop` (oscuramento sopra di tutto, niente si preme piu' - misurato 22/11/2026).
+    // Con `data-bs-backdrop="false"` + `pointer-events:none` sul `.modal` non c'e' backdrop da
+    // orfanare, e mentre la carta e' aperta Bootstrap rende `inert` il resto della pagina: si
+    // schiude con la X, con "Chiudi" o con Esc (un ascolatore sul click fuori non girerebbe mai).
+    document.getElementById('dataTable') && document.getElementById('dataTable').addEventListener('click', function (evento) {
+      const pulsante = evento.target.closest('.anpr-info');
+      if (pulsante) mostraDettaglio(parseInt(pulsante.dataset.indice, 10) || 0);
+    });
+
     document.getElementById('exportCsvBtn') && document.getElementById('exportCsvBtn').addEventListener('click', function (evento) {
       evento.preventDefault();
       esportaTabellaCSV(this.dataset.filename || 'EsitoAnprMassivo.csv');
@@ -955,9 +1058,16 @@
 
     aggiornaSezioni();
 
+    // La pagina arriva col totale dopo il POST del file: il giro lo comando io, la tabella la
+    // rende il server a giro finito (?eseguito=1).
+    window.AvanzamentoMassiva && AvanzamentoMassiva.riprendi();
+
     const printButton = document.getElementById('printButton');
+      if (!printButton) {
+        return;
+      }
     if (printButton) {
-      printButton.addEventListener('click', function () {
+      printButton?.addEventListener('click', function () {
         const user = '{{ user.username }}';
         const pageTitle = document.title;
         const currentDate = new Date();
@@ -1007,11 +1117,8 @@
     }
 
     {% if data %}
-    const responseJson = {{ data|safe }};
-    const jsonDisplay = document.getElementById('json-display');
-    if (jsonDisplay) {
-        jsonDisplay.textContent = JSON.stringify(responseJson, null, 4);
-    }
+    const responseJson = {{ data|default:"null"|safe }};
+    mostraJson(responseJson);
     {% endif %}
   });
 </script>

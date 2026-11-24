@@ -191,12 +191,14 @@ Indice PA - OpenMSP - Multi Services Portal
     // Invia il modulo solo se tutto è valido
     document.forms['ipa_singolo'].submit()
     })
-     // Rimuovi la classe 'is-valid' sui campi che hanno fallito la validazione
-    fields.forEach(field => {
-      const input = document.querySelector(`#${field.id}`)
-      if (input) {
-        input.classList.remove('is-valid')
-      }
+     .onFail((fields) => {
+      // Rimuovi la classe 'is-valid' sui campi che hanno fallito la validazione
+      fields.forEach(field => {
+        const input = document.querySelector(`#${field.id}`)
+        if (input) {
+          input.classList.remove('is-valid')
+        }
+      })
     })
   })
 
@@ -249,7 +251,7 @@ Indice PA - OpenMSP - Multi Services Portal
   document.addEventListener('DOMContentLoaded', function () {
     const printButton = document.getElementById('printButton')
 
-    printButton.addEventListener('click', function () {
+    printButton?.addEventListener('click', function () {
       // Recupera le informazioni dell'utente e la data/ora
       const user = '{{ user.username }}' // Django inserisce il nome dell'utente autenticato
       const pageTitle = document.title
@@ -307,11 +309,11 @@ Indice PA - OpenMSP - Multi Services Portal
   })
 
   document.addEventListener('DOMContentLoaded', function () {
-    let rawData = `{{ data|safe }}`.trim()
+    let rawData = `{{ data|default:"null"|safe }}`.trim()
     let validJsonString = rawData.replace(/'/g, '"')
     let jsonData = JSON.parse(validJsonString)
     let formattedJson = JSON.stringify(jsonData, null, 4)
-    document.getElementById('json-display').textContent = formattedJson
+    mostraJson(formattedJson)
   })
 </script>
 {% endblock %}

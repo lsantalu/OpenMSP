@@ -25,3 +25,5 @@ __pycache__/*
 tilecache/
 impostazioni/tests.py
 OpenMSP/tests.py
+test/*
+.playwright-mcp/*

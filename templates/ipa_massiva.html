@@ -14,10 +14,9 @@ Indice PA Multipla - OpenMSP - Multi Services Portal
 {% if user.is_authenticated %}
 {% if utente_abilitato %}
 
-<!-- LOADING OVERLAY -->
-<div id="loadingOverlay">
-  <div class="spinner"></div>
-</div>
+{% url 'ipa_massiva_riga' as riga_url %}
+{# la card dice il vero avanzamento, il cerchio non diceva niente #}
+{% include '_overlay_avanzamento.html' with url_riga=riga_url %}
 
 
 <div class="col-8 shadow-lg white-bg p-4">
@@ -114,7 +113,7 @@ Indice PA Multipla - OpenMSP - Multi Services Portal
         <td>{{ ente.data.denominazione }}</td>
         <td class="text-center">
           <svg class="icon">
-            <use href="{% static 'svg/sprites.svg' %}#it-check">1</use>
+            <use href="{% static 'svg/sprites.svg' %}#it-check"></use>1
           </svg>
         </td>
         <td>{{ ente.data.pec }}</td>
@@ -125,19 +124,19 @@ Indice PA Multipla - OpenMSP - Multi Services Portal
         <td>{{ ente }}</td>
         <td class="text-center">
           <svg class="icon">
-            <use href="{% static 'svg/sprites.svg' %}#it-close-big ">-1</use>
+            <use href="{% static 'svg/sprites.svg' %}#it-close-big"></use>-1
           </svg>
         </td>
         <td>Domicilio digitale non trovato</td>
       </tr>
       {% endif %}
-      {% elif ente.result.num_items > 1 %}
+      {% elif ente.result.num_items != 0 %}
       <tr class="table-success">
         <td class="text-center">{{ forloop.counter }}</td>
         <td>{{ ente.data.0.denominazione }}</td>
         <td class="text-center">
           <svg class="icon">
-            <use href="{% static 'svg/sprites.svg' %}#it-check">1</use>
+            <use href="{% static 'svg/sprites.svg' %}#it-check"></use>1
           </svg>
         </td>
         <td>
@@ -152,7 +151,7 @@ Indice PA Multipla - OpenMSP - Multi Services Portal
         <td>{{ ente }}</td>
         <td class="text-center">
           <svg class="icon">
-            <use href="{% static 'svg/sprites.svg' %}#it-close-big ">-1</use>
+            <use href="{% static 'svg/sprites.svg' %}#it-close-big"></use>-1
           </svg>
         </td>
         <td>Domicilio digitale non trovato</td>
@@ -188,13 +187,11 @@ Indice PA Multipla - OpenMSP - Multi Services Portal
     <a href="{% url 'home' %}" class="btn btn-danger">Torna indietro</a>
   </div>
 </div>
-</div>
 {% endif %}
 
 {% if error %}
 <p>{{ error }}</p>
 {% endif %}
-</div>
 {% else %}
 <h4>Utente non loggato</h4>
 <p>Per poter effettuare le consultazioni alle banche dati, devi loggarti al portale</p>
@@ -205,20 +202,14 @@ Indice PA Multipla - OpenMSP - Multi Services Portal
 </a>
 {% endif %}
 
+<script src="{% static 'js/avanzamento_massiva.js' %}"></script>
+
 <script>
 
-  // Funzione per mostrare l'overlay
-  function showOverlay() {
-    document.getElementById('loadingOverlay').classList.add('show');
-  }
-
-  // Funzione per nascondere l'overlay
-  function hideOverlay() {
-    document.getElementById('loadingOverlay').classList.remove('show');
-  }
-
+  // Submit nativo, non fetch + innerHTML: il body sostituito con l'HTML del server e' un
+  // buco di XSS. Il campo `js` dice alla vista che il giro dei codici lo faccio io.
   document.querySelector('form').addEventListener('submit', function() {
-    showOverlay(); // Mostra l'overlay
+    window.AvanzamentoMassiva && AvanzamentoMassiva.invia(this); // Mostra la card, non il cerchio
   });
 
 
@@ -272,16 +263,9 @@ Indice PA Multipla - OpenMSP - Multi Services Portal
 
 
 
-  function hideOverlaySpinner() {
-    hideOverlay(); // Nasconde l'overlay
-    document.getElementById('dataTable').parentNode.style.display = 'block'; // Mostra la tabella dati
-  }
-
-  // Chiamata a questa funzione quando la tabella dati è pronta
-  {% if data %}
-  hideOverlaySpinner();
-  {% endif %}
-
+  // La pagina arriva col totale dopo il POST del file: il giro lo comando io, la tabella la
+  // rende il server a giro finito (?eseguito=1).
+  window.AvanzamentoMassiva && AvanzamentoMassiva.riprendi();
 
 </script>
 
@@ -289,8 +273,9 @@ Indice PA Multipla - OpenMSP - Multi Services Portal
 
 <script>
 
-  (function() {
+(function() {
     const uploadSection = document.getElementById('uploadSection');
+    const form = document.querySelector('form');
     const fileInput = document.getElementById('fileInput');
     const dropZone = document.getElementById('dropZone');
     const filePreview = document.getElementById('filePreview');
@@ -302,9 +287,11 @@ Indice PA Multipla - OpenMSP - Multi Services Portal
     // Formati consentiti
     const allowedExtensions = [".csv", ".xlsx"];
 
-    document.getElementById('executeSearchBtn').addEventListener('click', function() {
-      showOverlay(); // Mostra l'overlay
-      document.getElementById('dataTable').parentNode.style.display = 'none'; // Nasconde la tabella
+    // Il pulsante non chiama l'erogatore: mette il campo `js` nel form e lo lascia partire.
+    executeBtn.addEventListener('click', () => {
+      if (!currentFile) return;
+      window.AvanzamentoMassiva && AvanzamentoMassiva.invia(form);
+      form.submit();
     });
 
     // Gestione eventi drag & drop
@@ -346,6 +333,15 @@ Indice PA Multipla - OpenMSP - Multi Services Portal
       if (files.length > 0) {
         const file = files[0];
         if (isValidFile(file)) {
+          try {
+            // Il submit e' nativo: il file deve stare nell'<input name="cf_csv">, tenerlo
+            // solo in una variabile JS vuol dire spedire un form senza file.
+            fileInput.files = files;
+          } catch (errore) {
+            alert("Il navigatore non accetta il file: usarlo dal pulsante di selezione.");
+            resetUpload();
+            return;
+          }
           currentFile = file;
           showFilePreview(currentFile);
         } else {
@@ -377,26 +373,6 @@ Indice PA Multipla - OpenMSP - Multi Services Portal
       fileInput.value = '';
     }
 
-    // Invio AJAX al backend
-    executeBtn.addEventListener('click', () => {
-      if (!currentFile) return;
-
-      const formData = new FormData();
-      formData.append('cf_csv', currentFile);
-
-      fetch("", {
-        method: "POST",
-        body: formData,
-        headers: {
-          "X-CSRFToken": "{{ csrf_token }}"
-        }
-      })
-      .then(response => response.text())
-      .then(html => {
-        document.body.innerHTML = html; // aggiorna con risultati
-      })
-      .catch(err => console.error("Errore:", err));
-    });
   })();
 
 

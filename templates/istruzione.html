@@ -263,6 +263,8 @@ ANIS e ANIST - OpenMSP - Multi Services Portal
       function mostraAllegato(file) {
         fileName.textContent = file.name;
         filePreview.classList.remove("d-none");
+        // base.html nasconde #filePreview per id: una classe non vince un id (come i domicili).
+        filePreview.style.display = "block";
         dropZone.classList.add("d-none");
         aggiornaBottone();
       }
@@ -271,6 +273,7 @@ ANIS e ANIST - OpenMSP - Multi Services Portal
         fileInput.value = "";
         fileName.textContent = "";
         filePreview.classList.add("d-none");
+        filePreview.style.display = "none";
         dropZone.classList.remove("d-none");
         aggiornaBottone();
       }
@@ -287,9 +290,15 @@ ANIS e ANIST - OpenMSP - Multi Services Portal
           azzeraAllegato();
           return;
         }
-        const trasferimento = new DataTransfer();
-        trasferimento.items.add(file);
-        fileInput.files = trasferimento.files;
+        try {
+          // Il FileList dell'evento (o dell'input) va nell'<input> cosi' com'e': il costruttore
+          // DataTransfer non esiste su Firefox e l'eccezione si mangiava il riquadro del nome.
+          fileInput.files = files;
+        } catch (errore) {
+          alert("Il navigatore non accetta il file: usarlo dal pulsante di selezione.");
+          azzeraAllegato();
+          return;
+        }
         mostraAllegato(file);
       }
 

@@ -1,0 +1,28 @@
+<!-- templates/_overlay_avanzamento.html
+     La card al posto del cerchio che gira: il markup e' quello di
+     `registro_imprese_massivo.html` (stessi id, stessi stili di `#loadingOverlay` in
+     `base.html`), perche' la card e' una sola e le pagine che la montano sono quattro.
+     Chi include le passa l'URL del proprio endpoint per riga: prima il tag `url` con `as
+     riga_url`, poi l'include con `with url_riga`. Un commento HTML non protegge i tag: la
+     pagina li renderebbe davvero, e questo file si includerebbe da solo all'infinito. -->
+<div id="loadingOverlay">
+  <div class="col-4 p-0">
+    <div class="card shadow-lg">
+    <div class="card-body p-3">
+      <h6 class="card-title mb-2">Estrazione in corso</h6>
+      <p class="h4 text-center mb-2">
+        <span id="kvFatti">0</span>
+        <small class="fs-6 text-secondary">di <span id="kvTotale">0</span></small>
+      </p>
+      <div class="progress mb-2" id="kvBarraScato" role="progressbar" aria-label="Avanzamento estrazione"
+           aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="progress-bar progress-bar-striped" id="kvBarra" style="width:0%"></div>
+      </div>
+      <p class="small mb-0 text-secondary" id="kvUltimo">in attesa della prima richiesta</p>
+    </div>
+    </div>
+  </div>
+</div>
+
+{# il totale arriva dalla vista dopo il POST del file; a zero la pagina e' quella di sempre #}
+<div id="avanzamento" class="d-none" data-totale="{{ totale|default:0 }}" data-url="{{ url_riga }}"></div>

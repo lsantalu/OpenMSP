@@ -14,6 +14,7 @@ from .views import CustomPasswordResetView
 
 from .ipa import ipa_singola
 from .ipa import ipa_massiva
+from .ipa import ipa_massiva_riga
 from .ipa import ipa_export_excel
 from .ipa import impostazioni_ipa
 
@@ -32,6 +33,7 @@ from .anncsu import impostazioni_anncsu
 
 from .inad import inad_singola
 from .inad import inad_massiva
+from .inad import inad_massiva_riga
 from .inad import inad_export_excel
 from .inad import impostazioni_inad
 
@@ -63,6 +65,7 @@ from .verifica_cf import verifica_cf_aziende_export_excel
 
 from .registro_imprese import inipec_singola
 from .registro_imprese import inipec_massiva
+from .registro_imprese import inipec_massiva_riga
 from .registro_imprese import inipec_export_excel
 from .registro_imprese import impostazioni_registro_imprese
 from .registro_imprese import registro_imprese
@@ -73,6 +76,7 @@ from .registro_imprese import registro_imprese_massivo_riga
 
 from .anpr import anpr_notifica
 from .anpr import anpr_export_excel
+from .anpr import anpr_massiva_riga
 from .anpr import anpr_esistenza_in_vita
 from .anpr import anpr_generalita
 from .anpr import anpr_matrimonio
@@ -153,14 +157,17 @@ urlpatterns = [
 
     path("ipa_singola/", ipa_singola, name="ipa_singola"),
     path("ipa_massiva/", ipa_massiva, name="ipa_massiva"),
+    path("ipa_massiva/riga/", ipa_massiva_riga, name="ipa_massiva_riga"),
     path('ipa_export_excel/', ipa_export_excel, name='ipa_export_excel'),
 
     path("inad_singola/", inad_singola, name="inad_singola"),
     path("inad_massiva/", inad_massiva, name="inad_massiva"),
+    path("inad_massiva/riga/", inad_massiva_riga, name="inad_massiva_riga"),
     path('inad_export_excel/', inad_export_excel, name='inad_export_excel'),
 
     path("inipec_singola/", inipec_singola, name="inipec_singola"),
     path("inipec_massiva/", inipec_massiva, name="inipec_massiva"),
+    path("inipec_massiva/riga/", inipec_massiva_riga, name="inipec_massiva_riga"),
     path('inipec_export_excel/', inipec_export_excel, name='inipec_export_excel'),
 
     path("verifica_cf/", verifica_cf_massivo, name="verifica_cf"),
@@ -277,7 +284,9 @@ urlpatterns = [
     path('impostazioni_logs/', impostazioni_logs, name='impostazioni_logs'),
     path('debug_openmsp/', views.debug_openmsp, name='debug_openmsp'),
     path('domicili_digitali/', views.domicili_digitali_view, name='domicili_digitali'),
+    path('domicili_digitali/riga/', views.domicili_massiva_riga, name='domicili_massiva_riga'),
     path('anpr/', views.anpr, name='anpr'),
+    path('anpr/riga/', anpr_massiva_riga, name='anpr_massiva_riga'),
 ]
 
 if settings.AUTH_2FA:

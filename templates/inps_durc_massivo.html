@@ -324,7 +324,7 @@ INPS verifica DURC - OpenMSP - Multi Services Portal
         })
         .then(response => response.text())
         .then(html => {
-          document.body.innerHTML = html;
+          sostituisciCorpo(html);
           // Re-initialize scripts after HTML replacement
           // By calling the IIFE again or reloading (here we replaced the whole body which includes script)
           // Actually replacing document.body.innerHTML is risky for scripts.

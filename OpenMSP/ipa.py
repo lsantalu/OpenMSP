@@ -1,22 +1,22 @@
 # pyright: reportAttributeAccessIssue=false
 # (Django 6 non pubblica py.typed: per pyright .objects e ._meta non esistono)
-from django.shortcuts import render
-from impostazioni.models import IpaParametri
-from impostazioni.models import UtentiParametri
-
-from .utils import salva_log
-from .utils import converti_data
-from .verifica_cf import verifica_cf_azienda
-import requests
-import json
 import io
-import csv
-import openpyxl
+
+import requests
+from django.http import HttpResponse
+from django.shortcuts import render
 from openpyxl import Workbook
-from openpyxl.styles import PatternFill, Alignment
+from openpyxl.styles import Alignment, PatternFill
 from openpyxl.utils import get_column_letter
 
-from django.http import HttpResponse
+from impostazioni.models import IpaParametri, UtentiParametri
+
+from . import avanzamento
+from .avanzamento import RIGHE_SESSIONE, codici_da_file
+from .utils import json_da_response, salva_log
+from .verifica_cf import verifica_cf_azienda
+
+URL_RICERCA_ENTI = "https://www.indicepa.gov.it:443/ws/WS16DESAMMServices/api/WS16_DES_AMM"
 
 
 def ipa_export_excel(request):
@@ -135,7 +135,7 @@ def ipa_singola(request):
             descrizione = request.POST.get('input_descrizione_ente')
             cf = request.POST.get('input_CF')
             codice_ipa = request.POST.get('input_codice_ente')
-            if (descrizione != None): ##inserisco descrizione (anche più di una)
+            if (descrizione is not None): ##inserisco descrizione (anche più di una)
                 testo_log = descrizione
                 url = "https://www.indicepa.gov.it:443/ws/WS16DESAMMServices/api/WS16_DES_AMM"
                 payload = {
@@ -145,13 +145,12 @@ def ipa_singola(request):
                 headers = {
                     'Content-Type': 'application/x-www-form-urlencoded'
                     }
-                response = requests.post(url, data=payload, headers=headers)
+                response = requests.post(url, data=payload, headers=headers, timeout=30)
                 if response.status_code == 200:
-                    content_str = response.content.decode('utf-8')
-                    temp_data = json.loads(content_str)
-                    occorrenze = temp_data['result']['num_items']
+                    temp_data = json_da_response(response)
+                    occorrenze = temp_data.get('result', {}).get('num_items', 0)
                     if occorrenze:
-                        for indice in range(0 , occorrenze):
+                        for indice in range(occorrenze):
                             codice_ipa = temp_data['data'][indice]['cod_amm']
                             response = ipa_codice(auth_id, codice_ipa)
                             if response.status_code == 200:
@@ -165,7 +164,7 @@ def ipa_singola(request):
                         data.append(risultato)
 
 
-            elif (cf != None): ##inserisco CF
+            elif (cf is not None): ##inserisco CF
                 testo_log = cf
                 verifica_cf_ipa = verifica_cf_azienda(cf)
                 if verifica_cf_ipa == 1:
@@ -177,11 +176,12 @@ def ipa_singola(request):
                     headers = {
                         'Content-Type': 'application/x-www-form-urlencoded'
                         }
-                    response = requests.post(url, data=payload, headers=headers)
+                    response = requests.post(url, data=payload, headers=headers, timeout=30)
                     if response.status_code == 200:
-                        content_str = response.content.decode('utf-8')
-                        temp_data = json.loads(content_str)
-                        codice_ipa = temp_data['data'][0]['cod_amm']
+                        temp_data = json_da_response(response)
+                        # corpo vuoto o 200 non JSON: lo stesso "non trovato" del ramo descrizione
+                        dati = temp_data.get('data') or [{}]
+                        codice_ipa = dati[0].get('cod_amm', '999999')
                         response = ipa_codice(auth_id, codice_ipa)
                         if response.status_code == 200:
                             risultato = response.json()
@@ -206,91 +206,91 @@ def ipa_singola(request):
     return render(request, 'ipa_singola.html', { 'utente_abilitato': utente_abilitato })
 
 
-def ipa_massiva(request):
-    if request.user.id:
-        utente_sessione = UtentiParametri.objects.get(id=request.user.id)
-        utente_abilitato = utente_sessione.ipa_massivo
-        ipa_parametri = IpaParametri.objects.get(id=1)
-        auth_id = ipa_parametri.auth_id
-        codice_ipa = ""
-        if request.method == 'POST':
-            csv_file = request.FILES['cf_csv']
-            data = []
-            contatore = 0
-            url = "https://www.indicepa.gov.it:443/ws/WS16DESAMMServices/api/WS16_DES_AMM"
-            headers = {
-                'Content-Type': 'application/x-www-form-urlencoded'
-                }
-            if csv_file.name.endswith('.csv'):
-                csv_file_text = io.TextIOWrapper(csv_file.file, encoding='utf-8')
-                csv_reader = csv.reader(csv_file_text)
+def _riga_ipa(request, ente, stato=None):
+    """Una riga dell'IPA massiva: `(righe, ultimo, errore)`, e `righe` puo' essere lunga pi' di uno.
 
-                for row in csv_reader:
-                    if row[0]:  # Se row[0] non è vuoto o None
-                        payload = {
-                            "AUTH_ID": auth_id,
-                            "DESCR": row[0].strip().upper()
-                            }
-                        response = requests.post(url, data=payload, headers=headers)
-                        if response.status_code == 200:
-                            content_str = response.content.decode('utf-8')
-                            temp_data = json.loads(content_str)
-                            occorrenze = temp_data['result']['num_items']
-                            if (occorrenze == 0):
-                                data.append(row[0].strip().upper())
-                            for indice in range(0 , occorrenze):
-                                codice_ipa = temp_data['data'][indice]['cod_amm']
-                                response = ipa_codice(auth_id, codice_ipa)
-                                if response.status_code == 200:
-                                    risultato = response.json()
-                                else:
-                                    risultato = {"error": f"Request failed with status code {response.status_code}"}
-                                data.append(risultato)
-                        else:
-                            data.append(row[0].strip().upper())
-                        contatore += 1
-                salva_log(request.user,"Verifica Ipa massivo", "Verificati n. " + str(contatore) + " CF")
-                request.session["multi_data"] = data  # <--- Salva i dati nella sessione
-                return render(request, 'ipa_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
-            elif csv_file.name.endswith('.xlsx') or csv_file.name.endswith('.XLSX') or csv_file.name.endswith('.Xlsx'):
-                wb = openpyxl.load_workbook(csv_file)
-                sheet = wb.active
-                if sheet is None:
-                    return HttpResponse("Foglio vuoto nel file XLSX", status=400)
-                for row in sheet.iter_rows(min_row=1, values_only=True):
-                    if row[0]:
-                        row = list(row)
-                        payload = {
-                            "AUTH_ID": auth_id,
-                            "DESCR": row[0].strip().upper()
-                            }
-                        response = requests.post(url, data=payload, headers=headers)
-                        if response.status_code == 200:
-                            content_str = response.content.decode('utf-8')
-                            temp_data = json.loads(content_str)
-                            occorrenze = temp_data['result']['num_items']
-                            if (occorrenze == 0):
-                                data.append(row[0].strip().upper())
-                            for indice in range(0 , occorrenze):
-                                codice_ipa = temp_data['data'][indice]['cod_amm']
-                                response = ipa_codice(auth_id, codice_ipa)
-                                if response.status_code == 200:
-                                    risultato = response.json()
-                                else:
-                                    risultato = {"error": f"Request failed with status code {response.status_code}"}
-                                data.append(risultato)
-                        else:
-                            data.append(row[0].strip().upper())
-                        contatore += 1
-                salva_log(request.user,"Verifica Ipa massivo", "Verificati n. " + str(contatore) + " CF")
-                request.session["multi_data"] = data  # <--- Salva i dati nella sessione
-                return render(request, 'ipa_massiva.html', {'data': data, 'utente_abilitato': utente_abilitato })
-            else:
-                salva_log(request.user,"Verifica Ipa massivo", "Errore caricamento file CSV")
-                return render(request, 'ipa_massiva.html', {'error': 'Il file non è un CSV', 'utente_abilitato': utente_abilitato })
+    Un nome di ente porta una o pi' amministrazioni, e ognuna finisce in lista col proprio
+    dizionale di WS20_PEC: e' la forma che il template e `ipa_export_excel` si aspettano. Il
+    contatore della card conta i nomi del file, non le amministrazioni trovate.
+    `ultimo` porta il nome dell'ente (dato pubblico di Indice PA), non un dato di una persona.
+    Ogni interrogazione lascia la sua riga in `logs` (invariante 2): il giro vecchio ne
+    scriveva una sola in fondo al file.
+    """
+    auth_id = IpaParametri.objects.get(id=1).auth_id
+    intestazioni = {'Content-Type': 'application/x-www-form-urlencoded'}
+    risposta = requests.post(URL_RICERCA_ENTI, data={'AUTH_ID': auth_id, 'DESCR': ente},
+                            headers=intestazioni, timeout=30)
+    salva_log(request.user, "Verifica Ipa massivo", "Cercato ente " + ente,
+              resp_status=risposta.status_code)
+    if risposta.status_code != 200:
+        return [ente], ente, f'HTTP {risposta.status_code}'
+    dati = json_da_response(risposta)
+    if not (dati.get('result') or {}).get('num_items', 0):
+        return [ente], ente, 'Ente non trovato'
+    righe = []
+    for amministrazione in (dati.get('data') or []):
+        pec = ipa_codice(auth_id, amministrazione['cod_amm'])
+        salva_log(request.user, "Verifica Ipa massivo",
+                  "Domicilio di " + amministrazione['cod_amm'], resp_status=pec.status_code)
+        righe.append(json_da_response(pec) if pec.status_code == 200
+                     else {"error": f"Request failed with status code {pec.status_code}"})
+    return righe, ente, ''
+
+
+def _fine_ipa(request, fatte):
+    salva_log(request.user, "Verifica Ipa massivo", f"Fine caricamento file: codici n. {fatte}")
+
+
+def ipa_massiva(request):
+    """IPA massiva: CSV/XLSX in colonna (A), i nomi degli enti, un domicilio per ente.
+
+    Il giro dei codici lo comanda il navigatore (`ipa_massiva_riga`), cosi' la card
+    dell'overlay dice il vero avanzamento; senza JavaScript `esegui_tutto` fa un giro solo
+    con lo stesso worker. In `multi_data` finiscono stringhe (ente non trovato) e dizionali
+    di WS20_PEC, come ci sono sempre finite: l'export Excel rilegge quelli.
+    """
+    contesto = {'utente_abilitato': False}
+    if not request.user.id:
+        return render(request, 'ipa_massiva.html', contesto)
+    contesto['utente_abilitato'] = bool(UtentiParametri.objects.get(id=request.user.id).ipa_massivo)
+
+    if request.method != 'POST':
+        if request.GET.get('eseguito'):
+            # il navigatore torna qui quando ha finito i giri: la tabella la rende il server
+            contesto['data'] = request.session.get(RIGHE_SESSIONE, [])
+        return render(request, 'ipa_massiva.html', contesto)
+
+    # Invariante 1: il gate va riverificato nel POST, un segnalibro non basta
+    if not contesto['utente_abilitato']:
+        contesto['error'] = "L'utente non è abilitato all'utilizzo di questo servizio"
+        return render(request, 'ipa_massiva.html', contesto)
+
+    if 'cf_csv' not in request.FILES:
+        contesto['error'] = ("Il file non è arrivato: riselezionarlo o trascinarlo di nuovo "
+                             "nella zona di caricamento.")
+        return render(request, 'ipa_massiva.html', contesto)
+
+    codici, errore = codici_da_file(request.FILES['cf_csv'])
+    if errore:
+        salva_log(request.user, "Verifica Ipa massivo", errore)
+        contesto['error'] = errore
+        return render(request, 'ipa_massiva.html', contesto)
+    if not codici:
+        contesto['error'] = 'Nessun codice nel file: la colonna (A) deve contenere i nomi degli enti.'
+        return render(request, 'ipa_massiva.html', contesto)
+
+    if request.POST.get('js'):
+        avanzamento.avvia(request, codici)
+        contesto['totale'] = len(codici)
     else:
-        utente_abilitato = False
-    return render(request, 'ipa_massiva.html', { 'utente_abilitato': utente_abilitato })
+        # senza JavaScript: un giro solo
+        contesto['data'] = avanzamento.esegui_tutto(request, codici, _riga_ipa, _fine_ipa)
+    return render(request, 'ipa_massiva.html', contesto)
+
+
+def ipa_massiva_riga(request):
+    """Una riga dell'IPA massiva in corso: il POST porta l'indice, la lista sta in sessione."""
+    return avanzamento.risposta_riga(request, 'ipa_massivo', _riga_ipa, _fine_ipa)
 
 
 def ipa_codice(auth_id, codice_ipa):
@@ -302,7 +302,7 @@ def ipa_codice(auth_id, codice_ipa):
     headers = {
         'Content-Type': 'application/x-www-form-urlencoded'
         }
-    return requests.post(url, data=payload, headers=headers)
+    return requests.post(url, data=payload, headers=headers, timeout=30)
 
 
 def impostazioni_ipa(request):

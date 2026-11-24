@@ -17,7 +17,6 @@ Registro Imprese ricerca massiva - OpenMSP - Multi Services Portal
 
 <!-- LOADING OVERLAY: la card dice il vero avanzamento, il cerchio non diceva niente -->
 <div id="loadingOverlay">
-  {# colonna come elemento a parte: .card dichiara width:100% e la cascata la vince #}
   <div class="col-4 p-0">
     <div class="card shadow-lg">
     <div class="card-body p-3">
@@ -43,7 +42,7 @@ Registro Imprese ricerca massiva - OpenMSP - Multi Services Portal
 <div class="col-8 shadow-lg white-bg p-4">
   <div class="row border border-secondary rounded p-3 m-3 pt-4 shadow-lg">
 
-    <div class="alert alert-info fs-5" role="alert">Il servizio accetta solo file formato <b>Excel (xlsx)</b> e <b>Libreoffice CSV</b> (separatore <b>;</b>), una estrazione alla volta.</div>
+    <div class="alert alert-info fs-5" role="alert">Il servizio accetta solo file formato <b>Excel (xlsx)</b> e <b>Libreoffice CSV</b></div>
     <div class="row">
       <!-- Campi Obbligatori -->
       <div class="col-12">
@@ -64,10 +63,6 @@ Registro Imprese ricerca massiva - OpenMSP - Multi Services Portal
       <p class="text-muted">
         <svg class="icon icon-sm me-1"><use href="{% static 'svg/sprites.svg' %}#it-info-circle"></use></svg>
         Le informazioni presenti nel file dalla colonna (B) in poi verranno automaticamente scartate.
-      </p>
-      <p class="text-muted">
-        <svg class="icon icon-sm me-1"><use href="{% static 'svg/sprites.svg' %}#it-info-circle"></use></svg>
-        Ogni riga mantiene il JSON della risposta ricevuta: lo si scarica dal pulsante nella colonna Azioni, o tutti insieme dal pulsante sotto la tabella.
       </p>
     </div>
     <br />
@@ -125,7 +120,7 @@ Registro Imprese ricerca massiva - OpenMSP - Multi Services Portal
         <th scope="col">Denominazione</th>
         <th scope="col">Numero REA</th>
         <th scope="col">Esito</th>
-        <th scope="col">Azioni</th>
+        <th scope="col">Scarico</th>
       </tr>
     </thead>
     <tbody>
@@ -137,7 +132,9 @@ Registro Imprese ricerca massiva - OpenMSP - Multi Services Portal
         <td class="text-center">{{ item.rea|default:"-" }}</td>
         <td class="text-center">
           {% if item.esito == 'OK' %}
-          <span class="badge bg-success">OK</span>
+          <svg class="icon icon-success" role="img" aria-label="Esito positivo">
+            <use href="{% static 'svg/sprites.svg' %}#it-check"></use>
+          </svg>
           {% elif item.errore %}
           <small class="text-danger">{{ item.errore }}</small>
           {% else %}

@@ -3,8 +3,9 @@
 set -euo pipefail
 
 # Upgrade schema/dati OpenMSP DB fino alla 1.5.0: audience e target di anncsu_parametri passano
-# da .../anncsu-consultazione/v1 a .../anncsu-consultazione-comune/v1, e le tre righe degli
-# e-service di scrittura (accessi, coordinate, odonimi) vengono create e precompilate.
+# da .../anncsu-consultazione/v1 a .../anncsu-consultazione-comune/v1, le tre righe degli
+# e-service di scrittura (accessi, coordinate, odonimi) vengono create e precompilate, e
+# utenti_parametri riceve la colonna `registro_imprese_massivo`.
 #
 # Incrementale, come i file fratelli: da un DB fermo alla 1.0.0 / 1.1.0 / 1.2.0 / 1.3.0 questo
 # script richiama update_to_1.4.sh, che a sua volta richiama il 1.3, il 1.2 e l'1.1. Non serve
@@ -24,9 +25,17 @@ set -euo pipefail
 # a mano (o dalla pagina impostazioni) non viene toccato e non nasce mai
 # .../anncsu-consultazione-comune-comune/v1. Ri-eseguibile anche due volte di seguito.
 #
-# A differenza della 1.4 non c'e' nessun passaggio su settings.py, e nessun ALTER: le pagine
-# nuove non aggiungono nessuna colonna, quindi niente migrazione e niente bump oltre a quello
-# di questo file. Restano pero' i file e il .env: il comune compilato per nome (static/comuni.json)
+# Un ALTER solo: `utenti_parametri.registro_imprese_massivo`, il permesso della pagina di
+# estrazione massiva del Registro Imprese. La pagina non aggiunge tabelle (le risposte restano
+# nella sessione) e non aggiunge righe in servizi_parametri - il servizio che l'accende e' sempre
+# `registro_imprese`, come `inipec_massivo`.
+#
+# Con la colonna serve anche il `migrate` in fondo: la stessa release mette SESSION_ENGINE su DB
+# in OpenMSP/settings.py (le visuri non stanno in un cookie da 4 KB) e la tabella django_session
+# deve esserci su ogni deploy. Da mettere in conto al riavvio: le sessioni aperte fino a quel
+# momento non vengono ritrovate, quindi login e 2FA da capo per tutti.
+#
+# Restano pero' i file e il .env: il comune compilato per nome (static/comuni.json)
 # e la mappa coi puntini, le cui tile le serve il portale (OpenMSP/tile.py, quattro valvole in
 # settings). `aggiorna_file_tile` in fondo raccoglie statici, .env, cache e una verifica a monte.
 # Le quattro variabili nuove le legge settings.py all'avvio: dopo questo script il processo va
@@ -206,6 +215,19 @@ DEFINIZIONI
                       WHERE codice_servizio LIKE 'anncsu%' AND descrizione LIKE 'ANNCSU - %';"
 }
 
+# Il permesso della pagina `registro_imprese_massivo` (invariante 1: il flag dell'utente, il
+# gate del menu legge lo stesso campo). SQLite non ha `ADD COLUMN IF NOT EXISTS`, quindi la
+# guardia e' pragma_table_info: un DB sistemato a mano non viene toccato e lo script resta
+# ri-eseguibile.
+aggiungi_flag_massivo() {
+  if [[ "$(column_exists utenti_parametri registro_imprese_massivo)" != "1" ]]; then
+    sqlite3 "$DB_PATH" "ALTER TABLE utenti_parametri ADD COLUMN registro_imprese_massivo BOOLEAN DEFAULT 0"
+    echo "Aggiunta la colonna utenti_parametri.registro_imprese_massivo"
+  else
+    echo "La colonna utenti_parametri.registro_imprese_massivo esiste gia': nessun ALTER."
+  fi
+}
+
 # Le righe 2-4 di anncsu_parametri nascono vuote da allarga_anncsu (le credenziali sono
 # dell'ente: invariante 6). Qui si precompila solo quello che la specifica pubblica dice --
 # target, audience, autority, alg, typ, versione -- e solo dove la colonna e' vuota, per non
@@ -350,14 +372,22 @@ PY
   esac
 }
 
-# Gli statici nuovi (comuni.json, comuni.js, anncsu_mappa.js, plugins/leaflet/) devono essere
-# raccolti anche su un DB gia' a 1.5.0: lo storage e' a manifest, quindi un file non raccolto non
-# esiste. `migrate` NO, di proposito: i modelli sono managed=False e la migrazione unica crea
-# soltanto le tabelle, quindi su un DB a terra non porta niente alla versione corrente.
+# Gli statici nuovi (comuni.json, comuni.js, anncsu_mappa.js, plugins/leaflet/, e il template
+# della ricerca massiva) devono essere raccolti anche su un DB gia' a 1.5.0: lo storage e' a
+# manifest, quindi un file non raccolto non esiste.
 raccogli_statici() {
   [[ -f "$PROJECT_ROOT/manage.py" ]] || { echo "ATTENZIONE: manage.py non trovato: salto la raccolta statici."; return 0; }
   echo "Raccolta statici (file nuovi: comuni.json, comuni.js, anncsu_mappa.js, plugins/leaflet/)..."
   "$1" "$PROJECT_ROOT/manage.py" collectstatic --noinput
+}
+
+# `migrate` serve solo alla tabella django_session, perche' SESSION_ENGINE passa su DB. I modelli
+# sono managed=False e la migrazione unica crea soltanto le tabelle: dove gia' ci sono non viene
+# toccato niente.
+applica_migrazioni() {
+  [[ -f "$PROJECT_ROOT/manage.py" ]] || { echo "ATTENZIONE: manage.py non trovato: salto la migrazione."; return 0; }
+  echo "Migrazione (django_session, perche' SESSION_ENGINE e' su DB)..."
+  "$1" "$PROJECT_ROOT/manage.py" migrate --noinput
 }
 
 aggiorna_file_tile() {
@@ -376,10 +406,24 @@ aggiorna_file_tile() {
   fi
   aggiungi_variabili_tile
   raccogli_statici "$py"
+  applica_migrazioni "$py"
   prepara_cache_tile "$py"
   verifica_tile "$py"
   echo "NOTA: settings.py e' cambiato; il processo va riavviato (systemctl restart, o riavvio"
-  echo "      del container) perche' le variabili TILE_* siano efficaci."
+  echo "      del container) perche' le variabili TILE_* siano efficaci. Riavvio vuol dire anche"
+  echo "      che le sessioni aperte prima non vengono ritrovate: login e 2FA da capo per tutti."
+}
+
+# Verifica a terra: lo script esce 1 nominando il backup invece di dichiararsi a posto.
+verifica_a_terra() {
+  if [[ "$(column_exists utenti_parametri registro_imprese_massivo)" != "1" ]]; then
+    echo "Errore: la colonna utenti_parametri.registro_imprese_massivo non c'e'. Ripristinare: $BACKUP_PATH"
+    exit 1
+  fi
+  if [[ "$(table_exists django_session)" != "1" ]]; then
+    echo "Errore: tabella django_session assente, e SESSION_ENGINE e' su DB. Ripristinare: $BACKUP_PATH"
+    exit 1
+  fi
 }
 
 URL_VECCHIO='/anncsu-consultazione/v1'
@@ -404,8 +448,10 @@ if [[ "$(table_exists dati_ente)" == "1" ]]; then
     echo "Database già alla versione 1.5.0: riallineo le versioni e-service ANPR e ANNCSU, e aggiorno file, .env e statici."
     allinea_versioni_anpr
     allarga_anncsu
+    aggiungi_flag_massivo
     prefilla_anncsu_aggiornamenti
     aggiorna_file_tile
+    verifica_a_terra
     exit 0
     ;;
   "1.4.0")
@@ -442,6 +488,9 @@ allinea_versioni_anpr
 
 echo "ANNCSU da 1 a 5 e-service (flag utente, tabelle e servizi di menu)..."
 allarga_anncsu
+
+echo "Permesso di estrazione massiva Registro Imprese..."
+aggiungi_flag_massivo
 
 echo "Precompila target/audience dei tre aggiornamenti (solo dove vuoto)..."
 prefilla_anncsu_aggiornamenti
@@ -494,6 +543,8 @@ fi
 
 echo "File, .env e statici della 1.5 (comune compilato per nome, mappa e tile dal portale)..."
 aggiorna_file_tile
+
+verifica_a_terra
 
 echo "INFO: stato dopo l'aggiornamento:"
 sqlite3 -header -column "$DB_PATH" "SELECT id, audience, target FROM anncsu_parametri;"
